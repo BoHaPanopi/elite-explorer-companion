@@ -1,6 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+
 import "./App.css";
+
+import AssistantPanel from "./components/AssistantPanel";
+import Dashboard from "./components/Dashboard";
+import JournalPanel from "./components/JournalPanel";
+import Navigation from "./components/Navigation";
+import RoutePanel from "./components/RoutePanel";
+import Sidebar from "./components/Sidebar";
+import TopBar from "./components/TopBar";
+
+type Page =
+  | "dashboard"
+  | "navigation"
+  | "explorer"
+  | "bio"
+  | "commander"
+  | "settings";
 
 type RouteStep = {
   system: string;
@@ -18,6 +35,11 @@ type EliteSnapshot = {
   route: RouteStep[];
 };
 
+type PlaceholderPageProps = {
+  title: string;
+  description: string;
+};
+
 function formatShip(snapshot: EliteSnapshot | null): string {
   if (!snapshot?.ship && !snapshot?.shipName) {
     return "Unbekannt";
@@ -30,7 +52,33 @@ function formatShip(snapshot: EliteSnapshot | null): string {
   return snapshot.shipName ?? snapshot.ship ?? "Unbekannt";
 }
 
+function formatFlightStatus(snapshot: EliteSnapshot | null): string {
+  if (snapshot?.docked === true) {
+    return "Angedockt";
+  }
+
+  if (snapshot?.docked === false) {
+    return "Im Flug";
+  }
+
+  return "Unbekannt";
+}
+
+function PlaceholderPage({
+  title,
+  description,
+}: PlaceholderPageProps) {
+  return (
+    <section className="panel">
+      <span>Modul</span>
+      <h2>{title}</h2>
+      <p className="muted">{description}</p>
+    </section>
+  );
+}
+
 function App() {
+  const [page, setPage] = useState<Page>("dashboard");
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [journalError, setJournalError] = useState<string | null>(null);
@@ -42,10 +90,9 @@ function App() {
       setSnapshot(result);
       setJournalError(null);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : String(error);
-
-      setJournalError(message);
+      setJournalError(
+        error instanceof Error ? error.message : String(error),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -54,14 +101,102 @@ function App() {
   useEffect(() => {
     void loadEliteSnapshot();
 
-    const refreshInterval = window.setInterval(() => {
+    const intervalId = window.setInterval(() => {
       void loadEliteSnapshot();
     }, 5000);
 
     return () => {
-      window.clearInterval(refreshInterval);
+      window.clearInterval(intervalId);
     };
   }, [loadEliteSnapshot]);
+
+  const renderDashboard = () => (
+    <>
+      <Dashboard
+        commander={
+          isLoading
+            ? "Wird ermittelt …"
+            : snapshot?.commander ?? "Unbekannt"
+        }
+        system={
+          isLoading
+            ? "Wird ermittelt …"
+            : snapshot?.system ?? "Unbekannt"
+        }
+        ship={isLoading ? "Wird ermittelt …" : formatShip(snapshot)}
+        status={
+          isLoading ? "Wird ermittelt …" : formatFlightStatus(snapshot)
+        }
+      />
+
+      {journalError && (
+        <section className="journal-error" role="alert">
+          <strong>Journal konnte nicht gelesen werden</strong>
+          <p>{journalError}</p>
+
+          <button
+            type="button"
+            onClick={() => void loadEliteSnapshot()}
+          >
+            Erneut versuchen
+          </button>
+        </section>
+      )}
+
+      <section className="main-grid">
+        <RoutePanel route={snapshot?.route ?? []} />
+        <AssistantPanel />
+      </section>
+
+      <JournalPanel
+        journalPath={snapshot?.journalPath ?? ""}
+        onRefresh={() => void loadEliteSnapshot()}
+      />
+    </>
+  );
+
+  const renderPage = () => {
+    switch (page) {
+      case "navigation":
+        return <Navigation />;
+
+      case "explorer":
+        return (
+          <PlaceholderPage
+            title="Explorer"
+            description="Hier entstehen Systemanalyse, Körperübersicht und die wirtschaftlich optimierte Planetenreihenfolge."
+          />
+        );
+
+      case "bio":
+        return (
+          <PlaceholderPage
+            title="Exobiologie"
+            description="Hier erscheinen biologische Signale, Arten, Probenfortschritt und geschätzte Werte."
+          />
+        );
+
+      case "commander":
+        return (
+          <PlaceholderPage
+            title="Commander"
+            description="Hier erscheinen Ränge, Statistiken, Schiffe und Expeditionsdaten."
+          />
+        );
+
+      case "settings":
+        return (
+          <PlaceholderPage
+            title="Einstellungen"
+            description="Hier werden Sprache, Farben, Profile, Bordcomputer und VR-Optionen eingerichtet."
+          />
+        );
+
+      case "dashboard":
+      default:
+        return renderDashboard();
+    }
+  };
 
   const connectionText = journalError
     ? "Journal nicht verbunden"
@@ -71,184 +206,34 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">EEC</span>
+      <Sidebar
+        page={page}
+        setPage={(nextPage) => setPage(nextPage as Page)}
+      />
 
-          <div>
-            <strong>Elite Explorer Companion</strong>
-            <small>Navigations- und Expeditionszentrale</small>
-          </div>
-        </div>
+      <main className="content">
+        <TopBar title="Navigations- und Expeditionszentrale" />
 
-        <nav>
-          <button className="active">Dashboard</button>
-          <button>Navigation</button>
-          <button>Explorer</button>
-          <button>Exobiologie</button>
-          <button>Expeditionen</button>
-          <button>Commander</button>
-          <button>Einstellungen</button>
-        </nav>
-
-        <div className="sidebar-footer">
+        <div className="connection-status">
           <span
             className={`status-dot ${
-              journalError ? "status-dot-error" : "status-dot-connected"
+              journalError
+                ? "status-dot-error"
+                : "status-dot-connected"
             }`}
           />
           {connectionText}
         </div>
-      </aside>
 
-      <main className="content">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Aktives Profil: Expedition</p>
-            <h1>Navigations- und Expeditionszentrale</h1>
-          </div>
-
-          <button className="profile-button">Profil wechseln</button>
-        </header>
-
-        <section className="status-grid">
-          <article className="card">
-            <span>Commander</span>
-            <strong>
-              {isLoading
-                ? "Wird ermittelt …"
-                : snapshot?.commander ?? "Nicht im Journal gefunden"}
-            </strong>
-          </article>
-
-          <article className="card">
-            <span>Aktuelles System</span>
-            <strong>
-              {isLoading
-                ? "Wird ermittelt …"
-                : snapshot?.system ?? "Nicht im Journal gefunden"}
-            </strong>
-          </article>
-
-          <article className="card">
-            <span>Schiff</span>
-            <strong>
-              {isLoading ? "Wird ermittelt …" : formatShip(snapshot)}
-            </strong>
-          </article>
-
-          <article className="card">
-            <span>Flugstatus</span>
-            <strong>
-              {snapshot?.docked === true
-                ? "Angedockt"
-                : snapshot?.docked === false
-                  ? "Im Flug"
-                  : "Unbekannt"}
-            </strong>
-          </article>
-        </section>
-
-        {journalError && (
-          <section className="journal-error" role="alert">
-            <strong>Journal konnte nicht gelesen werden</strong>
-            <p>{journalError}</p>
-
-            <button type="button" onClick={() => void loadEliteSnapshot()}>
-              Erneut versuchen
-            </button>
-          </section>
-        )}
-
-        <section className="main-grid">
-          <article className="panel route-panel">
-            <div className="panel-heading">
-              <div>
-                <span>Optimierte Systemroute</span>
-  <h2>
-  {snapshot?.route.length
-    ? snapshot.route
-        .slice(0, 4)
-        .map((step) => step.system)
-        .join(" → ")
-    : "Keine Galaxieroute geplant"}
-</h2>
-              </div>
-
-              <button>Neu berechnen</button>
-            </div>
-
-          <div className="route-line">
-  {snapshot?.route.length ? (
-    snapshot.route.slice(0, 4).map((step, index) => (
-      <div className="route-segment" key={`${step.system}-${index}`}>
-        <div
-          className={`route-node ${index === 0 ? "active-node" : ""}`}
-          title={
-            step.starClass
-              ? `${step.system} · Sternklasse ${step.starClass}`
-              : step.system
-          }
-        >
-          {index + 1}
-        </div>
-
-        {index < Math.min(snapshot.route.length, 4) - 1 && (
-          <span className="route-connector" />
-        )}
-      </div>
-    ))
-  ) : (
-    <p className="muted">
-      Plotte im Spiel eine Route, damit sie hier erscheint.
-    </p>
-  )}
-</div>
-
-            <p className="muted">
-              Die Planetenroute wird im nächsten Entwicklungsschritt aus
-              Scan- und Systemdaten berechnet.
-            </p>
-          </article>
-
-          <article className="panel assistant-panel">
-            <span>Bordcomputer</span>
-            <h2>Noch nicht benannt</h2>
-
-            <p>
-              Sprachausgabe, Persönlichkeit und Aktivierungswort werden frei
-              konfigurierbar.
-            </p>
-
-            <button>Einrichten</button>
-          </article>
-        </section>
-
-        <section className="panel journal-panel">
-          <span>Journalquelle</span>
-          <h2>
-            {snapshot?.journalPath
-              ? "Journal erkannt"
-              : "Keine Journaldatei erkannt"}
-          </h2>
-
-          <p className="journal-path">
-            {snapshot?.journalPath ??
-              "Die Anwendung sucht im Windows-Ordner für gespeicherte Spiele."}
-          </p>
-
-          <button type="button" onClick={() => void loadEliteSnapshot()}>
-            Journal aktualisieren
-          </button>
-        </section>
+        {renderPage()}
 
         <footer>
-          Mit Unterstützung künstlicher Intelligenz entwickelt. Beiträge werden
-          menschlich geprüft und getestet.
+          Mit Unterstützung künstlicher Intelligenz entwickelt. Beiträge
+          werden menschlich geprüft und getestet.
         </footer>
       </main>
     </div>
   );
-
 }
+
 export default App;
