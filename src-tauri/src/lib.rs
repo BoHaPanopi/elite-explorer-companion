@@ -45,9 +45,7 @@ fn find_journal_directory() -> Result<PathBuf, String> {
     candidates
         .into_iter()
         .find(|path| path.is_dir())
-        .ok_or_else(|| {
-            "Der Elite-Dangerous-Journalordner wurde nicht gefunden.".to_string()
-        })
+        .ok_or_else(|| "Der Elite-Dangerous-Journalordner wurde nicht gefunden.".to_string())
 }
 
 fn newest_journal_file(directory: &Path) -> Result<PathBuf, String> {
@@ -100,20 +98,20 @@ fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
                         .and_then(Value::as_str)
                         .map(str::to_string);
 
-                    let position = step
-                        .get("StarPos")
-                        .and_then(Value::as_array)
-                        .and_then(|coordinates| {
-                            if coordinates.len() != 3 {
-                                return None;
-                            }
+                    let position =
+                        step.get("StarPos")
+                            .and_then(Value::as_array)
+                            .and_then(|coordinates| {
+                                if coordinates.len() != 3 {
+                                    return None;
+                                }
 
-                            Some([
-                                coordinates[0].as_f64()?,
-                                coordinates[1].as_f64()?,
-                                coordinates[2].as_f64()?,
-                            ])
-                        });
+                                Some([
+                                    coordinates[0].as_f64()?,
+                                    coordinates[1].as_f64()?,
+                                    coordinates[2].as_f64()?,
+                                ])
+                            });
 
                     Some(RouteStep {
                         system,
@@ -213,6 +211,7 @@ fn get_elite_snapshot() -> Result<EliteSnapshot, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::new().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
