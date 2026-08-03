@@ -330,8 +330,7 @@ function App() {
       />
 
       <main className="content">
-        <TopBar title="Old Guy of Grumpy" />
-
+        <TopBar title="Elite Explorer Companion" />
         <div className="connection-status">
           <span
             className={`status-dot ${
@@ -346,7 +345,7 @@ function App() {
         {renderPage()}
 
         <footer>
-          Old Guy of Grumpy · The Elite Dangerous Cockpit Companion
+           Elite Explorer Companion · Navigations- und Expeditionszentrale für Elite Dangerous
         </footer>
       </main>
 
