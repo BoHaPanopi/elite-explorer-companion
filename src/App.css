@@ -540,7 +540,6 @@ footer {
 .crew-member span{color:#72818e;font-size:.72rem}
 .crew-member p{color:#7e8d99;font-size:.78rem;line-height:1.5}
 @media(max-width:760px){.crew-hero{grid-template-columns:1fr}.crew-roster__grid{grid-template-columns:1fr}.crew-hero__portrait-wrap,.crew-hero__portrait{min-height:300px}.crew-hero__content{padding:24px}}
-/
 
 /* ==========================================================
    OGG Crew UI v0.1.5
