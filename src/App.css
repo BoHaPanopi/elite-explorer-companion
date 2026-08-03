@@ -770,3 +770,35 @@ footer {
     min-width: 0;
   }
 }
+/* Alpha 0.13.0 – Taktischer Offizier */
+.tactical-officer{display:grid;gap:18px}
+.tactical-officer__header{display:flex;justify-content:space-between;gap:22px;align-items:flex-start}
+.tactical-officer__header h2{margin:5px 0 7px;color:#edf6fa}
+.tactical-officer__header p{margin:0;color:#7f8f9c}
+.tactical-officer__header>div>span{color:#24cfff;font-size:.7rem;font-weight:800;letter-spacing:.14em}
+.tactical-officer__own{min-width:220px;padding:13px 15px;border:1px solid rgba(36,207,255,.16);border-radius:11px;background:rgba(36,207,255,.035)}
+.tactical-officer__own strong,.tactical-officer__own span{display:block}
+.tactical-officer__own strong{color:#dce9ef}
+.tactical-officer__own span{margin-top:4px;color:#718592;font-size:.72rem}
+.tactical-officer__controls{display:flex;gap:12px;align-items:flex-end}
+.tactical-officer__controls label{display:grid;flex:1;gap:7px;color:#7e909d;font-size:.72rem}
+.tactical-officer__controls select{min-height:42px;padding:0 12px;border:1px solid rgba(134,160,178,.2);border-radius:8px;background:#081119;color:#dce8ee}
+.tactical-officer__controls button{min-height:42px;margin:0}
+.tactical-target{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tactical-target>div{padding:12px;border:1px solid rgba(134,160,178,.11);border-radius:9px;background:rgba(255,255,255,.018)}
+.tactical-target span,.tactical-target strong{display:block}
+.tactical-target span{color:#637684;font-size:.62rem;letter-spacing:.1em}
+.tactical-target strong{margin-top:5px;color:#d9e4e9;font-size:.83rem}
+.tactical-result{display:flex;gap:16px;padding:18px;border:1px solid rgba(255,177,65,.28);border-radius:12px;background:rgba(255,126,32,.045)}
+.tactical-result__lamp{flex:0 0 auto;width:12px;height:12px;margin-top:5px;border-radius:50%;background:#ff8b39;box-shadow:0 0 18px rgba(255,139,57,.9)}
+.tactical-result span{color:#ffad68;font-size:.65rem;font-weight:800;letter-spacing:.12em}
+.tactical-result h3{margin:5px 0 7px;color:#f2ece7}
+.tactical-result p{margin:0;color:#b8a99f;line-height:1.55}
+.tactical-result blockquote{margin:14px 0;padding:11px 13px;border-left:3px solid #ff8b39;background:rgba(0,0,0,.13);color:#ddd3cc;font-style:italic}
+.tactical-result--green{border-color:rgba(68,220,143,.28);background:rgba(68,220,143,.04)}
+.tactical-result--green .tactical-result__lamp{background:#44dc8f;box-shadow:0 0 18px rgba(68,220,143,.8)}
+.tactical-result--yellow{border-color:rgba(255,207,77,.28)}
+.tactical-result--orange{border-color:rgba(255,139,57,.35)}
+.tactical-result--red{border-color:rgba(255,71,71,.45);background:rgba(255,46,46,.06)}
+.tactical-result--red .tactical-result__lamp{background:#ff4747;box-shadow:0 0 20px rgba(255,71,71,.95)}
+@media(max-width:760px){.tactical-officer__header,.tactical-officer__controls{flex-direction:column}.tactical-officer__own{min-width:0;width:100%}.tactical-target{grid-template-columns:repeat(2,minmax(0,1fr))}.tactical-officer__controls label,.tactical-officer__controls button{width:100%}}

@@ -1,0 +1,158 @@
+import type {
+  OwnShip,
+  TacticalResult,
+  TacticalTarget,
+  ThreatLevel,
+} from "../types/tactical";
+
+const rankScore: Record<string, number> = {
+  Harmless: 0,
+  "Mostly Harmless": 1,
+  Novice: 2,
+  Competent: 3,
+  Expert: 4,
+  Master: 5,
+  Dangerous: 6,
+  Deadly: 7,
+  Elite: 8,
+  "Elite I": 9,
+  "Elite II": 10,
+  "Elite III": 11,
+  "Elite IV": 12,
+  "Elite V": 13,
+};
+
+const shipScore: Record<string, number> = {
+  Sidewinder: 1,
+  Eagle: 1,
+  Viper: 2,
+  Cobra: 2,
+  Vulture: 3,
+  Python: 4,
+  "Krait MkII": 4,
+  Mamba: 5,
+  "Fer-de-Lance": 5,
+  Anaconda: 6,
+  "Imperial Cutter": 7,
+  "Federal Corvette": 8,
+};
+
+function getRankScore(rank: string): number {
+  return rankScore[rank] ?? 4;
+}
+
+function getShipScore(ship: string): number {
+  const exact = shipScore[ship];
+  if (exact !== undefined) return exact;
+
+  const found = Object.entries(shipScore).find(([name]) =>
+    ship.toLowerCase().includes(name.toLowerCase()),
+  );
+
+  return found?.[1] ?? 3;
+}
+
+function ownStrength(own: OwnShip): number {
+  return (
+    getShipScore(own.shipName) * 2 +
+    getRankScore(own.combatRank) +
+    (own.engineered ? 3 : 0) +
+    own.shield / 50 +
+    own.hull / 50
+  );
+}
+
+function targetStrength(target: TacticalTarget): number {
+  return (
+    getShipScore(target.shipName) * 2 +
+    getRankScore(target.combatRank) +
+    Math.max(0, target.wingSize - 1) * 2.25 +
+    (target.isPlayer ? 2 : 0)
+  );
+}
+
+function getThreatLevel(
+  own: OwnShip,
+  target: TacticalTarget,
+): ThreatLevel {
+  const difference = targetStrength(target) - ownStrength(own);
+
+  if (own.shield < 20 || own.hull < 25 || difference > 7) {
+    return "red";
+  }
+
+  if (difference > 2) return "orange";
+  if (difference > -4) return "yellow";
+  return "green";
+}
+
+function getOggComment(level: ThreatLevel): string {
+  const comments: Record<ThreatLevel, string> = {
+    green: "De hom si den Foisch'n ausgsuacht.",
+    yellow: "Den dad i trotzdem ned unterschätzen.",
+    orange: "Jedzd werd's hoarig.",
+    red: "Do pfeift da Straps.",
+  };
+
+  return comments[level];
+}
+
+export function assessTarget(
+  own: OwnShip,
+  target: TacticalTarget,
+): TacticalResult {
+  const level = getThreatLevel(own, target);
+
+  const title = target.missionTarget
+    ? `Missionsziel: ${target.pilotName}`
+    : target.legalStatus === "Wanted"
+      ? `Gesuchter Pilot: ${target.pilotName}`
+      : `Scan durch ${target.pilotName}`;
+
+  const missionText = target.missionTarget
+    ? "Missionsziel"
+    : target.legalStatus === "Wanted"
+      ? "Gesucht, kein Missionsziel"
+      : "Sauber";
+
+  const wingText =
+    target.wingSize > 1
+      ? ` · Wing mit ${target.wingSize} Schiffen`
+      : "";
+
+  const bountyText =
+    target.bounty > 0
+      ? ` · Erwartetes Kopfgeld ${target.bounty.toLocaleString("de-DE")} Cr`
+      : "";
+
+  const recommendation =
+    level === "red"
+      ? "withdraw"
+      : level === "orange"
+        ? "observe"
+        : "engage";
+
+  const opponentWarning =
+    level === "red" || level === "orange"
+      ? `Pilot ${target.pilotName}. Sie haben uns gescannt. Das ist Ihre einzige und letzte Warnung.`
+      : `Pilot ${target.pilotName}. Sie haben uns gescannt. Bevor Sie irgendetwas Dummes tun, würde ich mir das noch einmal überlegen.`;
+
+  return {
+    level,
+    title,
+    detail: `${missionText} · ${target.shipName} · ${target.combatRank}${wingText}${bountyText}`,
+    oggComment: getOggComment(level),
+    opponentWarning,
+    recommendation,
+  };
+}
+
+export function createDefaultOwnShip(): OwnShip {
+  return {
+    shipName: "Federal Corvette",
+    combatRank: "Elite",
+    engineered: true,
+    shield: 100,
+    hull: 100,
+  };
+}
