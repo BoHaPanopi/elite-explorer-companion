@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -18,14 +19,12 @@ CORS(app)
 
 
 def rate_to_edge(value: float) -> str:
-    percent = round((value - 1.0) * 100)
-    percent = max(-50, min(50, percent))
+    percent = max(-50, min(50, round((value - 1.0) * 100)))
     return f"{percent:+d}%"
 
 
 def volume_to_edge(value: float) -> str:
-    percent = round((value - 1.0) * 100)
-    percent = max(-50, min(50, percent))
+    percent = max(-50, min(50, round((value - 1.0) * 100)))
     return f"{percent:+d}%"
 
 
@@ -45,8 +44,61 @@ async def synthesize(
     await communicator.save(str(output_path))
 
 
+def log_request() -> None:
+    print()
+    print("=" * 70, flush=True)
+    print("NEUE /speak-ANFRAGE", flush=True)
+    print(f"Methode:      {request.method}", flush=True)
+    print(f"URL:          {request.url}", flush=True)
+    print(f"Content-Type: {request.content_type}", flush=True)
+    print(f"Content-Len:  {request.content_length}", flush=True)
+    print(f"Query:        {request.args.to_dict(flat=False)}", flush=True)
+
+    raw = request.get_data(cache=True, as_text=False)
+    print(f"Raw-Bytes:    {len(raw)}", flush=True)
+    print(f"Raw-Repr:     {raw!r}", flush=True)
+
+    try:
+        decoded = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        decoded = f"<UTF-8-Fehler: {error}>"
+
+    print(f"Raw-UTF8:     {decoded!r}", flush=True)
+
+    payload = request.get_json(silent=True)
+    print(
+        "JSON:         "
+        + (json.dumps(payload, ensure_ascii=False) if payload is not None else "None"),
+        flush=True,
+    )
+    print("=" * 70, flush=True)
+
+
+def extract_text() -> tuple[str, str]:
+    query_text = str(request.args.get("text", "")).strip()
+    if query_text:
+        return query_text, "query"
+
+    payload = request.get_json(silent=True)
+    if isinstance(payload, dict):
+        json_text = str(payload.get("text", "")).strip()
+        if json_text:
+            return json_text, "json"
+
+    raw_text = request.get_data(cache=True, as_text=True).strip()
+    if raw_text:
+        return raw_text, "raw"
+
+    form_text = str(request.form.get("text", "")).strip()
+    if form_text:
+        return form_text, "form"
+
+    return "", "none"
+
+
 @app.get("/health")
 def health() -> Response:
+    print("HEALTH >>> OK", flush=True)
     return jsonify(
         {
             "ok": True,
@@ -58,20 +110,33 @@ def health() -> Response:
 
 @app.post("/speak")
 def speak() -> Response:
-    payload = request.get_json(silent=True) or {}
+    log_request()
 
-    text = str(payload.get("text", "")).strip()
-    print(f"TTS >>> {text}")
+    text, source = extract_text()
+    print(f"TEXT-QUELLE:  {source}", flush=True)
+    print(f"TTS >>>       {text!r}", flush=True)
+
     if not text:
-        return Response("Text fehlt.", status=400)
+        error_message = (
+            "Text fehlt. Query, JSON, Rohdaten und Formulardaten waren leer. "
+            "Siehe vollständiges Request-Protokoll im Serverfenster."
+        )
+        print(f"ANTWORT 400:  {error_message}", flush=True)
+        return Response(error_message, status=400, mimetype="text/plain")
 
     try:
-        rate = float(payload.get("rate", 0.92))
-        volume = float(payload.get("volume", 1.0))
-    except (TypeError, ValueError):
-        return Response("Ungültige Sprachoptionen.", status=400)
+        rate = float(request.args.get("rate", "0.92"))
+        volume = float(request.args.get("volume", "1.0"))
+    except ValueError as error:
+        message = f"Ungültige Sprachoptionen: {error}"
+        print(f"ANTWORT 400:  {message}", flush=True)
+        return Response(message, status=400, mimetype="text/plain")
 
-    voice = str(payload.get("voice", DEFAULT_VOICE))
+    voice = request.args.get("voice", DEFAULT_VOICE)
+
+    print(f"Stimme:       {voice}", flush=True)
+    print(f"Rate:         {rate}", flush=True)
+    print(f"Volume:       {volume}", flush=True)
 
     temp_file = tempfile.NamedTemporaryFile(
         suffix=".mp3",
@@ -81,6 +146,7 @@ def speak() -> Response:
     output_path = Path(temp_file.name)
 
     try:
+        print(f"Temp-Datei:   {output_path}", flush=True)
         asyncio.run(
             synthesize(
                 text=text,
@@ -90,29 +156,42 @@ def speak() -> Response:
                 output_path=output_path,
             )
         )
+
         audio_data = output_path.read_bytes()
+        print(f"MP3-Größe:    {len(audio_data)} Bytes", flush=True)
+
+        if not audio_data:
+            message = "Edge-TTS hat eine leere MP3 erzeugt."
+            print(f"ANTWORT 500:  {message}", flush=True)
+            return Response(message, status=500, mimetype="text/plain")
+
     except Exception as error:
-        return Response(
-            f"Spracherzeugung fehlgeschlagen: {error}",
-            status=500,
-        )
+        message = f"Spracherzeugung fehlgeschlagen: {type(error).__name__}: {error}"
+        print(f"ANTWORT 500:  {message}", flush=True)
+        return Response(message, status=500, mimetype="text/plain")
     finally:
         output_path.unlink(missing_ok=True)
+
+    print("ANTWORT 200:  audio/mpeg", flush=True)
 
     return Response(
         audio_data,
         status=200,
         mimetype="audio/mpeg",
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+            "X-OGG-Text-Source": source,
+        },
     )
 
 
 if __name__ == "__main__":
     print()
-    print("OGG-Sprachserver läuft.")
-    print(f"Stimme: {DEFAULT_VOICE}")
+    print("OGG Alpha 0.13.1 Debug-Sprachserver läuft.")
+    print(f"Stimme:  {DEFAULT_VOICE}")
     print(f"Adresse: http://{HOST}:{PORT}")
-    print("Dieses Fenster während Elite geöffnet lassen.")
+    print("Dieses Fenster geöffnet lassen.")
     print()
 
     app.run(
