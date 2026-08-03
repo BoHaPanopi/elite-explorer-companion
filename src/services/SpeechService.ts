@@ -65,6 +65,7 @@ class SpeechService {
     text: string,
     options: SpeechOptions = {},
   ): Promise<void> {
+    throw new Error("ICH BIN DER TEST");
     const cleanedText = text.trim();
 
     if (!cleanedText) {

@@ -61,6 +61,7 @@ def speak() -> Response:
     payload = request.get_json(silent=True) or {}
 
     text = str(payload.get("text", "")).strip()
+    print(f"TTS >>> {text}")
     if not text:
         return Response("Text fehlt.", status=400)
 
