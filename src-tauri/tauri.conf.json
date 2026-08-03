@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Elite Explorer Companion",
+  "productName": "Old Guy of Grumpy",
   "version": "0.1.1",
   "identifier": "de.panopi.eliteexplorercompanion",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Elite Explorer Companion",
+        "title": "Old Guy of Grumpy",
         "width": 800,
         "height": 600,
         "resizable": true,

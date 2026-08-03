@@ -330,7 +330,7 @@ function App() {
       />
 
       <main className="content">
-        <TopBar title="Elite Explorer Companion" />
+        <TopBar title="Old Guy of Grumpy" />
         <div className="connection-status">
           <span
             className={`status-dot ${
