@@ -3,60 +3,42 @@ type SidebarProps = {
   setPage: (page: string) => void;
 };
 
-export default function Sidebar({ page, setPage }: SidebarProps) {
+const navigationItems = [
+  ["dashboard", "Dashboard"],
+  ["navigation", "Navigation"],
+  ["explorer", "Explorer"],
+  ["bio", "Exobiologie"],
+  ["commander", "Commander"],
+  ["crew", "Crew"],
+  ["settings", "Einstellungen"],
+] as const;
+
+export default function Sidebar({
+  page,
+  setPage,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark">EEC</span>
+        <span className="brand-mark">OGG</span>
 
         <div>
-          <strong>Elite Explorer Companion</strong>
-          <small>Navigations- und Expeditionszentrale</small>
+          <strong>Old Guy of Grumpy</strong>
+          <small>The Elite Dangerous Cockpit Companion</small>
         </div>
       </div>
 
       <nav>
-        <button
-          className={page === "dashboard" ? "active" : ""}
-          onClick={() => setPage("dashboard")}
-        >
-          Dashboard
-        </button>
-
-        <button
-          className={page === "navigation" ? "active" : ""}
-          onClick={() => setPage("navigation")}
-        >
-          Navigation
-        </button>
-
-        <button
-          className={page === "explorer" ? "active" : ""}
-          onClick={() => setPage("explorer")}
-        >
-          Explorer
-        </button>
-
-        <button
-          className={page === "bio" ? "active" : ""}
-          onClick={() => setPage("bio")}
-        >
-          Exobiologie
-        </button>
-
-        <button
-          className={page === "commander" ? "active" : ""}
-          onClick={() => setPage("commander")}
-        >
-          Commander
-        </button>
-
-        <button
-          className={page === "settings" ? "active" : ""}
-          onClick={() => setPage("settings")}
-        >
-          Einstellungen
-        </button>
+        {navigationItems.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={page === id ? "active" : ""}
+            onClick={() => setPage(id)}
+          >
+            {label}
+          </button>
+        ))}
       </nav>
     </aside>
   );

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import "./App.css";
-
 import AssistantPanel from "./components/AssistantPanel";
 import BordcomputerSetup from "./components/BordcomputerSetup";
 import Dashboard from "./components/Dashboard";
@@ -11,6 +10,7 @@ import Navigation from "./components/Navigation";
 import RoutePanel from "./components/RoutePanel";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
+import CrewPage from "./pages/CrewPage";
 import { speechService } from "./services/SpeechService";
 import { createStartupGreeting } from "./voices/greetings";
 
@@ -20,6 +20,7 @@ type Page =
   | "explorer"
   | "bio"
   | "commander"
+  | "crew"
   | "settings";
 
 type RouteStep = {
@@ -44,9 +45,11 @@ const RETURNING_AFTER_MS = 30 * 60 * 1000;
 
 function formatShip(snapshot: EliteSnapshot | null): string {
   if (!snapshot?.ship && !snapshot?.shipName) return "Unbekannt";
+
   if (snapshot.shipName && snapshot.ship) {
     return `${snapshot.shipName} · ${snapshot.ship}`;
   }
+
   return snapshot.shipName ?? snapshot.ship ?? "Unbekannt";
 }
 
@@ -95,13 +98,21 @@ function App() {
 
   useEffect(() => {
     const savedName = localStorage.getItem(BORDCOMPUTER_NAME_KEY)?.trim();
-    if (savedName) setBordcomputerName(savedName);
-    else setShowSetup(true);
+
+    if (savedName) {
+      setBordcomputerName(savedName);
+    } else {
+      setShowSetup(true);
+    }
   }, []);
 
   useEffect(() => {
     void loadEliteSnapshot();
-    const intervalId = window.setInterval(() => void loadEliteSnapshot(), 5000);
+
+    const intervalId = window.setInterval(() => {
+      void loadEliteSnapshot();
+    }, 5000);
+
     return () => {
       window.clearInterval(intervalId);
       speechService.stop();
@@ -115,9 +126,11 @@ function App() {
       const lastSession = Number(
         localStorage.getItem(LAST_COCKPIT_SESSION_KEY) ?? "0",
       );
+
       const isReturning =
         forceReturning ??
-        (lastSession > 0 && Date.now() - lastSession >= RETURNING_AFTER_MS);
+        (lastSession > 0 &&
+          Date.now() - lastSession >= RETURNING_AFTER_MS);
 
       const greeting = createStartupGreeting({
         bordcomputerName,
@@ -125,7 +138,10 @@ function App() {
         isReturning,
       });
 
-      localStorage.setItem(LAST_COCKPIT_SESSION_KEY, String(Date.now()));
+      localStorage.setItem(
+        LAST_COCKPIT_SESSION_KEY,
+        String(Date.now()),
+      );
 
       try {
         await speechService.speakSequence(greeting, 650);
@@ -135,6 +151,24 @@ function App() {
     },
     [bordcomputerName, snapshot?.commander],
   );
+
+  const speakIntroduction = useCallback(async () => {
+    const computerName = bordcomputerName ?? "Old Guy of Grumpy";
+
+    try {
+      await speechService.speakSequence(
+        [
+          `Servus, Commander. I bin ${computerName}.`,
+          "I red ned vui. Aber wenn i was sag, dann hat's meistens an Grund.",
+          "A bissl was geht ollawei.",
+        ],
+        700,
+        { rate: 0.92 },
+      );
+    } catch (error) {
+      console.error("Vorstellung fehlgeschlagen:", error);
+    }
+  }, [bordcomputerName]);
 
   useEffect(() => {
     if (
@@ -147,9 +181,20 @@ function App() {
     }
 
     greetingPlayed.current = true;
-    const timerId = window.setTimeout(() => void speakGreeting(), 900);
-    return () => window.clearTimeout(timerId);
-  }, [bordcomputerName, showSetup, snapshot?.commander, speakGreeting]);
+
+    const timerId = window.setTimeout(() => {
+      void speakGreeting();
+    }, 900);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [
+    bordcomputerName,
+    showSetup,
+    snapshot?.commander,
+    speakGreeting,
+  ]);
 
   function saveBordcomputerName(name: string) {
     localStorage.setItem(BORDCOMPUTER_NAME_KEY, name);
@@ -169,8 +214,16 @@ function App() {
   const dashboard = (
     <>
       <Dashboard
-        commander={isLoading ? "Wird ermittelt …" : snapshot?.commander ?? "Unbekannt"}
-        system={isLoading ? "Wird ermittelt …" : snapshot?.system ?? "Unbekannt"}
+        commander={
+          isLoading
+            ? "Wird ermittelt …"
+            : snapshot?.commander ?? "Unbekannt"
+        }
+        system={
+          isLoading
+            ? "Wird ermittelt …"
+            : snapshot?.system ?? "Unbekannt"
+        }
         ship={isLoading ? "Wird ermittelt …" : formatShip(snapshot)}
         status={isLoading ? "Wird ermittelt …" : formatStatus(snapshot)}
       />
@@ -179,7 +232,11 @@ function App() {
         <section className="journal-error" role="alert">
           <strong>Journal konnte nicht gelesen werden</strong>
           <p>{journalError}</p>
-          <button type="button" onClick={() => void loadEliteSnapshot()}>
+
+          <button
+            type="button"
+            onClick={() => void loadEliteSnapshot()}
+          >
             Erneut versuchen
           </button>
         </section>
@@ -206,19 +263,53 @@ function App() {
             route={snapshot?.route ?? []}
           />
         );
+
       case "explorer":
-        return <PlaceholderPage title="Explorer" description="Systemanalyse und wirtschaftlich optimierte Erkundungsroute." />;
+        return (
+          <PlaceholderPage
+            title="Explorer"
+            description="Systemanalyse und wirtschaftlich optimierte Erkundungsroute."
+          />
+        );
+
       case "bio":
-        return <PlaceholderPage title="Exobiologie" description="Biologische Signale, Arten und Probenfortschritt." />;
+        return (
+          <PlaceholderPage
+            title="Exobiologie"
+            description="Biologische Signale, Arten und Probenfortschritt."
+          />
+        );
+
       case "commander":
-        return <PlaceholderPage title="Commander" description="Ränge, Statistiken, Schiffe und Expeditionsdaten." />;
+        return (
+          <PlaceholderPage
+            title="Commander"
+            description="Ränge, Statistiken, Schiffe und Expeditionsdaten."
+          />
+        );
+
+      case "crew":
+        return (
+          <CrewPage
+            bordcomputerName={bordcomputerName ?? "Old Guy of Grumpy"}
+            commanderName={snapshot?.commander ?? "Commander"}
+            onRename={() => setShowSetup(true)}
+            onTestGreeting={() => void speakGreeting(true)}
+            onPlayIntroduction={() => void speakIntroduction()}
+          />
+        );
+
       case "settings":
         return (
           <section className="settings-layout">
-            <PlaceholderPage title="Einstellungen" description="Sprache, Profile, VoiceAttack, Overlay und VR." />
+            <PlaceholderPage
+              title="Einstellungen"
+              description="Sprache, Profile, VoiceAttack, Overlay und VR."
+            />
             {assistantPanel}
           </section>
         );
+
       case "dashboard":
       default:
         return dashboard;
@@ -233,20 +324,29 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar page={page} setPage={(nextPage) => setPage(nextPage as Page)} />
+      <Sidebar
+        page={page}
+        setPage={(nextPage) => setPage(nextPage as Page)}
+      />
 
       <main className="content">
-        <TopBar title="Navigations- und Expeditionszentrale" />
+        <TopBar title="Old Guy of Grumpy" />
 
         <div className="connection-status">
-          <span className={`status-dot ${journalError ? "status-dot-error" : "status-dot-connected"}`} />
+          <span
+            className={`status-dot ${
+              journalError
+                ? "status-dot-error"
+                : "status-dot-connected"
+            }`}
+          />
           {connectionText}
         </div>
 
         {renderPage()}
 
         <footer>
-          Mit Unterstützung künstlicher Intelligenz entwickelt. Beiträge werden menschlich geprüft und getestet.
+          Old Guy of Grumpy · The Elite Dangerous Cockpit Companion
         </footer>
       </main>
 
@@ -256,7 +356,11 @@ function App() {
             <BordcomputerSetup
               initialName={bordcomputerName ?? ""}
               onSave={saveBordcomputerName}
-              onCancel={bordcomputerName ? () => setShowSetup(false) : undefined}
+              onCancel={
+                bordcomputerName
+                  ? () => setShowSetup(false)
+                  : undefined
+              }
             />
           </div>
         </div>

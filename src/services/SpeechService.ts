@@ -5,73 +5,133 @@ export type SpeechOptions = {
   lang?: string;
 };
 
+type VoiceHealth = {
+  ok: boolean;
+  engine?: string;
+  voice?: string;
+};
+
+const VOICE_SERVER = "http://127.0.0.1:8765";
 const DEFAULT_OPTIONS: Required<SpeechOptions> = {
-  rate: 0.95,
+  rate: 0.92,
   pitch: 1,
   volume: 1,
   lang: "de-DE",
 };
 
-function getSpeechSynthesis(): SpeechSynthesis | null {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    return null;
-  }
-
-  return window.speechSynthesis;
-}
-
-function findGermanVoice(voices: SpeechSynthesisVoice[]) {
-  return (
-    voices.find((voice) => voice.lang.toLowerCase() === "de-de") ??
-    voices.find((voice) => voice.lang.toLowerCase().startsWith("de")) ??
-    null
-  );
-}
-
 class SpeechService {
   private queueToken = 0;
+  private currentAudio: HTMLAudioElement | null = null;
 
-  isSupported(): boolean {
-    return getSpeechSynthesis() !== null;
+  async isSupported(): Promise<boolean> {
+    try {
+      const response = await fetch(`${VOICE_SERVER}/health`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const health = (await response.json()) as VoiceHealth;
+      return health.ok === true;
+    } catch {
+      return false;
+    }
   }
 
   stop(): void {
     this.queueToken += 1;
-    getSpeechSynthesis()?.cancel();
+
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.currentAudio.src = "";
+      this.currentAudio = null;
+    }
   }
 
   pause(): void {
-    getSpeechSynthesis()?.pause();
+    this.currentAudio?.pause();
   }
 
   resume(): void {
-    getSpeechSynthesis()?.resume();
+    if (this.currentAudio) {
+      void this.currentAudio.play();
+    }
   }
 
-  speak(text: string, options: SpeechOptions = {}): Promise<void> {
-    const synthesis = getSpeechSynthesis();
+  async speak(
+    text: string,
+    options: SpeechOptions = {},
+  ): Promise<void> {
+    const cleanedText = text.trim();
 
-    if (!synthesis || !text.trim()) {
-      return Promise.resolve();
+    if (!cleanedText) {
+      return;
     }
 
-    const settings = { ...DEFAULT_OPTIONS, ...options };
-    const utterance = new SpeechSynthesisUtterance(text.trim());
-    const voice = findGermanVoice(synthesis.getVoices());
+    const settings = {
+      ...DEFAULT_OPTIONS,
+      ...options,
+    };
 
-    utterance.lang = settings.lang;
-    utterance.rate = settings.rate;
-    utterance.pitch = settings.pitch;
-    utterance.volume = settings.volume;
+    const response = await fetch(`${VOICE_SERVER}/speak`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: cleanedText,
+        rate: settings.rate,
+        volume: settings.volume,
+        lang: settings.lang,
+      }),
+    });
 
-    if (voice) {
-      utterance.voice = voice;
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(
+        `OGG-Sprachserver nicht erreichbar: ${message}`,
+      );
     }
 
-    return new Promise((resolve, reject) => {
-      utterance.onend = () => resolve();
-      utterance.onerror = (event) => reject(event.error);
-      synthesis.speak(utterance);
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+
+    audio.volume = Math.max(
+      0,
+      Math.min(1, settings.volume),
+    );
+
+    this.currentAudio = audio;
+
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        URL.revokeObjectURL(audioUrl);
+
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+        }
+      };
+
+      audio.onended = () => {
+        cleanup();
+        resolve();
+      };
+
+      audio.onerror = () => {
+        cleanup();
+        reject(
+          new Error("Die OGG-Sprachausgabe konnte nicht abgespielt werden."),
+        );
+      };
+
+      void audio.play().catch((error) => {
+        cleanup();
+        reject(error);
+      });
     });
   }
 
@@ -83,12 +143,21 @@ class SpeechService {
     this.stop();
     const token = this.queueToken;
 
-    for (let index = 0; index < messages.length; index += 1) {
-      if (token !== this.queueToken) return;
+    for (
+      let index = 0;
+      index < messages.length;
+      index += 1
+    ) {
+      if (token !== this.queueToken) {
+        return;
+      }
+
       await this.speak(messages[index], options);
 
       if (index < messages.length - 1) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, pauseMs));
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, pauseMs);
+        });
       }
     }
   }
