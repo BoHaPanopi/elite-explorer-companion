@@ -1,33 +1,3 @@
-type AssistantPanelProps = {
-  name: string | null;
-  onConfigure: () => void;
-  onTestGreeting: () => void;
-};
-
-export default function AssistantPanel({
-  name,
-  onConfigure,
-  onTestGreeting,
-}: AssistantPanelProps) {
-  return (
-    <article className="panel assistant-panel">
-      <span>Bordcomputer</span>
-      <h2>{name ?? "Noch nicht benannt"}</h2>
-
-      <p>
-        Deutsche Sprachausgabe, Persönlichkeit und Aktivierungswort werden
-        hier eingerichtet.
-      </p>
-
-      <div className="assistant-actions">
-        <button type="button" onClick={onTestGreeting} disabled={!name}>
-          Begrüßung testen
-        </button>
-
-        <button type="button" onClick={onConfigure}>
-          {name ? "Einstellungen öffnen" : "Jetzt einrichten"}
-        </button>
-      </div>
-    </article>
-  );
-}
+import { useI18n } from "../i18n";
+type Props = { name: string | null; onConfigure: () => void; onTestGreeting: () => void };
+export default function AssistantPanel({ name, onConfigure, onTestGreeting }: Props) { const { t } = useI18n(); return <article className="panel assistant-panel"><span>{t("onboardComputer")}</span><h2>{name ?? t("unnamed")}</h2><p>{t("assistantDescription")}</p><div className="assistant-actions"><button type="button" onClick={onTestGreeting} disabled={!name}>{t("testGreeting")}</button><button type="button" onClick={onConfigure}>{name ? t("openSettings") : t("configureNow")}</button></div></article>; }

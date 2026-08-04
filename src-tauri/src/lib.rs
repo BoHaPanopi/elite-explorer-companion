@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Mutex,
 };
-use tauri::Manager;
+use tauri::{LogicalSize, Manager};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
@@ -33,9 +33,13 @@ struct EliteSnapshot {
     route: Vec<RouteStep>,
 }
 
-fn find_journal_directory() -> Result<PathBuf, String> {
+fn localized(locale: &str, de: &str, en: &str) -> String {
+    if locale == "en" { en.to_string() } else { de.to_string() }
+}
+
+fn find_journal_directory(locale: &str) -> Result<PathBuf, String> {
     let user_profile =
-        env::var("USERPROFILE").map_err(|_| "Windows-Benutzerordner nicht gefunden.")?;
+        env::var("USERPROFILE").map_err(|_| localized(locale, "Windows-Benutzerordner nicht gefunden.", "Windows user folder was not found."))?;
 
     let candidates = [
         PathBuf::from(&user_profile)
@@ -51,12 +55,12 @@ fn find_journal_directory() -> Result<PathBuf, String> {
     candidates
         .into_iter()
         .find(|path| path.is_dir())
-        .ok_or_else(|| "Der Elite-Dangerous-Journalordner wurde nicht gefunden.".to_string())
+        .ok_or_else(|| localized(locale, "Der Elite-Dangerous-Journalordner wurde nicht gefunden.", "The Elite Dangerous journal folder was not found."))
 }
 
-fn newest_journal_file(directory: &Path) -> Result<PathBuf, String> {
+fn newest_journal_file(directory: &Path, locale: &str) -> Result<PathBuf, String> {
     let mut journals = fs::read_dir(directory)
-        .map_err(|error| format!("Journalordner konnte nicht gelesen werden: {error}"))?
+        .map_err(|error| format!("{}: {error}", localized(locale, "Journalordner konnte nicht gelesen werden", "The journal folder could not be read")))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| {
@@ -74,7 +78,7 @@ fn newest_journal_file(directory: &Path) -> Result<PathBuf, String> {
 
     journals
         .pop()
-        .ok_or_else(|| "Keine Journal-Datei gefunden.".to_string())
+        .ok_or_else(|| localized(locale, "Keine Journal-Datei gefunden.", "No journal file was found."))
 }
 
 fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
@@ -133,9 +137,10 @@ fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
 fn read_latest_snapshot(
     journal_path: &Path,
     journal_directory: &Path,
+    locale: &str,
 ) -> Result<EliteSnapshot, String> {
     let file = File::open(journal_path)
-        .map_err(|error| format!("Journal-Datei konnte nicht geöffnet werden: {error}"))?;
+        .map_err(|error| format!("{}: {error}", localized(locale, "Journal-Datei konnte nicht geöffnet werden", "The journal file could not be opened")))?;
 
     let reader = BufReader::new(file);
 
@@ -207,11 +212,12 @@ fn read_latest_snapshot(
 }
 
 #[tauri::command]
-fn get_elite_snapshot() -> Result<EliteSnapshot, String> {
-    let journal_directory = find_journal_directory()?;
-    let journal_path = newest_journal_file(&journal_directory)?;
+fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
+    let locale = locale.as_deref().unwrap_or("de");
+    let journal_directory = find_journal_directory(locale)?;
+    let journal_path = newest_journal_file(&journal_directory, locale)?;
 
-    read_latest_snapshot(&journal_path, &journal_directory)
+    read_latest_snapshot(&journal_path, &journal_directory, locale)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -219,6 +225,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -226,6 +234,25 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+            }
+
+            let window_state_path = app
+                .path()
+                .app_config_dir()?
+                .join(tauri_plugin_window_state::DEFAULT_FILENAME);
+
+            if !window_state_path.exists() {
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Some(monitor) = window.current_monitor()? {
+                        let scale_factor = monitor.scale_factor();
+                        let monitor_size = monitor.size().to_logical::<f64>(scale_factor);
+                        let width = 1400.0_f64.min(monitor_size.width * 0.9);
+                        let height = 900.0_f64.min(monitor_size.height * 0.9);
+
+                        window.set_size(LogicalSize::new(width, height))?;
+                        window.center()?;
+                    }
+                }
             }
 
             let (mut events, child) = app.shell().sidecar("ogg-voice-server")?.spawn()?;

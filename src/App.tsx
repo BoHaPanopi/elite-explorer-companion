@@ -1,26 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 import "./App.css";
 import AssistantPanel from "./components/AssistantPanel";
 import BordcomputerSetup from "./components/BordcomputerSetup";
 import Dashboard from "./components/Dashboard";
 import JournalPanel from "./components/JournalPanel";
+import LanguageSettings from "./components/LanguageSettings";
 import Navigation from "./components/Navigation";
-import RoutePanel from "./components/RoutePanel";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
-import CrewPage from "./pages/CrewPage";
+import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
+import { useI18n } from "./i18n";
 import { speechService } from "./services/SpeechService";
 import { createStartupGreeting } from "./voices/greetings";
 
 type Page =
   | "dashboard"
   | "navigation"
-  | "explorer"
-  | "bio"
-  | "commander"
-  | "crew"
   | "settings";
 
 type RouteStep = {
@@ -43,22 +42,6 @@ const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
 
-function formatShip(snapshot: EliteSnapshot | null): string {
-  if (!snapshot?.ship && !snapshot?.shipName) return "Unbekannt";
-
-  if (snapshot.shipName && snapshot.ship) {
-    return `${snapshot.shipName} · ${snapshot.ship}`;
-  }
-
-  return snapshot.shipName ?? snapshot.ship ?? "Unbekannt";
-}
-
-function formatStatus(snapshot: EliteSnapshot | null): string {
-  if (snapshot?.docked === true) return "Angedockt";
-  if (snapshot?.docked === false) return "Im Flug";
-  return "Unbekannt";
-}
-
 function PlaceholderPage({
   title,
   description,
@@ -66,9 +49,10 @@ function PlaceholderPage({
   title: string;
   description: string;
 }) {
+  const { t } = useI18n();
   return (
     <section className="panel">
-      <span>Modul</span>
+      <span>{t("module")}</span>
       <h2>{title}</h2>
       <p className="muted">{description}</p>
     </section>
@@ -76,17 +60,22 @@ function PlaceholderPage({
 }
 
 function App() {
+  const { language, t } = useI18n();
   const [page, setPage] = useState<Page>("dashboard");
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("available");
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const greetingPlayed = useRef(false);
 
   const loadEliteSnapshot = useCallback(async () => {
     try {
-      const result = await invoke<EliteSnapshot>("get_elite_snapshot");
+      const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
       setSnapshot(result);
       setJournalError(null);
     } catch (error) {
@@ -94,7 +83,44 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [language]);
+
+  useEffect(() => {
+    let active = true;
+    void check().then((update) => { if (active && update) setAvailableUpdate(update); }).catch((error) => console.error(language === "en" ? "Update check failed:" : "Update-Prüfung fehlgeschlagen:", error));
+    return () => { active = false; };
+  }, [language]);
+
+  async function installUpdate() {
+    if (!availableUpdate) return;
+    setUpdatePhase("downloading");
+    setUpdateProgress(0);
+    setUpdateError(null);
+    let downloaded = 0;
+    let total: number | undefined;
+    try {
+      await availableUpdate.download((event) => {
+        if (event.event === "Started") {
+          total = event.data.contentLength;
+          downloaded = 0;
+        } else if (event.event === "Progress") {
+          downloaded += event.data.chunkLength;
+          if (total && total > 0) setUpdateProgress(downloaded / total);
+        } else {
+          setUpdateProgress(1);
+        }
+      });
+      setUpdateProgress(1);
+      setUpdatePhase("installing");
+      await availableUpdate.install();
+      setUpdatePhase("restarting");
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      await relaunch();
+    } catch (error) {
+      setUpdateError(error instanceof Error ? error.message : String(error));
+      setUpdatePhase("error");
+    }
+  }
 
   useEffect(() => {
     const savedName = localStorage.getItem(BORDCOMPUTER_NAME_KEY)?.trim();
@@ -146,29 +172,11 @@ function App() {
       try {
         await speechService.speakSequence(greeting, 650);
       } catch (error) {
-        console.error("Sprachausgabe fehlgeschlagen:", error);
+        console.error(language === "en" ? "Voice output failed:" : "Sprachausgabe fehlgeschlagen:", error);
       }
     },
-    [bordcomputerName, snapshot?.commander],
+    [bordcomputerName, language, snapshot?.commander],
   );
-
-  const speakIntroduction = useCallback(async () => {
-    const computerName = bordcomputerName ?? "Old Guy of Grumpy";
-
-    try {
-      await speechService.speakSequence(
-        [
-          `Servus, Commander. I bin ${computerName}.`,
-          "I red ned vui. Aber wenn i was sag, dann hat's meistens an Grund.",
-          "A bissl was geht ollawei.",
-        ],
-        700,
-        { rate: 0.92 },
-      );
-    } catch (error) {
-      console.error("Vorstellung fehlgeschlagen:", error);
-    }
-  }, [bordcomputerName]);
 
   useEffect(() => {
     if (
@@ -203,53 +211,22 @@ function App() {
     greetingPlayed.current = false;
   }
 
-  const assistantPanel = (
-    <AssistantPanel
-      name={bordcomputerName}
-      onConfigure={() => setShowSetup(true)}
-      onTestGreeting={() => void speakGreeting(true)}
-    />
-  );
-
   const dashboard = (
     <>
       <Dashboard
         commander={
           isLoading
-            ? "Wird ermittelt …"
-            : snapshot?.commander ?? "Unbekannt"
+            ? t("loading")
+            : snapshot?.commander ?? t("unknown")
         }
         system={
           isLoading
-            ? "Wird ermittelt …"
-            : snapshot?.system ?? "Unbekannt"
+            ? t("loading")
+            : snapshot?.system ?? t("unknown")
         }
-        ship={isLoading ? "Wird ermittelt …" : formatShip(snapshot)}
-        status={isLoading ? "Wird ermittelt …" : formatStatus(snapshot)}
-      />
-
-      {journalError && (
-        <section className="journal-error" role="alert">
-          <strong>Journal konnte nicht gelesen werden</strong>
-          <p>{journalError}</p>
-
-          <button
-            type="button"
-            onClick={() => void loadEliteSnapshot()}
-          >
-            Erneut versuchen
-          </button>
-        </section>
-      )}
-
-      <section className="main-grid">
-        <RoutePanel route={snapshot?.route ?? []} />
-        {assistantPanel}
-      </section>
-
-      <JournalPanel
-        journalPath={snapshot?.journalPath ?? ""}
-        onRefresh={() => void loadEliteSnapshot()}
+        status={isLoading ? t("loading") : snapshot?.docked === true ? t("docked") : snapshot?.docked === false ? t("inFlight") : t("unknown")}
+        journalState={journalError ? "error" : isLoading ? "initializing" : "normal"}
+        onRefreshJournal={() => void loadEliteSnapshot()}
       />
     </>
   );
@@ -264,49 +241,24 @@ function App() {
           />
         );
 
-      case "explorer":
-        return (
-          <PlaceholderPage
-            title="Explorer"
-            description="Systemanalyse und wirtschaftlich optimierte Erkundungsroute."
-          />
-        );
-
-      case "bio":
-        return (
-          <PlaceholderPage
-            title="Exobiologie"
-            description="Biologische Signale, Arten und Probenfortschritt."
-          />
-        );
-
-      case "commander":
-        return (
-          <PlaceholderPage
-            title="Commander"
-            description="Ränge, Statistiken, Schiffe und Expeditionsdaten."
-          />
-        );
-
-      case "crew":
-        return (
-          <CrewPage
-            bordcomputerName={bordcomputerName ?? "Old Guy of Grumpy"}
-            commanderName={snapshot?.commander ?? "Commander"}
-            onRename={() => setShowSetup(true)}
-            onTestGreeting={() => void speakGreeting(true)}
-            onPlayIntroduction={() => void speakIntroduction()}
-          />
-        );
-
       case "settings":
         return (
           <section className="settings-layout">
             <PlaceholderPage
-              title="Einstellungen"
-              description="Sprache, Profile, VoiceAttack, Overlay und VR."
+              title={t("settings")}
+              description={t("settingsDescription")}
             />
-            {assistantPanel}
+            <LanguageSettings />
+            <JournalPanel
+              journalPath={snapshot?.journalPath ?? ""}
+              onRefresh={() => void loadEliteSnapshot()}
+              showPath
+            />
+            <AssistantPanel
+              name={bordcomputerName}
+              onConfigure={() => setShowSetup(true)}
+              onTestGreeting={() => void speakGreeting(true)}
+            />
           </section>
         );
 
@@ -316,12 +268,6 @@ function App() {
     }
   }
 
-  const connectionText = journalError
-    ? "Journal nicht verbunden"
-    : isLoading
-      ? "Journal wird gesucht"
-      : "Elite-Journal verbunden";
-
   return (
     <div className="app-shell">
       <Sidebar
@@ -330,22 +276,19 @@ function App() {
       />
 
       <main className="content">
-        <TopBar title="Old Guy of Grumpy" />
-        <div className="connection-status">
-          <span
-            className={`status-dot ${
-              journalError
-                ? "status-dot-error"
-                : "status-dot-connected"
-            }`}
+        {page !== "dashboard" && (
+          <TopBar
+            title={page === "navigation" ? t("navigation") : t("settings")}
+            bordcomputerName={bordcomputerName}
+            onConfigure={() => setShowSetup(true)}
+            onTestGreeting={() => void speakGreeting(true)}
           />
-          {connectionText}
-        </div>
+        )}
 
         {renderPage()}
 
         <footer>
-           Elite Explorer Companion · Navigations- und Expeditionszentrale für Elite Dangerous
+          {t("footer")}
         </footer>
       </main>
 
@@ -364,6 +307,7 @@ function App() {
           </div>
         </div>
       )}
+      {availableUpdate && <UpdateDialog version={availableUpdate.version} notes={availableUpdate.body} phase={updatePhase} progress={updateProgress} error={updateError} onInstall={() => void installUpdate()} onDismiss={() => setAvailableUpdate(null)} />}
     </div>
   );
 }

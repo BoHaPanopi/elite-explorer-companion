@@ -1,45 +1,9 @@
-type SidebarProps = {
-  page: string;
-  setPage: (page: string) => void;
-};
+import { useI18n } from "../i18n";
 
-const navigationItems = [
-  ["dashboard", "Dashboard"],
-  ["navigation", "Navigation"],
-  ["explorer", "Explorer"],
-  ["bio", "Exobiologie"],
-  ["commander", "Commander"],
-  ["crew", "Crew"],
-  ["settings", "Einstellungen"],
-] as const;
+type SidebarProps = { page: string; setPage: (page: string) => void };
 
-export default function Sidebar({
-  page,
-  setPage,
-}: SidebarProps) {
-  return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span className="brand-mark">OGG</span>
-
-        <div>
-          <strong>Old Guy of Grumpy</strong>
-          <small>The Elite Dangerous Cockpit Companion</small>
-        </div>
-      </div>
-
-      <nav>
-        {navigationItems.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={page === id ? "active" : ""}
-            onClick={() => setPage(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-    </aside>
-  );
+export default function Sidebar({ page, setPage }: SidebarProps) {
+  const { t } = useI18n();
+  const items = [["dashboard", t("commandCenter")], ["navigation", t("navigation")], ["settings", t("settings")]] as const;
+  return <aside className="sidebar"><nav>{items.map(([id, label]) => <button key={id} type="button" className={page === id ? "active" : ""} onClick={() => setPage(id)}>{label}</button>)}</nav></aside>;
 }

@@ -69,7 +69,9 @@ class SpeechService {
 
     if (!(await this.waitForServer())) {
       throw new Error(
-        "OGG-Sprachserver konnte nicht gestartet werden. Bitte die Installation überprüfen.",
+        localStorage.getItem("ogg.language") === "en"
+          ? "The OGG voice server could not be started. Please verify the installation."
+          : "OGG-Sprachserver konnte nicht gestartet werden. Bitte die Installation überprüfen.",
       );
     }
 

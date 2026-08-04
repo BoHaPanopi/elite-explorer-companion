@@ -1,3 +1,5 @@
+import { useI18n } from "../i18n";
+
 type RouteStep = {
   system: string;
   starClass: string | null;
@@ -64,6 +66,7 @@ export default function Navigation({
   currentSystem,
   route,
 }: NavigationProps) {
+  const { t } = useI18n();
   const nextSystem = route.length > 1 ? route[1] : null;
   const destination = route.at(-1) ?? null;
   const remainingJumps = Math.max(route.length - 1, 0);
@@ -73,22 +76,22 @@ export default function Navigation({
     <section className="navigation-page">
       <div className="navigation-summary">
         <article className="card">
-          <span>Aktuelles System</span>
-          <strong>{currentSystem ?? "Unbekannt"}</strong>
+          <span>{t("currentSystem")}</span>
+          <strong>{currentSystem ?? t("unknown")}</strong>
         </article>
 
         <article className="card">
-          <span>Nächster Sprung</span>
-          <strong>{nextSystem?.system ?? "Keine Route geplant"}</strong>
+          <span>{t("nextJump")}</span>
+          <strong>{nextSystem?.system ?? t("noRoute")}</strong>
         </article>
 
         <article className="card">
-          <span>Zielsystem</span>
-          <strong>{destination?.system ?? "Kein Ziel"}</strong>
+          <span>{t("destination")}</span>
+          <strong>{destination?.system ?? t("noDestination")}</strong>
         </article>
 
         <article className="card">
-          <span>Verbleibende Sprünge</span>
+          <span>{t("remainingJumps")}</span>
           <strong>{remainingJumps}</strong>
         </article>
       </div>
@@ -96,11 +99,11 @@ export default function Navigation({
       <section className="panel navigation-route-panel">
         <div className="panel-heading">
           <div>
-            <span>Geplottete Galaxieroute</span>
+            <span>{t("plottedRoute")}</span>
             <h2>
               {totalDistance !== null
-                ? `${totalDistance.toFixed(1)} Lj verbleibend`
-                : "Entfernung nicht verfügbar"}
+                ? t("remainingLy", { value: totalDistance.toFixed(1) })
+                : t("distanceUnavailable")}
             </h2>
           </div>
         </div>
@@ -125,10 +128,10 @@ export default function Navigation({
                     <strong>{step.system}</strong>
                     <span>
                       {isCurrent
-                        ? "Aktuelle Position"
+                        ? t("currentPosition")
                         : isNext
-                          ? "Nächstes Ziel"
-                          : `Sprung ${index}`}
+                          ? t("nextDestination")
+                          : t("jump", { value: index })}
                     </span>
                   </div>
 
@@ -141,7 +144,7 @@ export default function Navigation({
                           : "fuel-status fuel-unavailable"
                       }
                     >
-                      {fuelAvailable ? "Tankbar" : "Nicht tankbar"}
+                      {fuelAvailable ? t("scoopable") : t("notScoopable")}
                     </span>
                   </div>
                 </li>
@@ -150,8 +153,7 @@ export default function Navigation({
           </ol>
         ) : (
           <p className="muted">
-            Plotte in Elite Dangerous eine Route. Sie erscheint anschließend
-            automatisch hier.
+            {t("routeHint")}
           </p>
         )}
       </section>

@@ -1,30 +1,3 @@
-type Props = {
-  journalPath: string;
-  onRefresh: () => void;
-};
-
-export default function JournalPanel({
-  journalPath,
-  onRefresh,
-}: Props) {
-  return (
-    <section className="panel journal-panel">
-      <span>Journalquelle</span>
-
-      <h2>
-        {journalPath
-          ? "Journal erkannt"
-          : "Keine Journaldatei erkannt"}
-      </h2>
-
-      <p className="journal-path">
-        {journalPath ||
-          "Die Anwendung sucht im Windows-Ordner für gespeicherte Spiele."}
-      </p>
-
-      <button type="button" onClick={onRefresh}>
-        Journal aktualisieren
-      </button>
-    </section>
-  );
-}
+import { useI18n } from "../i18n";
+type Props = { journalPath: string; onRefresh: () => void; showPath?: boolean };
+export default function JournalPanel({ journalPath, onRefresh, showPath = false }: Props) { const { t } = useI18n(); return <section className={`panel journal-panel${showPath ? " journal-panel--settings" : " journal-panel--compact"}`}><div><span>{showPath ? t("journalSource") : "Elite Dangerous Journal"}</span><h2>{journalPath ? t("journalConnected") : t("journalDisconnected")}</h2>{showPath && <p className="journal-path">{journalPath || t("journalSearch")}</p>}</div><button type="button" onClick={onRefresh}>{t("refreshJournal")}</button></section>; }
