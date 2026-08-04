@@ -127,7 +127,7 @@ class SpeechService {
 
   async speakSequence(
     messages: string[],
-    pauseMs = 650,
+    pauseMs = 0,
     options: SpeechOptions = {},
   ): Promise<void> {
     this.stop();
