@@ -1,12 +1,13 @@
 {
   "name": "elite-explorer-companion",
   "private": true,
-  "version": "0.14.0",
+  "version": "0.14.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:tony": "node --experimental-strip-types --test tests/tonyEdition.test.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },

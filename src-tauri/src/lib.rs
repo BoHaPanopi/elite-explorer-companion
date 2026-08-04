@@ -1,3 +1,6 @@
+mod exploration;
+
+use exploration::{ExplorationSnapshot, ExplorationTracker};
 use serde::Serialize;
 use serde_json::Value;
 use std::{
@@ -5,6 +8,7 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
+    process::Command,
     sync::Mutex,
 };
 use tauri::{LogicalSize, Manager};
@@ -29,8 +33,29 @@ struct EliteSnapshot {
     ship: Option<String>,
     ship_name: Option<String>,
     docked: Option<bool>,
+    elite_connected: bool,
+    exploration: ExplorationSnapshot,
     journal_path: String,
     route: Vec<RouteStep>,
+}
+
+fn is_elite_dangerous_running() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        return Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq EliteDangerous64.exe", "/FO", "CSV", "/NH"])
+            .output()
+            .map(|output| {
+                output.status.success()
+                    && String::from_utf8_lossy(&output.stdout)
+                        .to_ascii_lowercase()
+                        .contains("elitedangerous64.exe")
+            })
+            .unwrap_or(false);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    false
 }
 
 fn localized(locale: &str, de: &str, en: &str) -> String {
@@ -143,6 +168,7 @@ fn read_latest_snapshot(
         .map_err(|error| format!("{}: {error}", localized(locale, "Journal-Datei konnte nicht geöffnet werden", "The journal file could not be opened")))?;
 
     let reader = BufReader::new(file);
+    let mut exploration = ExplorationTracker::default();
 
     let mut snapshot = EliteSnapshot {
         journal_path: journal_path.display().to_string(),
@@ -160,6 +186,8 @@ fn read_latest_snapshot(
             Ok(event) => event,
             Err(_) => continue,
         };
+
+        exploration.apply(&event);
 
         let event_name = event
             .get("event")
@@ -208,6 +236,8 @@ fn read_latest_snapshot(
         }
     }
 
+    snapshot.exploration = exploration.finish();
+
     Ok(snapshot)
 }
 
@@ -217,7 +247,14 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
     let journal_directory = find_journal_directory(locale)?;
     let journal_path = newest_journal_file(&journal_directory, locale)?;
 
-    read_latest_snapshot(&journal_path, &journal_directory, locale)
+    let mut snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
+    snapshot.elite_connected = is_elite_dangerous_running();
+
+    if !snapshot.elite_connected {
+        snapshot.docked = None;
+    }
+
+    Ok(snapshot)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

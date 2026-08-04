@@ -20,6 +20,11 @@ jobs:
         with:
           python-version: "3.13"
       - run: npm ci
+      - name: Test commander-specific activation rules
+        run: npm run test:tony
+      - name: Test journal recognition
+        working-directory: src-tauri
+        run: cargo test
       - name: Prepare OGG voice server build
         shell: pwsh
         run: |
@@ -34,11 +39,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Alpha 0.14 test release.
+            Alpha 0.14.1 maintenance release.
 
-            - Redesigned Command Center
-            - Complete German and English localization
-            - Integrated signed OGG auto-updater
-            - Updated OGG Windows branding
+            - Reliable live ship-status detection
+            - Expanded journal recognition for exploration, mapping, and biological discoveries
+            - Refined Command Center information hierarchy
+            - Commander-specific cockpit refinements
           releaseDraft: false
           prerelease: false

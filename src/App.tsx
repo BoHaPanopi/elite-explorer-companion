@@ -12,10 +12,13 @@ import LanguageSettings from "./components/LanguageSettings";
 import Navigation from "./components/Navigation";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
+import { TonyAbout, TonyMessageDialog } from "./components/TonyEdition";
 import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
 import { useI18n } from "./i18n";
 import { speechService } from "./services/SpeechService";
 import { createStartupGreeting } from "./voices/greetings";
+import { createExplorationMessage, type ExplorationObservationKind } from "./voices/exploration";
+import { isTonySeason, resolveActiveTonyProfile, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "./features/tonyEdition";
 
 type Page =
   | "dashboard"
@@ -34,6 +37,24 @@ type EliteSnapshot = {
   ship: string | null;
   shipName: string | null;
   docked: boolean | null;
+  eliteConnected: boolean;
+  exploration: {
+    systemScan: "undiscovered" | "partially_discovered" | "fully_discovered";
+    bodies: Array<{
+      bodyId: number;
+      bodyName: string;
+      discovery: "undiscovered" | "discovered_by_other_commander" | "first_discovered_by_current_commander" | "previously_discovered_ownership_unknown";
+      mapping: "not_mapped" | "scanned_not_mapped" | "mapped_by_other_commander" | "first_mapped_by_current_commander" | "previously_mapped_ownership_unknown";
+      biology: "none_detected" | "signals_present";
+      biologyFinding: "none" | "unknown" | "known" | "new";
+    }>;
+    latestObservation: {
+      id: string;
+      kind: ExplorationObservationKind;
+      bodyId: number | null;
+      bodyName: string | null;
+    } | null;
+  };
   journalPath: string;
   route: RouteStep[];
 };
@@ -71,7 +92,11 @@ function App() {
   const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("available");
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
   const greetingPlayed = useRef(false);
+  const explorationBaselineReady = useRef(false);
+  const lastExplorationObservation = useRef<string | null>(null);
+  const tonyProfile = resolveActiveTonyProfile(snapshot?.commander, snapshot?.eliteConnected === true);
 
   const loadEliteSnapshot = useCallback(async () => {
     try {
@@ -145,6 +170,36 @@ function App() {
     };
   }, [loadEliteSnapshot]);
 
+  useEffect(() => {
+    if (isLoading) return;
+    const observation = snapshot?.exploration.latestObservation ?? null;
+
+    if (!explorationBaselineReady.current) {
+      explorationBaselineReady.current = true;
+      lastExplorationObservation.current = observation?.id ?? null;
+      return;
+    }
+
+    if (!observation || observation.id === lastExplorationObservation.current) return;
+    lastExplorationObservation.current = observation.id;
+    void speechService.speak(createExplorationMessage(observation.kind, language)).catch((error) => {
+      console.error(language === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
+    });
+  }, [isLoading, language, snapshot?.exploration.latestObservation]);
+
+  useEffect(() => {
+    if (!tonyProfile || tonyMessage || showSetup || availableUpdate) return;
+    if (localStorage.getItem(tonyWelcomeStorageKey(tonyProfile)) !== "read") {
+      setTonyMessage("welcome");
+      return;
+    }
+
+    const now = new Date();
+    if (isTonySeason(now) && localStorage.getItem(tonySeasonalStorageKey(now.getFullYear())) !== "read") {
+      setTonyMessage("seasonal");
+    }
+  }, [availableUpdate, showSetup, tonyMessage, tonyProfile]);
+
   const speakGreeting = useCallback(
     async (forceReturning?: boolean) => {
       if (!bordcomputerName || !snapshot?.commander) return;
@@ -211,6 +266,16 @@ function App() {
     greetingPlayed.current = false;
   }
 
+  function closeTonyMessage() {
+    if (!tonyProfile || !tonyMessage) return;
+    if (tonyMessage === "welcome") {
+      localStorage.setItem(tonyWelcomeStorageKey(tonyProfile), "read");
+    } else {
+      localStorage.setItem(tonySeasonalStorageKey(new Date().getFullYear()), "read");
+    }
+    setTonyMessage(null);
+  }
+
   const dashboard = (
     <>
       <Dashboard
@@ -224,7 +289,7 @@ function App() {
             ? t("loading")
             : snapshot?.system ?? t("unknown")
         }
-        status={isLoading ? t("loading") : snapshot?.docked === true ? t("docked") : snapshot?.docked === false ? t("inFlight") : t("unknown")}
+        status={isLoading ? t("loading") : !snapshot?.eliteConnected ? t("eliteDisconnected") : snapshot.docked === true ? t("docked") : snapshot.docked === false ? t("inFlight") : t("unknown")}
         journalState={journalError ? "error" : isLoading ? "initializing" : "normal"}
         onRefreshJournal={() => void loadEliteSnapshot()}
       />
@@ -259,6 +324,7 @@ function App() {
               onConfigure={() => setShowSetup(true)}
               onTestGreeting={() => void speakGreeting(true)}
             />
+            {tonyProfile && <TonyAbout onOpenWelcome={() => setTonyMessage("welcome")} />}
           </section>
         );
 
@@ -308,6 +374,7 @@ function App() {
         </div>
       )}
       {availableUpdate && <UpdateDialog version={availableUpdate.version} notes={availableUpdate.body} phase={updatePhase} progress={updateProgress} error={updateError} onInstall={() => void installUpdate()} onDismiss={() => setAvailableUpdate(null)} />}
+      {tonyProfile && tonyMessage && !showSetup && !availableUpdate && <TonyMessageDialog profile={tonyProfile} type={tonyMessage} onContinue={closeTonyMessage} />}
     </div>
   );
 }
