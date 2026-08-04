@@ -27,6 +27,18 @@ class SpeechService {
     }
   }
 
+  private async waitForServer(): Promise<boolean> {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (await this.serverIsOnline()) return true;
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 250);
+      });
+    }
+
+    return false;
+  }
+
   stop(): void {
     this.queueToken += 1;
 
@@ -55,9 +67,9 @@ class SpeechService {
       throw new Error("OGG hat keinen Text erhalten.");
     }
 
-    if (!(await this.serverIsOnline())) {
+    if (!(await this.waitForServer())) {
       throw new Error(
-        "OGG-Sprachserver läuft nicht. Bitte START_OGG_STIMME.bat starten.",
+        "OGG-Sprachserver konnte nicht gestartet werden. Bitte die Installation überprüfen.",
       );
     }
 

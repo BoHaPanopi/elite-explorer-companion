@@ -21,11 +21,14 @@ call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 if errorlevel 1 goto :error
 
-python -m pip install edge-tts flask flask-cors
+python -m pip install edge-tts flask flask-cors pyinstaller
 if errorlevel 1 goto :error
 
 echo.
 echo Fertig. Die Windows-Nebelkraehe ist ausgebaut.
+call BUILD_OGG_STIMME.bat
+if errorlevel 1 goto :error
+
 echo Starte kuenftig START_OGG_STIMME.bat.
 echo.
 pause

@@ -5,7 +5,13 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
+    sync::Mutex,
 };
+use tauri::Manager;
+use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::ShellExt;
+
+struct VoiceServer(Mutex<Option<CommandChild>>);
 
 #[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -212,6 +218,7 @@ fn get_elite_snapshot() -> Result<EliteSnapshot, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -221,9 +228,25 @@ pub fn run() {
                 )?;
             }
 
+            let (mut events, child) = app.shell().sidecar("ogg-voice-server")?.spawn()?;
+            app.manage(VoiceServer(Mutex::new(Some(child))));
+
+            tauri::async_runtime::spawn(async move {
+                while events.recv().await.is_some() {}
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![get_elite_snapshot])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Ok(mut child) = app.state::<VoiceServer>().0.lock() {
+                    if let Some(child) = child.take() {
+                        let _ = child.kill();
+                    }
+                }
+            }
+        });
 }

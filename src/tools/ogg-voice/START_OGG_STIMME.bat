@@ -3,12 +3,14 @@ setlocal
 cd /d "%~dp0"
 title OGG Alpha 0.13.1 Debug-Sprachserver
 
-where python >nul 2>nul
-if errorlevel 1 (
-  echo Python wurde nicht gefunden.
+if not exist ".venv\Scripts\python.exe" (
+  echo Die OGG-Python-Umgebung wurde nicht gefunden.
+  echo Bitte zuerst INSTALLIEREN.bat ausfuehren.
   pause
   exit /b 1
 )
+
+call ".venv\Scripts\activate.bat"
 
 python -c "import edge_tts, flask, flask_cors" >nul 2>nul
 if errorlevel 1 (
