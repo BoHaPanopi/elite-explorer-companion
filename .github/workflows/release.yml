@@ -22,14 +22,14 @@ jobs:
       - run: npm ci
       - name: Test commander-specific activation rules
         run: npm run test:tony
-      - name: Test journal recognition
-        working-directory: src-tauri
-        run: cargo test
       - name: Prepare OGG voice server build
         shell: pwsh
         run: |
           python -m venv src/tools/ogg-voice/.venv
           src/tools/ogg-voice/.venv/Scripts/python.exe -m pip install --disable-pip-version-check edge-tts flask flask-cors pyinstaller
+      - name: Test journal recognition
+        working-directory: src-tauri
+        run: cargo test
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
