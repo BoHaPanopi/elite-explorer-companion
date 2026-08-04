@@ -16,7 +16,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - run: npm ci
+      - name: Prepare OGG voice server build
+        shell: pwsh
+        run: |
+          python -m venv src/tools/ogg-voice/.venv
+          src/tools/ogg-voice/.venv/Scripts/python.exe -m pip install --disable-pip-version-check edge-tts flask flask-cors pyinstaller
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
