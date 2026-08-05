@@ -40,12 +40,12 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            OGG v0.14.5 personality and lifecycle release.
+            OGG v0.14.6 localization, updater reliability, and mission-status layout release.
 
-            - Reliable scoopability from available Elite journal and system scan data
-            - Deferred update installation when OGG exits
-            - Unified OGG identity and refined navigation, settings, and command-center layout
-            - Responsive settings hierarchy for onboard computer, journal, modules, and language
-            - OGG personality copy and reliable complete shutdown from the window close button
+            - Expanded German and English localization across cockpit and assistant views
+            - Clearer onboard-computer lock state and commander-specific activation behavior
+            - More reliable deferred update installation, startup recovery, and local test builds
+            - Centered mission-status card content for a cleaner, balanced command-center layout
+            - Additional automated coverage for startup recovery and fresh Windows profiles
           releaseDraft: false
           prerelease: false
