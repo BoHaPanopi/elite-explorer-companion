@@ -1,29 +1,57 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { waitForEliteProcessExit } from "../src/services/UpdateWaitService.ts";
+import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "../src/services/DeferredUpdateService.ts";
 
-test("waits in the background until Elite Dangerous has exited", async () => {
-  const processStates = [true, true, false];
-  let checks = 0;
-  let pauses = 0;
-
-  await waitForEliteProcessExit(
-    async () => {
-      checks += 1;
-      return processStates.shift() ?? false;
+test("downloads an update completely without installing it", async () => {
+  let installed = false;
+  const progress: number[] = [];
+  const update = {
+    async download(onEvent: (event: any) => void) {
+      onEvent({ event: "Started", data: { contentLength: 10 } });
+      onEvent({ event: "Progress", data: { chunkLength: 4 } });
+      onEvent({ event: "Progress", data: { chunkLength: 6 } });
+      onEvent({ event: "Finished" });
     },
-    async () => {
-      pauses += 1;
-    },
-  );
+    async install() { installed = true; },
+  };
 
-  assert.equal(checks, 3);
-  assert.equal(pauses, 2);
+  await downloadUpdateInBackground(update, (value) => progress.push(value));
+
+  assert.equal(installed, false);
+  assert.deepEqual(progress, [0, 0.4, 1, 1]);
 });
 
-test("continues immediately when Elite Dangerous is already closed", async () => {
-  let pauses = 0;
-  await waitForEliteProcessExit(async () => false, async () => { pauses += 1; });
-  assert.equal(pauses, 0);
+test("installs the downloaded update only when the exit workflow runs", async () => {
+  let installed = false;
+  let prepareCalls = 0;
+  const blockers: Array<string | null> = [];
+
+  await installDownloadedUpdateOnExit(
+    { async install() { installed = true; } },
+    async () => {
+      prepareCalls += 1;
+      return prepareCalls === 1
+        ? { ready: false, blocker: "voice_server_running" }
+        : { ready: true, blocker: null };
+    },
+    async () => undefined,
+    (blocker) => blockers.push(blocker),
+  );
+
+  assert.equal(installed, true);
+  assert.equal(prepareCalls, 2);
+  assert.deepEqual(blockers, ["voice_server_running"]);
+});
+
+test("the app downloads automatically and never waits for Elite before installation", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const translations = readFileSync(new URL("../src/i18n.tsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /downloadUpdate\(update\)/);
+  assert.match(appSource, /onCloseRequested/);
+  assert.match(appSource, /cause: "application_exit"/);
+  assert.doesNotMatch(appSource, /waitForEliteProcessExit/);
+  assert.match(translations, /Update bereit\. Es wird beim Beenden von OGG installiert\./);
 });

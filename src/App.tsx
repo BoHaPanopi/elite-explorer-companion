@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { exit } from "@tauri-apps/plugin-process";
 
 import "./App.css";
 import AssistantPanel from "./components/AssistantPanel";
@@ -10,6 +11,7 @@ import Dashboard from "./components/Dashboard";
 import JournalPanel from "./components/JournalPanel";
 import LanguageSettings from "./components/LanguageSettings";
 import Navigation from "./components/Navigation";
+import OggBrand from "./components/OggBrand";
 import Sidebar from "./components/Sidebar";
 import StartupRecoveryDialog, { type StartupHealth } from "./components/StartupRecoveryDialog";
 import TopBar from "./components/TopBar";
@@ -17,7 +19,7 @@ import { TonyAbout, TonyMessageDialog } from "./components/TonyEdition";
 import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
 import { useI18n } from "./i18n";
 import { speechService } from "./services/SpeechService";
-import { waitForEliteProcessExit } from "./services/UpdateWaitService";
+import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "./voices/greetings";
 import { createExplorationMessage, type ExplorationObservationKind } from "./voices/exploration";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "./features/tonyEdition";
@@ -107,8 +109,8 @@ function App() {
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
-  const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("available");
-  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("downloading");
+  const [, setUpdateProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
   const [startupHealth, setStartupHealth] = useState<StartupHealth | null>(null);
@@ -120,6 +122,8 @@ function App() {
   const [greetingRetryNonce, setGreetingRetryNonce] = useState(0);
   const startupModeLogged = useRef(false);
   const lastLoggedJournalCommander = useRef<string | null>(null);
+  const pendingUpdate = useRef<Update | null>(null);
+  const updatePhaseRef = useRef<UpdatePhase>("downloading");
   const explorationBaselineReady = useRef(false);
   const lastExplorationObservation = useRef<string | null>(null);
   const activeCommander = selectCommanderIdentity(snapshot?.commander, lastKnownCommander);
@@ -177,66 +181,66 @@ function App() {
     refreshStartupHealth();
     const healthInterval = window.setInterval(refreshStartupHealth, 2000);
     void invoke("log_update_phase", { phase: "check", cause: "startup", technical: null });
-    void check().then((update) => { if (active && update) setAvailableUpdate(update); }).catch((error) => {
+    void check().then((update) => {
+      if (active && update) void downloadUpdate(update);
+    }).catch((error) => {
       void invoke("log_update_phase", { phase: "check_failed", cause: "request_failed", technical: error instanceof Error ? error.message : String(error) });
     });
     return () => { active = false; window.clearInterval(healthInterval); window.clearInterval(heartbeatInterval); };
   }, [language]);
 
-  async function installUpdate() {
-    if (!availableUpdate) return;
+  async function downloadUpdate(update: Update) {
+    pendingUpdate.current = update;
+    setAvailableUpdate(update);
     setUpdatePhase("downloading");
+    updatePhaseRef.current = "downloading";
     setUpdateProgress(0);
     setUpdateError(null);
-    void invoke("log_update_phase", { phase: "download_start", cause: "user_confirmed", technical: null });
-    let downloaded = 0;
-    let total: number | undefined;
+    void invoke("log_update_phase", { phase: "download_start", cause: "background_download", technical: null });
     try {
-      await availableUpdate.download((event) => {
-        if (event.event === "Started") {
-          total = event.data.contentLength;
-          downloaded = 0;
-        } else if (event.event === "Progress") {
-          downloaded += event.data.chunkLength;
-          if (total && total > 0) setUpdateProgress(downloaded / total);
-        } else {
-          setUpdateProgress(1);
-        }
-      });
+      await downloadUpdateInBackground(update, setUpdateProgress);
       void invoke("log_update_phase", { phase: "download_complete", cause: "package_cached", technical: null });
       setUpdateProgress(1);
-
-      if (await invoke<boolean>("is_elite_dangerous_running")) {
-        setUpdatePhase("waitingForElite");
-        void invoke("log_update_phase", { phase: "waiting", cause: "elite_dangerous_running", technical: null });
-        await waitForEliteProcessExit(
-          () => invoke<boolean>("is_elite_dangerous_running"),
-          () => new Promise((resolve) => window.setTimeout(resolve, 2000)),
-        );
-      }
-
-      let readiness = await invoke<UpdateReadiness>("prepare_for_update");
-      while (!readiness.ready) {
-        setUpdatePhase("waitingForServices");
-        void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: readiness.blocker });
-        await new Promise((resolve) => window.setTimeout(resolve, 2000));
-        readiness = await invoke<UpdateReadiness>("prepare_for_update");
-      }
-
-      setUpdatePhase("installing");
-      void invoke("log_update_phase", { phase: "install", cause: "preflight_ready", technical: null });
-      await availableUpdate.install();
-      setUpdatePhase("restarting");
-      void invoke("log_update_phase", { phase: "restart", cause: "installation_complete", technical: null });
-      await new Promise((resolve) => window.setTimeout(resolve, 900));
-      await relaunch();
+      setUpdatePhase("ready");
+      updatePhaseRef.current = "ready";
     } catch (error) {
-      void invoke("log_update_phase", { phase: "failed", cause: "installation_aborted", technical: error instanceof Error ? error.message : String(error) });
-      void invoke<StartupHealth>("repair_runtime").then((health) => { if (!health.ready) setStartupHealth(health); });
+      pendingUpdate.current = null;
+      void invoke("log_update_phase", { phase: "failed", cause: "background_download_failed", technical: error instanceof Error ? error.message : String(error) });
       setUpdateError(error instanceof Error ? error.name : "update-error");
       setUpdatePhase("error");
+      updatePhaseRef.current = "error";
     }
   }
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow().onCloseRequested(async (event) => {
+      const update = pendingUpdate.current;
+      if (!update || updatePhaseRef.current !== "ready") return;
+
+      event.preventDefault();
+      updatePhaseRef.current = "installing";
+      setUpdatePhase("installing");
+      void invoke("log_update_phase", { phase: "install", cause: "application_exit", technical: null });
+      try {
+        await installDownloadedUpdateOnExit(
+          update,
+          () => invoke<UpdateReadiness>("prepare_for_update"),
+          () => new Promise((resolve) => window.setTimeout(resolve, 500)),
+          (blocker) => void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: blocker }),
+        );
+        pendingUpdate.current = null;
+        void invoke("log_update_phase", { phase: "install_started", cause: "application_exit", technical: null });
+        await exit(0);
+      } catch (error) {
+        updatePhaseRef.current = "error";
+        setUpdatePhase("error");
+        setUpdateError(error instanceof Error ? error.name : "update-error");
+        void invoke("log_update_phase", { phase: "failed", cause: "deferred_install_failed", technical: error instanceof Error ? error.message : String(error) });
+      }
+    }).then((stopListening) => { unlisten = stopListening; });
+    return () => unlisten?.();
+  }, []);
 
   useEffect(() => {
     const savedName = localStorage.getItem(BORDCOMPUTER_NAME_KEY)?.trim();
@@ -449,7 +453,7 @@ function App() {
 
   const dashboard = (
     <>
-      <Dashboard
+        <Dashboard
         commander={
           isLoading
             ? t("loading")
@@ -461,8 +465,6 @@ function App() {
             : snapshot?.system ?? t("unknown")
         }
         status={isLoading ? t("loading") : !snapshot?.eliteConnected ? t("eliteDisconnected") : snapshot.docked === true ? t("docked") : snapshot.docked === false ? t("inFlight") : t("unknown")}
-        journalState={journalError ? "error" : isLoading ? "initializing" : "normal"}
-        onRefreshJournal={() => void loadEliteSnapshot()}
       />
     </>
   );
@@ -479,16 +481,21 @@ function App() {
       case "settings":
         return (
           <section className="settings-layout">
+            <div className="settings-module">
             <PlaceholderPage
-              title={t("settings")}
+              title={t("moduleSettings")}
               description={t("settingsDescription")}
             />
-            <LanguageSettings />
+            </div>
+            <div className="settings-language"><LanguageSettings /></div>
+            <div className="settings-journal">
             <JournalPanel
               journalPath={snapshot?.journalPath ?? ""}
               onRefresh={() => void loadEliteSnapshot()}
               showPath
             />
+            </div>
+            <div className="settings-computer">
             <AssistantPanel
               name={bordcomputerName}
               onConfigure={() => setShowSetup(true)}
@@ -497,7 +504,8 @@ function App() {
                 void speakGreeting(true);
               }}
             />
-            {tonyProfile && <TonyAbout onOpenWelcome={() => setTonyMessage("welcome")} />}
+            </div>
+            {tonyProfile && <div className="settings-tony"><TonyAbout onOpenWelcome={() => setTonyMessage("welcome")} /></div>}
           </section>
         );
 
@@ -515,15 +523,10 @@ function App() {
       />
 
       <main className="content">
+        <OggBrand journalState={journalError ? "error" : isLoading ? "initializing" : "normal"} />
         {page !== "dashboard" && (
           <TopBar
             title={page === "navigation" ? t("navigation") : t("settings")}
-            bordcomputerName={bordcomputerName}
-            onConfigure={() => setShowSetup(true)}
-            onTestGreeting={() => {
-              speechService.logTestButtonClick();
-              void speakGreeting(true);
-            }}
           />
         )}
 
@@ -549,7 +552,7 @@ function App() {
           </div>
         </div>
       )}
-      {availableUpdate && <UpdateDialog version={availableUpdate.version} notes={availableUpdate.body} phase={updatePhase} progress={updateProgress} error={updateError} onInstall={() => void installUpdate()} onDismiss={() => setAvailableUpdate(null)} />}
+      {availableUpdate && <UpdateDialog version={availableUpdate.version} phase={updatePhase} error={updateError} onDismiss={() => setAvailableUpdate(null)} />}
       {startupHealth && !startupHealth.ready && <StartupRecoveryDialog health={startupHealth} onHealthChange={(health) => setStartupHealth(health.ready ? null : health)} />}
       {tonyProfile && tonyMessage && !showSetup && !availableUpdate && <TonyMessageDialog profile={tonyProfile} type={tonyMessage} onContinue={closeTonyMessage} />}
     </div>

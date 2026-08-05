@@ -1,4 +1,5 @@
 import { useI18n } from "../i18n";
+import { classifyScoopability } from "../features/starClass";
 
 type RouteStep = {
   system: string;
@@ -15,16 +16,6 @@ type NavigationProps = {
     activeRoute: RouteStep[];
   } | null;
 };
-
-const fuelStars = new Set(["O", "B", "A", "F", "G", "K", "M"]);
-
-function isFuelStar(starClass: string | null): boolean {
-  if (!starClass) {
-    return false;
-  }
-
-  return fuelStars.has(starClass.toUpperCase());
-}
 
 export default function Navigation({
   progress,
@@ -76,7 +67,7 @@ export default function Navigation({
         {route.length ? (
           <ol className="navigation-route-list">
             {route.map((step, index) => {
-              const fuelAvailable = isFuelStar(step.starClass);
+              const scoopability = classifyScoopability(step.starClass);
               const isCurrent = index === 0;
               const isNext = index === 1;
 
@@ -104,12 +95,14 @@ export default function Navigation({
                     <strong>{step.starClass ?? "?"}</strong>
                     <span
                       className={
-                        fuelAvailable
+                        scoopability === "scoopable"
                           ? "fuel-status fuel-available"
-                          : "fuel-status fuel-unavailable"
+                          : scoopability === "notScoopable"
+                            ? "fuel-status fuel-unavailable"
+                            : "fuel-status fuel-unknown"
                       }
                     >
-                      {fuelAvailable ? t("scoopable") : t("notScoopable")}
+                      {scoopability === "unknown" ? t("starClassUnknown") : t(scoopability)}
                     </span>
                   </div>
                 </li>

@@ -1,7 +1,7 @@
 {
   "name": "elite-explorer-companion",
   "private": true,
-  "version": "0.14.3",
+  "version": "0.14.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:tony": "node --experimental-strip-types --test tests/tonyEdition.test.ts",
     "test:update": "node --experimental-strip-types --test tests/updateWait.test.ts tests/startupRecovery.test.ts",
+    "test:star-class": "node --experimental-strip-types --test tests/starClass.test.ts",
     "preview": "vite preview",
     "tauri": "tauri"
   },

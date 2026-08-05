@@ -6,6 +6,7 @@ use runtime_health::{StartupHealth, UpdateReadiness};
 use serde::Serialize;
 use serde_json::Value;
 use std::{
+    collections::HashMap,
     env,
     fs::{self, File},
     io::{BufRead, BufReader},
@@ -32,6 +33,7 @@ struct FrontendHeartbeat {
 }
 
 static LAST_LOGGED_COMMANDER: OnceLock<Mutex<Option<(PathBuf, Option<String>)>>> = OnceLock::new();
+static KNOWN_STAR_CLASSES: OnceLock<Mutex<HashMap<u64, String>>> = OnceLock::new();
 
 fn unix_time_ms() -> u64 {
     SystemTime::now()
@@ -482,6 +484,61 @@ fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
         .unwrap_or_default()
 }
 
+fn primary_star_class(event: &Value) -> Option<(u64, String)> {
+    let address = event.get("SystemAddress")?.as_u64()?;
+    let event_name = event.get("event")?.as_str()?;
+    let star_class = match event_name {
+        "Location" | "FSDJump" | "CarrierJump" => event.get("StarClass")?.as_str()?,
+        "Scan" if event.get("BodyID").and_then(Value::as_u64) == Some(0) => {
+            event.get("StarType")?.as_str()?
+        }
+        _ => return None,
+    };
+    (!star_class.trim().is_empty()).then(|| (address, star_class.to_string()))
+}
+
+fn known_star_class(journal_directory: &Path, system_address: u64) -> Option<String> {
+    let cache = KNOWN_STAR_CLASSES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(classes) = cache.lock() {
+        if let Some(star_class) = classes.get(&system_address) {
+            return Some(star_class.clone());
+        }
+    }
+
+    let mut journals = fs::read_dir(journal_directory)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("Journal.") && name.ends_with(".log"))
+        })
+        .collect::<Vec<_>>();
+    journals.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+
+    for path in journals {
+        let Ok(file) = File::open(path) else { continue };
+        let mut found = None;
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
+            let Ok(event) = serde_json::from_str::<Value>(&line) else { continue };
+            if let Some((address, star_class)) = primary_star_class(&event) {
+                if let Ok(mut classes) = cache.lock() {
+                    classes.insert(address, star_class.clone());
+                }
+                if address == system_address {
+                    found = Some(star_class);
+                }
+            }
+        }
+        if found.is_some() {
+            return found;
+        }
+    }
+
+    None
+}
+
 fn active_navigation_route(
     route: Vec<RouteStep>,
     current_system: Option<&str>,
@@ -545,9 +602,17 @@ fn active_navigation_route(
 fn navigation_progress(
     route: Vec<RouteStep>,
     current_system: Option<&str>,
+    current_star_class: Option<&str>,
     journal_systems: &[String],
 ) -> NavigationProgress {
-    let active_route = active_navigation_route(route, current_system, journal_systems);
+    let mut active_route = active_navigation_route(route, current_system, journal_systems);
+    if let Some(current_step) = active_route.first_mut().filter(|step| {
+        current_system.is_some_and(|system| step.system.eq_ignore_ascii_case(system))
+    }) {
+        if let Some(star_class) = current_star_class.filter(|value| !value.trim().is_empty()) {
+            current_step.star_class = Some(star_class.to_string());
+        }
+    }
     let remaining_distance = active_route
         .windows(2)
         .try_fold(0.0, |total, pair| {
@@ -592,6 +657,8 @@ fn read_latest_snapshot(
     let reader = BufReader::new(file);
     let mut exploration = ExplorationTracker::default();
     let mut journal_systems = Vec::new();
+    let mut current_star_class: Option<String> = None;
+    let mut current_system_address: Option<u64> = None;
 
     let planned_route = read_navigation_route(journal_directory);
     let mut snapshot = EliteSnapshot {
@@ -611,6 +678,18 @@ fn read_latest_snapshot(
         };
 
         exploration.apply(&event);
+
+        if let Some((address, star_class)) = primary_star_class(&event) {
+            if let Ok(mut classes) = KNOWN_STAR_CLASSES
+                .get_or_init(|| Mutex::new(HashMap::new()))
+                .lock()
+            {
+                classes.insert(address, star_class.clone());
+            }
+            if current_system_address == Some(address) {
+                current_star_class = Some(star_class);
+            }
+        }
 
         let event_name = event
             .get("event")
@@ -643,6 +722,14 @@ fn read_latest_snapshot(
             }
 
             "Location" | "FSDJump" | "CarrierJump" => {
+                current_system_address = event.get("SystemAddress").and_then(Value::as_u64);
+                current_star_class = current_system_address.and_then(|address| {
+                    KNOWN_STAR_CLASSES
+                        .get_or_init(|| Mutex::new(HashMap::new()))
+                        .lock()
+                        .ok()
+                        .and_then(|classes| classes.get(&address).cloned())
+                });
                 if let Some(system) = event.get("StarSystem").and_then(Value::as_str) {
                     snapshot.system = Some(system.to_string());
                     if journal_systems
@@ -665,8 +752,17 @@ fn read_latest_snapshot(
         }
     }
 
-    snapshot.navigation_progress =
-        navigation_progress(planned_route, snapshot.system.as_deref(), &journal_systems);
+    if current_star_class.is_none() {
+        current_star_class = current_system_address
+            .and_then(|address| known_star_class(journal_directory, address));
+    }
+
+    snapshot.navigation_progress = navigation_progress(
+        planned_route,
+        snapshot.system.as_deref(),
+        current_star_class.as_deref(),
+        &journal_systems,
+    );
     snapshot.exploration = exploration.finish();
 
     Ok(snapshot)
@@ -789,13 +885,50 @@ mod navigation_tests {
             },
         ];
 
-        let progress = navigation_progress(planned, Some("B"), &["A".into(), "B".into()]);
+        let progress = navigation_progress(planned, Some("B"), None, &["A".into(), "B".into()]);
 
         assert_eq!(progress.current_system.as_deref(), Some("B"));
         assert_eq!(progress.next_system.as_deref(), Some("C"));
         assert_eq!(progress.remaining_jumps, 1);
         assert_eq!(progress.remaining_distance, Some(12.0));
         assert_eq!(names(&progress.active_route), ["B", "C"]);
+    }
+
+    #[test]
+    fn keeps_the_current_star_class_after_the_plotted_route_is_finished() {
+        let progress = navigation_progress(
+            Vec::new(),
+            Some("Wregoe UB-Z b41-6"),
+            Some("M"),
+            &["Wregoe UB-Z b41-6".into()],
+        );
+
+        assert_eq!(progress.remaining_jumps, 0);
+        assert_eq!(progress.active_route.len(), 1);
+        assert_eq!(progress.active_route[0].system, "Wregoe UB-Z b41-6");
+        assert_eq!(progress.active_route[0].star_class.as_deref(), Some("M"));
+    }
+
+    #[test]
+    fn reads_the_primary_star_type_from_scan_data() {
+        let event = serde_json::json!({
+            "event": "Scan",
+            "SystemAddress": 42,
+            "BodyID": 0,
+            "StarType": "M"
+        });
+        assert_eq!(primary_star_class(&event), Some((42, "M".into())));
+    }
+
+    #[test]
+    fn ignores_non_primary_scan_bodies() {
+        let event = serde_json::json!({
+            "event": "Scan",
+            "SystemAddress": 42,
+            "BodyID": 3,
+            "StarType": "T"
+        });
+        assert_eq!(primary_star_class(&event), None);
     }
 }
 

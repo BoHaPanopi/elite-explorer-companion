@@ -1,3 +1,3 @@
 import { useI18n } from "../i18n";
-type Props = { title: string; bordcomputerName: string | null; onConfigure: () => void; onTestGreeting: () => void };
-export default function TopBar({ title, bordcomputerName, onConfigure, onTestGreeting }: Props) { const { t } = useI18n(); return <header className="topbar"><div className="topbar__title"><p className="eyebrow">{t("systemControl")}</p><h1>{title}</h1></div><section className="bordcomputer-header" aria-label={t("onboardComputer")}><div><span>{t("onboardComputer")}</span><strong>{bordcomputerName ?? t("notConfigured")}</strong></div><div className="bordcomputer-header__actions"><button type="button" onClick={onTestGreeting} disabled={!bordcomputerName}>{t("testGreeting")}</button><button type="button" onClick={onConfigure}>{t("settings")}</button></div></section></header>; }
+type Props = { title: string };
+export default function TopBar({ title }: Props) { const { t } = useI18n(); return <header className="topbar"><div className="topbar__title"><p className="eyebrow">{t("systemControl")}</p><h1>{title}</h1></div></header>; }

@@ -40,11 +40,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Alpha 0.14.3 navigation progress release.
+            Alpha 0.14.4 navigation and cockpit layout release.
 
-            - Live route progress follows journal jumps and route replanning
-            - Current position, next destination, remaining jumps, and distance share one central source
-            - Completed route steps are removed from the active route
-            - Route progress is reconstructed consistently after restart and manual journal refresh
+            - Reliable scoopability from available Elite journal and system scan data
+            - Deferred update installation when OGG exits
+            - Unified OGG identity and refined navigation, settings, and command-center layout
+            - Responsive settings hierarchy for onboard computer, journal, modules, and language
           releaseDraft: false
           prerelease: false

@@ -1,5 +1,12 @@
 # React + TypeScript + Vite
 
+## Project Documentation
+
+- [OGG Identity and AI Context](./OGG_AI_CONTEXT.md) – product identity, personality, language, audio, UI, and development principles.
+- [OGG Lore](./OGG_LORE.md) – the origin, history, defining moments, and people behind Old Guy of Grumpy.
+- [OGG Roadmap](./OGG_ROADMAP.md) – planned development from version 0.14.x through 1.0 and beyond.
+- [OGG Project Log](./OGG_Project_Log.md) – current project status, architecture, decisions, milestones, and change history.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
