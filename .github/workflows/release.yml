@@ -40,11 +40,12 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Alpha 0.14.4 navigation and cockpit layout release.
+            OGG v0.14.5 personality and lifecycle release.
 
             - Reliable scoopability from available Elite journal and system scan data
             - Deferred update installation when OGG exits
             - Unified OGG identity and refined navigation, settings, and command-center layout
             - Responsive settings hierarchy for onboard computer, journal, modules, and language
+            - OGG personality copy and reliable complete shutdown from the window close button
           releaseDraft: false
           prerelease: false

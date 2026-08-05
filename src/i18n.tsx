@@ -1,20 +1,20 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
-export type Language = "de" | "en";
+export type Language = "de" | "en" | "fr" | "it" | "es";
 
 const STORAGE_KEY = "ogg.language";
 
-const messages = {
+const baseMessages = {
   de: {
     commandCenter: "Kommandozentrale", navigation: "Navigation", settings: "Einstellungen",
     systemControl: "Systemsteuerung", onboardComputer: "Bordcomputer", notConfigured: "Nicht eingerichtet",
     testGreeting: "Begrüßung testen", module: "Modul", moduleSettings: "Moduleinstellungen", settingsDescription: "Bordcomputer, Sprache und Anwendungsoptionen.",
-    language: "Sprache", german: "Deutsch", english: "Englisch", currentSystem: "Aktuelles System",
+    language: "Sprache", german: "Deutsch", english: "Englisch", french: "Französisch", italian: "Italienisch", spanish: "Spanisch", moduleHint: "Mia werggeln dro.", currentSystem: "Aktuelles System",
     activeProfile: "Aktives Einsatzprofil", expedition: "Expedition", shipStatus: "Schiffsstatus",
     docked: "Angedockt", inFlight: "Im Flug", eliteDisconnected: "Nicht mit Elite Dangerous verbunden", unknown: "Status unbekannt", loading: "Wird ermittelt …",
     refreshJournal: "Journal aktualisieren", ready: "bereit", initializing: "Initialisierung", error: "Fehler",
     journalSource: "Journalquelle", journalConnected: "Journal verbunden", journalDisconnected: "Journal nicht verbunden",
-    journalSearch: "Die Anwendung sucht im Windows-Ordner für gespeicherte Spiele.",
+    journalSearch: "Die Anwendung sucht im Windows-Ordner für gespeicherte Spiele.", openJournalFolder: "Journalordner öffnen",
     unnamed: "Noch nicht benannt", assistantDescription: "Sprachausgabe, Persönlichkeit und Aktivierungswort werden hier eingerichtet.",
     openSettings: "Einstellungen öffnen", configureNow: "Jetzt einrichten", setup: "Einrichtung",
     computerQuestion: "Wie möchten Sie Ihren Bordcomputer nennen?", renameLater: "Der Name kann später jederzeit geändert werden.",
@@ -36,12 +36,12 @@ const messages = {
     commandCenter: "Command Center", navigation: "Navigation", settings: "Settings",
     systemControl: "System Control", onboardComputer: "Onboard Computer", notConfigured: "Not configured",
     testGreeting: "Test greeting", module: "Module", moduleSettings: "Module Settings", settingsDescription: "Onboard computer, language, and application options.",
-    language: "Language", german: "German", english: "English", currentSystem: "Current System",
+    language: "Language", german: "German", english: "English", french: "French", italian: "Italian", spanish: "Spanish", moduleHint: "We're tinkering away.", currentSystem: "Current System",
     activeProfile: "Active Mission Profile", expedition: "Expedition", shipStatus: "Ship Status",
     docked: "Docked", inFlight: "In Flight", eliteDisconnected: "Not connected to Elite Dangerous", unknown: "Status unknown", loading: "Detecting …",
     refreshJournal: "Refresh Journal", ready: "ready", initializing: "initializing", error: "error",
     journalSource: "Journal Source", journalConnected: "Journal Connected", journalDisconnected: "Journal Not Connected",
-    journalSearch: "The application is searching the Windows Saved Games folder.",
+    journalSearch: "The application is searching the Windows Saved Games folder.", openJournalFolder: "Open Journal Folder",
     unnamed: "Not named yet", assistantDescription: "Voice output, personality, and activation phrase are configured here.",
     openSettings: "Open Settings", configureNow: "Configure Now", setup: "Setup",
     computerQuestion: "What would you like to call your onboard computer?", renameLater: "You can change the name at any time.",
@@ -61,13 +61,23 @@ const messages = {
   },
 } as const;
 
+const messages = {
+  ...baseMessages,
+  fr: { ...baseMessages.en, language: "Langue", french: "Français", italian: "Italien", spanish: "Espagnol", moduleHint: "On y travaille." },
+  it: { ...baseMessages.en, language: "Lingua", french: "Francese", italian: "Italiano", spanish: "Spagnolo", moduleHint: "Ci stiamo lavorando." },
+  es: { ...baseMessages.en, language: "Idioma", french: "Francés", italian: "Italiano", spanish: "Español", moduleHint: "Estamos en ello." },
+} as const;
+
 type MessageKey = keyof typeof messages.de;
 type I18nValue = { language: Language; setLanguage: (language: Language) => void; t: (key: MessageKey, values?: Record<string, string | number>) => string };
 
 const I18nContext = createContext<I18nValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "de");
+  const [language, setLanguageState] = useState<Language>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === "en" || saved === "fr" || saved === "it" || saved === "es" ? saved : "de";
+  });
   const value = useMemo<I18nValue>(() => ({
     language,
     setLanguage(next) { localStorage.setItem(STORAGE_KEY, next); document.documentElement.lang = next; setLanguageState(next); },

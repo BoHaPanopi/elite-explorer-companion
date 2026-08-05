@@ -355,6 +355,14 @@ fn open_log_directory(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn open_journal_directory() -> Result<(), String> {
+    let directory = find_journal_directory("de")?;
+    runtime_health::hidden_output("explorer.exe", &[directory.to_string_lossy().as_ref()])
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 fn localized(locale: &str, de: &str, en: &str) -> String {
     if locale == "en" {
         en.to_string()
@@ -1027,6 +1035,17 @@ pub fn run() {
                 health.phase = "ready".into();
             }
 
+            if let Some(window) = app.get_webview_window("main") {
+                let close_app = app.handle().clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        log::info!("version={} phase=window_close process=app.exe cause=user_requested", env!("CARGO_PKG_VERSION"));
+                        stop_voice_server(&close_app);
+                        close_app.exit(0);
+                    }
+                });
+            }
+
             let watchdog_app = app.handle().clone();
             std::thread::spawn(move || {
                 loop {
@@ -1056,14 +1075,22 @@ pub fn run() {
             log_update_phase,
             prepare_for_update,
             repair_runtime,
-            open_log_directory
+            open_log_directory,
+            open_journal_directory
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                log::info!("version={} phase=exit process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
-                stop_voice_server(app);
+            match event {
+                tauri::RunEvent::ExitRequested { .. } => {
+                    log::info!("version={} phase=exit_requested process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
+                    stop_voice_server(app);
+                }
+                tauri::RunEvent::Exit => {
+                    log::info!("version={} phase=exit process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
+                    stop_voice_server(app);
+                }
+                _ => {}
             }
         });
 }

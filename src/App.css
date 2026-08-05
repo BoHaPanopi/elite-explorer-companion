@@ -695,6 +695,15 @@ h1 {
   margin-top: 0;
 }
 
+.module-settings-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.module-settings-panel button {
+  margin-top: auto;
+}
+
 .settings-tony {
   grid-column: 1 / -1;
 }
@@ -707,6 +716,32 @@ h1 {
 .journal-panel > div {
   flex: 1;
   text-align: center;
+}
+
+.journal-panel__actions {
+  display: flex;
+  flex: 0 0 auto !important;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.language-settings select {
+  display: block;
+  width: min(100%, 280px);
+  margin: 16px auto;
+}
+
+.language-settings {
+  display: flex;
+  min-height: 154px;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.language-settings h2 {
+  margin: 0;
 }
 
 .panel {
@@ -1024,6 +1059,15 @@ footer {
   color: #657383;
   font-size: 0.72rem;
   text-align: center;
+}
+
+.app-version {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  z-index: 5;
+  color: #657383;
+  font-size: 0.72rem;
 }
 
 @media (max-width: 1000px) {

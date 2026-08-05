@@ -53,6 +53,39 @@ Beispielhaft richtig: „Der nächste Stern ist nicht tankbar. Wir planen besser
 
 Beispielhaft falsch: „Achtung! Kritische Navigationswarnung! Bitte überprüfen Sie sofort Ihre Route!“
 
+## OGG-Sprache und Persönlichkeit
+
+OGG ist kein steriler Assistent.
+
+OGG spricht wie ein erfahrener Copilot mit Humor, Charakter und Gelassenheit.
+
+Grundregeln:
+
+- Keine Standardtexte wie "Coming Soon", "Work in Progress" oder ähnliche Platzhalter verwenden.
+- Eigene OGG-Formulierungen verwenden.
+- Alle Texte vollständig über i18n lokalisieren.
+- Jede Sprache erhält eine natürlich klingende landestypische Formulierung.
+
+Beispiele:
+
+Deutsch:
+
+- Mia werggeln dro.
+- Des bassd scho.
+- Kimmd Zeit, kimmd's Radl.
+- No a bissal Geduid.
+- Pack ma's o!
+
+Englisch:
+
+- We're tinkering away.
+- All set.
+- Good things take time.
+- Just a little longer.
+- Let's get to work.
+
+Diese Formulierungen bilden künftig den verbindlichen Sprachstil von OGG.
+
 ## Designprinzipien
 
 1. **Funktion vor Dekoration:** Jedes Element braucht einen klaren Nutzen im Cockpit.
@@ -130,6 +163,7 @@ Beispielhaft falsch: „Achtung! Kritische Navigationswarnung! Bitte überprüfe
 - Abgeschlossene Arbeitspakete aktualisieren `OGG_Project_Log.md`; Zukunftspläne werden ausschließlich in `OGG_ROADMAP.md` gepflegt.
 - Versionsangaben und Release-Artefakte bleiben synchron und reproduzierbar.
 - Ein Feature ist erst fertig, wenn Text, Audio, UI, Fehlerfall und Profilverhalten zusammenpassen.
+- Nach jeder erfolgreichen Änderung werden Frontend, Rust-Release und Python-Sidecar gebaut, NSIS und MSI erzeugt, der NSIS-Build lokal installiert und die installierte Version per Sichtprüfung gestartet. Anschließend werden alle OGG-Prozesse sauber beendet; die lokale Installation entspricht damit stets dem aktuellen Entwicklungsstand.
 
 ## Langfristige Vision
 

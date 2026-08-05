@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { exit } from "@tauri-apps/plugin-process";
@@ -85,17 +86,15 @@ const RETURNING_AFTER_MS = 30 * 60 * 1000;
 
 function PlaceholderPage({
   title,
-  description,
 }: {
   title: string;
-  description: string;
 }) {
   const { t } = useI18n();
   return (
-    <section className="panel">
+    <section className="panel module-settings-panel">
       <span>{t("module")}</span>
       <h2>{title}</h2>
-      <p className="muted">{description}</p>
+      <button type="button" disabled>{t("moduleHint")}</button>
     </section>
   );
 }
@@ -114,6 +113,7 @@ function App() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
   const [startupHealth, setStartupHealth] = useState<StartupHealth | null>(null);
+  const [appVersion, setAppVersion] = useState("");
   const [lastKnownCommander, setLastKnownCommander] = useState<string | null>(
     () => localStorage.getItem(LAST_KNOWN_COMMANDER_KEY),
   );
@@ -153,6 +153,10 @@ function App() {
       setIsLoading(false);
     }
   }, [language]);
+
+  useEffect(() => {
+    void getVersion().then(setAppVersion);
+  }, []);
 
   useEffect(() => {
     if (startupModeLogged.current || (isLoading && !lastKnownCommander)) return;
@@ -482,16 +486,14 @@ function App() {
         return (
           <section className="settings-layout">
             <div className="settings-module">
-            <PlaceholderPage
-              title={t("moduleSettings")}
-              description={t("settingsDescription")}
-            />
+            <PlaceholderPage title={t("moduleSettings")} />
             </div>
             <div className="settings-language"><LanguageSettings /></div>
             <div className="settings-journal">
             <JournalPanel
               journalPath={snapshot?.journalPath ?? ""}
               onRefresh={() => void loadEliteSnapshot()}
+              onOpenFolder={() => void invoke("open_journal_directory")}
               showPath
             />
             </div>
@@ -536,6 +538,7 @@ function App() {
           {t("footer")}
         </footer>
       </main>
+      {appVersion && <span className="app-version">v{appVersion}</span>}
 
       {showSetup && (
         <div className="modal-backdrop">
