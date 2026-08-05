@@ -16,7 +16,7 @@ export default function OggBrand({ journalState }: Props) {
     <header className="command-brand">
       <div
         className={`command-brand__logo command-brand__logo--${journalState}`}
-        aria-label={`OGG system status: ${systemStatus}`}
+        aria-label={t("systemStatusLabel", { status: systemStatus })}
       >
         <svg className="command-brand__track" viewBox="0 0 62 62" aria-hidden="true" focusable="false">
           <rect x="0.5" y="0.5" width="61" height="61" rx="16.5" pathLength="100" />

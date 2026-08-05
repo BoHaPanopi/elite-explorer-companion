@@ -500,7 +500,6 @@ function App() {
             <div className="settings-computer">
             <AssistantPanel
               name={bordcomputerName}
-              onConfigure={() => setShowSetup(true)}
               onTestGreeting={() => {
                 speechService.logTestButtonClick();
                 void speakGreeting(true);

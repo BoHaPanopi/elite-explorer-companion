@@ -63,3 +63,36 @@ test("the complete startup greeting lifecycle and suppression reasons are logged
     assert.match(app, new RegExp(event));
   }
 });
+
+test("initial setup explains the temporary computer-name limitation in every supported language", () => {
+  const messages = readFileSync("src/i18n.tsx", "utf8");
+  const panel = readFileSync("src/components/AssistantPanel.tsx", "utf8");
+
+  assert.match(messages, /Der Bordcomputer-Name kann derzeit nach der Ersteinrichtung noch nicht geändert werden\. Diese Funktion folgt mit Version 0\.15\./);
+  assert.match(messages, /The onboard computer name cannot currently be changed after initial setup\. This feature will follow with version 0\.15\./);
+  for (const translatedSetup of ["Configuration initiale", "Configurazione iniziale", "Configuración inicial"]) {
+    assert.match(messages, new RegExp(translatedSetup));
+  }
+  for (const key of ["computerQuestion", "renameLater", "computerName", "enterName", "characters", "cancel", "saveName"]) {
+    assert.equal((messages.match(new RegExp(`${key}:`, "g")) ?? []).length, 5);
+  }
+  assert.doesNotMatch(panel, /onConfigure|configureNow|openSettings/);
+  assert.match(panel, /<button type="button" disabled>\{t\("renameComputer"\)\}<\/button>/);
+  assert.match(panel, /t\("renameAvailableFrom015"\)/);
+  for (const key of ["renameComputer", "renameAvailableFrom015"]) {
+    assert.equal((messages.match(new RegExp(`${key}:`, "g")) ?? []).length, 5);
+  }
+});
+
+test("every selectable language defines every interface message without an English fallback", () => {
+  const source = readFileSync("src/i18n.tsx", "utf8");
+  const messageDefinitions = source.slice(source.indexOf("const baseMessages"), source.indexOf("type MessageKey"));
+  const germanBlock = source.slice(source.indexOf("  de: {") + "  de: {".length, source.indexOf("  en: {"));
+  const keys = [...germanBlock.matchAll(/\b([a-z][A-Za-z0-9]*):/g)].map((match) => match[1]);
+
+  assert.equal(new Set(keys).size, keys.length);
+  assert.doesNotMatch(messageDefinitions, /\.\.\.baseMessages\.en/);
+  for (const key of keys) {
+    assert.equal((messageDefinitions.match(new RegExp(`\\b${key}:`, "g")) ?? []).length, 5, `${key} must exist in all five languages`);
+  }
+});
