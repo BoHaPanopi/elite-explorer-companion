@@ -278,6 +278,15 @@ fn log_update_phase(phase: String, cause: String, technical: Option<String>) {
 }
 
 #[tauri::command]
+fn updater_distribution() -> &'static str {
+    if option_env!("OGG_LOCAL_TEST_BUILD").is_some() {
+        "local-test"
+    } else {
+        "official"
+    }
+}
+
+#[tauri::command]
 fn log_audio_event(event: String, technical: Option<String>) {
     log::info!(
         "version={} phase=audio process=msedgewebview2.exe event={} technical={}",
@@ -1073,6 +1082,7 @@ pub fn run() {
             log_frontend_failure,
             log_audio_event,
             log_update_phase,
+            updater_distribution,
             prepare_for_update,
             repair_runtime,
             open_log_directory,

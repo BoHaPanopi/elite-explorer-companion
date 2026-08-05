@@ -64,6 +64,32 @@ test("the complete startup greeting lifecycle and suppression reasons are logged
   }
 });
 
+test("an update notice stays dismissed for the current session", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+
+  assert.match(app, /let updateNoticeDismissedForSession = false/);
+  assert.match(app, /updateNoticeDismissedForSession = true/);
+  assert.match(app, /if \(!updateNoticeDismissedForSession\) setAvailableUpdate\(update\)/);
+  assert.match(app, /phase: "notice_dismissed"[\s\S]*scope=current_session/);
+});
+
+test("local test builds skip only their own updater check", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+  const backend = readFileSync("src-tauri/src/lib.rs", "utf8");
+  const packageJson = readFileSync("package.json", "utf8");
+  const workflow = readFileSync(".github/workflows/release.yml", "utf8");
+
+  assert.match(backend, /option_env!\("OGG_LOCAL_TEST_BUILD"\)/);
+  assert.match(packageJson, /set \\"OGG_LOCAL_TEST_BUILD=1\\"&& tauri build/);
+  assert.doesNotMatch(packageJson, /tauri\.local\.conf\.json/);
+  assert.match(app, /distribution === "local-test"/);
+  assert.match(app, /scope=this_installation_only/);
+  assert.match(app, /let updateCheckStartedForSession = false/);
+  assert.match(app, /if \(updateCheckStartedForSession\)/);
+  assert.match(app, /updateCheckStartedForSession = true/);
+  assert.doesNotMatch(workflow, /OGG_LOCAL_TEST_BUILD/);
+});
+
 test("initial setup explains the temporary computer-name limitation in every supported language", () => {
   const messages = readFileSync("src/i18n.tsx", "utf8");
   const panel = readFileSync("src/components/AssistantPanel.tsx", "utf8");

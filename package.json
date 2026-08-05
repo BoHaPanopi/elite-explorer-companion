@@ -11,7 +11,8 @@
     "test:update": "node --experimental-strip-types --test tests/updateWait.test.ts tests/startupRecovery.test.ts",
     "test:star-class": "node --experimental-strip-types --test tests/starClass.test.ts",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build:local": "set \"OGG_LOCAL_TEST_BUILD=1\"&& tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

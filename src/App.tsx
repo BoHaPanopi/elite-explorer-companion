@@ -80,6 +80,8 @@ type UpdateReadiness = {
 type StartupGreetingState = "idle" | "scheduled" | "playing" | "completed";
 
 const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
+let updateCheckStartedForSession = false;
+let updateNoticeDismissedForSession = false;
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
@@ -184,18 +186,34 @@ function App() {
     });
     refreshStartupHealth();
     const healthInterval = window.setInterval(refreshStartupHealth, 2000);
-    void invoke("log_update_phase", { phase: "check", cause: "startup", technical: null });
-    void check().then((update) => {
-      if (active && update) void downloadUpdate(update);
-    }).catch((error) => {
-      void invoke("log_update_phase", { phase: "check_failed", cause: "request_failed", technical: error instanceof Error ? error.message : String(error) });
-    });
     return () => { active = false; window.clearInterval(healthInterval); window.clearInterval(heartbeatInterval); };
   }, [language]);
 
+  useEffect(() => {
+    if (updateCheckStartedForSession) {
+      void invoke("log_update_phase", { phase: "check_suppressed", cause: "duplicate_effect_initialization", technical: "scope=current_session" });
+      return;
+    }
+    updateCheckStartedForSession = true;
+    void invoke<string>("updater_distribution").then((distribution) => {
+      if (distribution === "local-test") {
+        void invoke("log_update_phase", { phase: "check_skipped", cause: "local_test_build", technical: "scope=this_installation_only" });
+        return;
+      }
+      void invoke("log_update_phase", { phase: "check", cause: "startup", technical: "scope=official_distribution" });
+      void check().then((update) => {
+        if (update) void downloadUpdate(update);
+      }).catch((error) => {
+        void invoke("log_update_phase", { phase: "check_failed", cause: "request_failed", technical: error instanceof Error ? error.message : String(error) });
+      });
+    }).catch((error) => {
+      void invoke("log_update_phase", { phase: "check_failed", cause: "distribution_detection_failed", technical: error instanceof Error ? error.message : String(error) });
+    });
+  }, []);
+
   async function downloadUpdate(update: Update) {
     pendingUpdate.current = update;
-    setAvailableUpdate(update);
+    if (!updateNoticeDismissedForSession) setAvailableUpdate(update);
     setUpdatePhase("downloading");
     updatePhaseRef.current = "downloading";
     setUpdateProgress(0);
@@ -214,6 +232,12 @@ function App() {
       setUpdatePhase("error");
       updatePhaseRef.current = "error";
     }
+  }
+
+  function dismissUpdateNotice() {
+    updateNoticeDismissedForSession = true;
+    setAvailableUpdate(null);
+    void invoke("log_update_phase", { phase: "notice_dismissed", cause: "user_choice", technical: "scope=current_session" });
   }
 
   useEffect(() => {
@@ -554,7 +578,7 @@ function App() {
           </div>
         </div>
       )}
-      {availableUpdate && <UpdateDialog version={availableUpdate.version} phase={updatePhase} error={updateError} onDismiss={() => setAvailableUpdate(null)} />}
+      {availableUpdate && <UpdateDialog version={availableUpdate.version} phase={updatePhase} error={updateError} onDismiss={dismissUpdateNotice} />}
       {startupHealth && !startupHealth.ready && <StartupRecoveryDialog health={startupHealth} onHealthChange={(health) => setStartupHealth(health.ready ? null : health)} />}
       {tonyProfile && tonyMessage && !showSetup && !availableUpdate && <TonyMessageDialog profile={tonyProfile} type={tonyMessage} onContinue={closeTonyMessage} />}
     </div>
