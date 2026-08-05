@@ -4,10 +4,36 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>elite-explorer-companion</title>
+    <title>Old Guy of Grumpy</title>
+    <style>
+      #ogg-boot { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: #050b10; color: #c9d7de; font: 16px/1.55 "Segoe UI", sans-serif; }
+      #ogg-boot section { width: min(620px, 100%); padding: 36px; box-sizing: border-box; border: 1px solid rgba(32,200,255,.22); border-radius: 18px; background: #071018; }
+      #ogg-boot strong { color: #20c8ff; letter-spacing: .12em; } #ogg-boot h1 { color: #f1f6f8; font-size: 1.6rem; }
+      #ogg-boot nav { display: none; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 22px; }
+      #ogg-boot button { min-height: 42px; border: 1px solid rgba(32,200,255,.25); border-radius: 9px; background: #0a1821; color: #c9d7de; cursor: pointer; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="ogg-boot"><section><strong>OGG</strong><h1 id="ogg-boot-title">OGG wird gestartet …</h1><p id="ogg-boot-copy"></p><nav id="ogg-boot-actions"><button id="ogg-boot-restart">Erneut starten</button><button id="ogg-boot-repair">Reparieren</button><button id="ogg-boot-log">Log öffnen</button><button id="ogg-boot-exit">Beenden</button></nav></section></div></div>
+    <script>
+      window.setTimeout(() => {
+        const boot = document.getElementById("ogg-boot");
+        if (!boot || !boot.isConnected) return;
+        const english = localStorage.getItem("ogg.language") === "en";
+        document.getElementById("ogg-boot-title").textContent = english ? "OGG could not be started completely." : "OGG konnte nicht vollständig gestartet werden.";
+        document.getElementById("ogg-boot-copy").textContent = english ? "The installation or a required background service may be damaged." : "Die Installation oder ein benötigter Hintergrunddienst ist möglicherweise beschädigt.";
+        document.getElementById("ogg-boot-restart").textContent = english ? "Restart" : "Erneut starten";
+        document.getElementById("ogg-boot-repair").textContent = english ? "Repair" : "Reparieren";
+        document.getElementById("ogg-boot-log").textContent = english ? "Open Log" : "Log öffnen";
+        document.getElementById("ogg-boot-exit").textContent = english ? "Quit" : "Beenden";
+        document.getElementById("ogg-boot-actions").style.display = "grid";
+        window.__TAURI_INTERNALS__?.invoke("show_boot_surface");
+      }, 6000);
+      document.getElementById("ogg-boot-restart").addEventListener("click", () => location.reload());
+      document.getElementById("ogg-boot-repair").addEventListener("click", () => window.__TAURI_INTERNALS__?.invoke("repair_runtime").finally(() => location.reload()));
+      document.getElementById("ogg-boot-log").addEventListener("click", () => window.__TAURI_INTERNALS__?.invoke("open_log_directory"));
+      document.getElementById("ogg-boot-exit").addEventListener("click", () => window.close());
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

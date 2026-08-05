@@ -69,7 +69,6 @@ export default function TacticalOfficerPanel() {
           `Käpt'n. ${assessment.detail}. ${assessment.oggComment}`,
         ],
         500,
-        { rate: 0.9 },
       );
     } finally {
       setIsRunning(false);

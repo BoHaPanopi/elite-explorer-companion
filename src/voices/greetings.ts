@@ -4,20 +4,61 @@ export type GreetingContext = {
   isReturning: boolean;
 };
 
-const firstVisitGreetings = [
-  "Willkommen im Cockpit, Commander {commander}.",
-  "Willkommen an Bord, Commander {commander}.",
-  "Cockpit bereit. Willkommen, Commander {commander}.",
+type GreetingVariant = {
+  online: string;
+  ready: string;
+  firstVisit: string;
+  returning: string;
+};
+
+const greetingVariants: GreetingVariant[] = [
+  {
+    online: "Bordcomputer {computer} ist online.",
+    ready: "alle Systeme sind betriebsbereit.",
+    firstVisit: "willkommen im Cockpit, {commander}.",
+    returning: "willkommen zurück im Cockpit, {commander}.",
+  },
+  {
+    online: "Bordcomputer {computer} meldet sich online.",
+    ready: "sämtliche Systeme sind einsatzbereit.",
+    firstVisit: "willkommen an Bord, {commander}.",
+    returning: "willkommen zurück an Bord, {commander}.",
+  },
+  {
+    online: "Bordcomputer {computer} ist hochgefahren.",
+    ready: "die Systeme stehen bereit.",
+    firstVisit: "das Cockpit erwartet Sie, {commander}.",
+    returning: "schön, Sie wieder im Cockpit zu haben, {commander}.",
+  },
+  {
+    online: "Bordcomputer {computer} ist vollständig online.",
+    ready: "alle Systeme laufen ordnungsgemäß.",
+    firstVisit: "willkommen auf Ihrem Platz, {commander}.",
+    returning: "willkommen wieder auf Ihrem Platz, {commander}.",
+  },
+  {
+    online: "Bordcomputer {computer} ist bereit.",
+    ready: "der Systemcheck ist abgeschlossen.",
+    firstVisit: "willkommen im Cockpit, {commander}.",
+    returning: "willkommen zurück im Cockpit, {commander}.",
+  },
+  {
+    online: "Bordcomputer {computer} läuft.",
+    ready: "alle Systeme melden Bereitschaft.",
+    firstVisit: "willkommen an Bord, {commander}.",
+    returning: "gut, Sie wieder an Bord zu haben, {commander}.",
+  },
 ];
 
-const returningGreetings = [
-  "Willkommen zurück im Cockpit, Commander {commander}.",
-  "Schön, Sie wieder im Cockpit zu haben, Commander {commander}.",
-  "Willkommen zurück an Bord, Commander {commander}.",
-];
+let lastVariantIndex = -1;
 
-function choose<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
+function chooseVariant(): GreetingVariant {
+  const offset = 1 + Math.floor(Math.random() * (greetingVariants.length - 1));
+  const index = lastVariantIndex < 0
+    ? Math.floor(Math.random() * greetingVariants.length)
+    : (lastVariantIndex + offset) % greetingVariants.length;
+  lastVariantIndex = index;
+  return greetingVariants[index];
 }
 
 export function createStartupGreeting({
@@ -25,13 +66,17 @@ export function createStartupGreeting({
   commanderName,
   isReturning,
 }: GreetingContext): string[] {
-  const template = choose(
-    isReturning ? returningGreetings : firstVisitGreetings,
-  );
+  const variant = chooseVariant();
+  const normalizedCommander = commanderName.trim();
+  const commanderReference =
+    normalizedCommander.toLocaleLowerCase("de-DE") === "commander"
+      ? "Commander"
+      : `Commander ${normalizedCommander}`;
 
   return [
-    `Bordcomputer ${bordcomputerName} ist online.`,
-    "Alle Systeme betriebsbereit.",
-    template.replace("{commander}", commanderName),
+    variant.online.replace("{computer}", bordcomputerName),
+    variant.ready,
+    (isReturning ? variant.returning : variant.firstVisit)
+      .replace("{commander}", commanderReference),
   ];
 }

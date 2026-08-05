@@ -11,11 +11,13 @@ import JournalPanel from "./components/JournalPanel";
 import LanguageSettings from "./components/LanguageSettings";
 import Navigation from "./components/Navigation";
 import Sidebar from "./components/Sidebar";
+import StartupRecoveryDialog, { type StartupHealth } from "./components/StartupRecoveryDialog";
 import TopBar from "./components/TopBar";
 import { TonyAbout, TonyMessageDialog } from "./components/TonyEdition";
 import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
 import { useI18n } from "./i18n";
 import { speechService } from "./services/SpeechService";
+import { waitForEliteProcessExit } from "./services/UpdateWaitService";
 import { createStartupGreeting } from "./voices/greetings";
 import { createExplorationMessage, type ExplorationObservationKind } from "./voices/exploration";
 import { isTonySeason, resolveActiveTonyProfile, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "./features/tonyEdition";
@@ -59,6 +61,11 @@ type EliteSnapshot = {
   route: RouteStep[];
 };
 
+type UpdateReadiness = {
+  ready: boolean;
+  blocker: "voice_server_running" | "voice_server_locked" | "another_ogg_instance" | "installer_running" | "voice_server_missing" | null;
+};
+
 const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
@@ -93,6 +100,7 @@ function App() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
+  const [startupHealth, setStartupHealth] = useState<StartupHealth | null>(null);
   const greetingPlayed = useRef(false);
   const explorationBaselineReady = useRef(false);
   const lastExplorationObservation = useRef<string | null>(null);
@@ -112,8 +120,18 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    void check().then((update) => { if (active && update) setAvailableUpdate(update); }).catch((error) => console.error(language === "en" ? "Update check failed:" : "Update-Prüfung fehlgeschlagen:", error));
-    return () => { active = false; };
+    void invoke("mark_frontend_ready");
+    const heartbeatInterval = window.setInterval(() => void invoke("frontend_heartbeat"), 2000);
+    const refreshStartupHealth = () => void invoke<StartupHealth>("get_startup_health").then((health) => {
+      if (active && !health.ready) setStartupHealth(health);
+    });
+    refreshStartupHealth();
+    const healthInterval = window.setInterval(refreshStartupHealth, 2000);
+    void invoke("log_update_phase", { phase: "check", cause: "startup", technical: null });
+    void check().then((update) => { if (active && update) setAvailableUpdate(update); }).catch((error) => {
+      void invoke("log_update_phase", { phase: "check_failed", cause: "request_failed", technical: error instanceof Error ? error.message : String(error) });
+    });
+    return () => { active = false; window.clearInterval(healthInterval); window.clearInterval(heartbeatInterval); };
   }, [language]);
 
   async function installUpdate() {
@@ -121,6 +139,7 @@ function App() {
     setUpdatePhase("downloading");
     setUpdateProgress(0);
     setUpdateError(null);
+    void invoke("log_update_phase", { phase: "download_start", cause: "user_confirmed", technical: null });
     let downloaded = 0;
     let total: number | undefined;
     try {
@@ -135,14 +154,37 @@ function App() {
           setUpdateProgress(1);
         }
       });
+      void invoke("log_update_phase", { phase: "download_complete", cause: "package_cached", technical: null });
       setUpdateProgress(1);
+
+      if (await invoke<boolean>("is_elite_dangerous_running")) {
+        setUpdatePhase("waitingForElite");
+        void invoke("log_update_phase", { phase: "waiting", cause: "elite_dangerous_running", technical: null });
+        await waitForEliteProcessExit(
+          () => invoke<boolean>("is_elite_dangerous_running"),
+          () => new Promise((resolve) => window.setTimeout(resolve, 2000)),
+        );
+      }
+
+      let readiness = await invoke<UpdateReadiness>("prepare_for_update");
+      while (!readiness.ready) {
+        setUpdatePhase("waitingForServices");
+        void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: readiness.blocker });
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        readiness = await invoke<UpdateReadiness>("prepare_for_update");
+      }
+
       setUpdatePhase("installing");
+      void invoke("log_update_phase", { phase: "install", cause: "preflight_ready", technical: null });
       await availableUpdate.install();
       setUpdatePhase("restarting");
+      void invoke("log_update_phase", { phase: "restart", cause: "installation_complete", technical: null });
       await new Promise((resolve) => window.setTimeout(resolve, 900));
       await relaunch();
     } catch (error) {
-      setUpdateError(error instanceof Error ? error.message : String(error));
+      void invoke("log_update_phase", { phase: "failed", cause: "installation_aborted", technical: error instanceof Error ? error.message : String(error) });
+      void invoke<StartupHealth>("repair_runtime").then((health) => { if (!health.ready) setStartupHealth(health); });
+      setUpdateError(error instanceof Error ? error.name : "update-error");
       setUpdatePhase("error");
     }
   }
@@ -202,7 +244,9 @@ function App() {
 
   const speakGreeting = useCallback(
     async (forceReturning?: boolean) => {
-      if (!bordcomputerName || !snapshot?.commander) return;
+      if (!bordcomputerName) return;
+
+      const commanderName = snapshot?.commander?.trim() || "Commander";
 
       const lastSession = Number(
         localStorage.getItem(LAST_COCKPIT_SESSION_KEY) ?? "0",
@@ -215,7 +259,7 @@ function App() {
 
       const greeting = createStartupGreeting({
         bordcomputerName,
-        commanderName: snapshot.commander,
+        commanderName,
         isReturning,
       });
 
@@ -225,7 +269,10 @@ function App() {
       );
 
       try {
-        await speechService.speakSequence(greeting, 650);
+        const greetingText = `${greeting
+          .map((segment) => segment.replace(/[.!?]+$/, ""))
+          .join(", ")}.`;
+        await speechService.speak(greetingText, { preRollMs: 650 });
       } catch (error) {
         console.error(language === "en" ? "Voice output failed:" : "Sprachausgabe fehlgeschlagen:", error);
       }
@@ -237,8 +284,7 @@ function App() {
     if (
       greetingPlayed.current ||
       showSetup ||
-      !bordcomputerName ||
-      !snapshot?.commander
+      !bordcomputerName
     ) {
       return;
     }
@@ -322,7 +368,10 @@ function App() {
             <AssistantPanel
               name={bordcomputerName}
               onConfigure={() => setShowSetup(true)}
-              onTestGreeting={() => void speakGreeting(true)}
+              onTestGreeting={() => {
+                speechService.logTestButtonClick();
+                void speakGreeting(true);
+              }}
             />
             {tonyProfile && <TonyAbout onOpenWelcome={() => setTonyMessage("welcome")} />}
           </section>
@@ -347,7 +396,10 @@ function App() {
             title={page === "navigation" ? t("navigation") : t("settings")}
             bordcomputerName={bordcomputerName}
             onConfigure={() => setShowSetup(true)}
-            onTestGreeting={() => void speakGreeting(true)}
+            onTestGreeting={() => {
+              speechService.logTestButtonClick();
+              void speakGreeting(true);
+            }}
           />
         )}
 
@@ -374,6 +426,7 @@ function App() {
         </div>
       )}
       {availableUpdate && <UpdateDialog version={availableUpdate.version} notes={availableUpdate.body} phase={updatePhase} progress={updateProgress} error={updateError} onInstall={() => void installUpdate()} onDismiss={() => setAvailableUpdate(null)} />}
+      {startupHealth && !startupHealth.ready && <StartupRecoveryDialog health={startupHealth} onHealthChange={(health) => setStartupHealth(health.ready ? null : health)} />}
       {tonyProfile && tonyMessage && !showSetup && !availableUpdate && <TonyMessageDialog profile={tonyProfile} type={tonyMessage} onContinue={closeTonyMessage} />}
     </div>
   );

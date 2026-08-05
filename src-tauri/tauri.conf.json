@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Old Guy of Grumpy",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "identifier": "de.panopi.eliteexplorercompanion",
   "build": {
     "frontendDist": "../dist",
@@ -16,6 +16,9 @@
         "width": 1400,
         "height": 900,
         "center": true,
+        "visible": false,
+        "backgroundColor": "#050b10",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-gpu-compositing --autoplay-policy=no-user-gesture-required",
         "resizable": true,
         "fullscreen": false
       }

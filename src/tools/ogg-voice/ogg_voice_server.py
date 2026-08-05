@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import argparse
+import ctypes
 import json
 import os
 import tempfile
+import threading
 from pathlib import Path
 
 import edge_tts
@@ -18,6 +21,37 @@ app = Flask(__name__)
 CORS(app)
 
 
+def apply_pronunciation_hints(text: str) -> str:
+    """Give Edge a German phonetic spelling while preserving one continuous voice."""
+    return (
+        text
+        .replace("Bordcomputer", "Bordkompjuter")
+        .replace("Commander", "Kommander")
+    )
+
+
+def exit_when_parent_stops(parent_pid: int) -> None:
+    """Prevent a force-closed OGG app from leaving the bundled server behind."""
+    synchronize = 0x00100000
+    wait_object_0 = 0
+    kernel32 = ctypes.windll.kernel32
+    parent = kernel32.OpenProcess(synchronize, False, parent_pid)
+    if not parent:
+        os._exit(0)
+
+    try:
+        if kernel32.WaitForSingleObject(parent, 0xFFFFFFFF) == wait_object_0:
+            os._exit(0)
+    finally:
+        kernel32.CloseHandle(parent)
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--parent-pid", type=int)
+    return parser.parse_known_args()[0]
+
+
 def rate_to_edge(value: float) -> str:
     percent = max(-50, min(50, round((value - 1.0) * 100)))
     return f"{percent:+d}%"
@@ -28,17 +62,24 @@ def volume_to_edge(value: float) -> str:
     return f"{percent:+d}%"
 
 
+def pitch_to_edge(value: float) -> str:
+    hz = max(-100, min(100, round(value)))
+    return f"{hz:+d}Hz"
+
+
 async def synthesize(
     text: str,
     voice: str,
     rate: float,
+    pitch: float,
     volume: float,
     output_path: Path,
 ) -> None:
     communicator = edge_tts.Communicate(
-        text=text,
+        text=apply_pronunciation_hints(text),
         voice=voice,
         rate=rate_to_edge(rate),
+        pitch=pitch_to_edge(pitch),
         volume=volume_to_edge(volume),
     )
     await communicator.save(str(output_path))
@@ -126,6 +167,7 @@ def speak() -> Response:
 
     try:
         rate = float(request.args.get("rate", "0.92"))
+        pitch = float(request.args.get("pitch", "0"))
         volume = float(request.args.get("volume", "1.0"))
     except ValueError as error:
         message = f"Ungültige Sprachoptionen: {error}"
@@ -136,6 +178,7 @@ def speak() -> Response:
 
     print(f"Stimme:       {voice}", flush=True)
     print(f"Rate:         {rate}", flush=True)
+    print(f"Pitch:        {pitch}", flush=True)
     print(f"Volume:       {volume}", flush=True)
 
     temp_file = tempfile.NamedTemporaryFile(
@@ -152,6 +195,7 @@ def speak() -> Response:
                 text=text,
                 voice=voice,
                 rate=rate,
+                pitch=pitch,
                 volume=volume,
                 output_path=output_path,
             )
@@ -187,6 +231,14 @@ def speak() -> Response:
 
 
 if __name__ == "__main__":
+    arguments = parse_arguments()
+    if arguments.parent_pid:
+        threading.Thread(
+            target=exit_when_parent_stops,
+            args=(arguments.parent_pid,),
+            daemon=True,
+        ).start()
+
     print()
     print("OGG Alpha 0.13.1 Debug-Sprachserver läuft.")
     print(f"Stimme:  {DEFAULT_VOICE}")

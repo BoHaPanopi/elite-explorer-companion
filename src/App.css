@@ -843,6 +843,18 @@ h1 {
 .update-actions .primary-action { border-color: rgba(69, 214, 223, 0.68); color: #bdfcff; background: rgba(18, 93, 103, 0.38); }
 .update-progress-copy { min-height: 6rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .update-progress-copy > span { margin-top: 0.65rem; color: var(--cyan); font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+.update-waiting p { max-width: 32rem; margin: 0.8rem 0 1.4rem; color: #a9bbc4; line-height: 1.6; }
+.update-waiting button { min-width: 180px; }
+.startup-error-backdrop { z-index: 1400; }
+.startup-error-dialog { display: grid; width: min(640px, calc(100vw - 32px)); gap: 24px; padding: clamp(24px, 4vw, 42px); border-color: rgba(255, 177, 65, 0.42); background: radial-gradient(circle at 50% 0, rgba(255, 177, 65, 0.08), transparent 45%), #071018; }
+.startup-error-dialog header { display: flex; align-items: center; gap: 14px; }
+.startup-error-dialog header span { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid rgba(255, 177, 65, 0.58); border-radius: 14px; color: #ffbe68; font-weight: 900; letter-spacing: 0.1em; }
+.startup-error-dialog header strong { color: #ffcf8f; font-size: 0.74rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.startup-error-dialog h2 { margin: 0; color: #f1f6f8; font-size: clamp(1.4rem, 3vw, 2rem); }
+.startup-error-dialog p { margin: 10px 0; color: #aabac3; line-height: 1.6; }
+.startup-error-dialog small { color: #667b88; }
+.startup-error-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .startup-error-actions { grid-template-columns: 1fr; } }
 .update-error { color: #ff6969; }
 
 @keyframes update-status-pulse { 0%, 100% { opacity: 0.18; box-shadow: 0 0 0 rgba(53, 226, 138, 0); } 50% { opacity: 1; box-shadow: 0 0 20px rgba(53, 226, 138, 0.42); } }

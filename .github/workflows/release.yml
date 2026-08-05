@@ -40,11 +40,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Alpha 0.14.1 maintenance release.
+            Alpha 0.14.2 audio reliability release.
 
-            - Reliable live ship-status detection
-            - Expanded journal recognition for exploration, mapping, and biological discoveries
-            - Refined Command Center information hierarchy
-            - Commander-specific cockpit refinements
+            - Reliable audible greetings in the installed Windows release
+            - Bluetooth audio pre-roll to preserve the complete opening
+            - Fluid single-file greeting playback without segment gaps
+            - Natural non-repeating OGG greeting variations
           releaseDraft: false
           prerelease: false
