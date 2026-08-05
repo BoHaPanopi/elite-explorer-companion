@@ -53,8 +53,9 @@ class SpeechService {
     }
   }
 
-  private async waitForServer(): Promise<boolean> {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+  async waitUntilReady(timeoutMs = 30_000): Promise<boolean> {
+    const attempts = Math.max(1, Math.ceil(timeoutMs / 250));
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       if (await this.serverIsOnline()) return true;
       await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
     }
@@ -134,7 +135,7 @@ class SpeechService {
     const cleanedText = String(text ?? "").trim();
     if (!cleanedText) throw new Error("OGG hat keinen Text erhalten.");
 
-    if (!(await this.waitForServer())) {
+    if (!(await this.waitUntilReady())) {
       throw new Error(
         localStorage.getItem("ogg.language") === "en"
           ? "The OGG voice server could not be started. Please verify the installation."

@@ -634,6 +634,13 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.navigation-summary .card strong {
+  color: #edf8ff;
+  font-size: clamp(1.08rem, 1.4vw, 1.35rem);
+  font-weight: 750;
+  line-height: 1.2;
+}
+
 .main-grid,
 .settings-layout {
   display: grid;
@@ -656,6 +663,24 @@ h1 {
 .panel h2 {
   margin: 7px 0 0;
   overflow-wrap: anywhere;
+}
+
+.navigation-route-panel .panel-heading h2 {
+  margin-top: 9px;
+  color: #f7fcff;
+  font-size: clamp(2.15rem, 4.2vw, 3.75rem);
+  font-weight: 850;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 18px rgba(36, 207, 255, 0.22),
+    0 2px 2px rgba(0, 0, 0, 0.65);
+}
+
+.navigation-route-panel .panel-heading span {
+  color: #91a2b4;
+  font-weight: 650;
 }
 
 .route-line {
@@ -1015,6 +1040,10 @@ footer {
 
   .navigation-route-item {
     grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .navigation-route-panel .panel-heading h2 {
+    font-size: clamp(2rem, 11vw, 2.85rem);
   }
 
   .route-star-info {

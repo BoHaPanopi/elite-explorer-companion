@@ -40,11 +40,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Alpha 0.14.2 audio reliability release.
+            Alpha 0.14.3 navigation progress release.
 
-            - Reliable audible greetings in the installed Windows release
-            - Bluetooth audio pre-roll to preserve the complete opening
-            - Fluid single-file greeting playback without segment gaps
-            - Natural non-repeating OGG greeting variations
+            - Live route progress follows journal jumps and route replanning
+            - Current position, next destination, remaining jumps, and distance share one central source
+            - Completed route steps are removed from the active route
+            - Route progress is reconstructed consistently after restart and manual journal refresh
           releaseDraft: false
           prerelease: false

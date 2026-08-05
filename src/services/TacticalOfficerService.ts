@@ -4,6 +4,7 @@ import type {
   TacticalTarget,
   ThreatLevel,
 } from "../types/tactical";
+import { createTonyTacticalText, type TonyProfile } from "../features/tonyEdition";
 
 const rankScore: Record<string, number> = {
   Harmless: 0,
@@ -100,8 +101,10 @@ function getOggComment(level: ThreatLevel): string {
 export function assessTarget(
   own: OwnShip,
   target: TacticalTarget,
+  tonyProfile: TonyProfile | null = null,
 ): TacticalResult {
   const level = getThreatLevel(own, target);
+  const tonyText = tonyProfile ? createTonyTacticalText(target, level) : null;
 
   const title = target.missionTarget
     ? `Missionsziel: ${target.pilotName}`
@@ -139,10 +142,10 @@ export function assessTarget(
 
   return {
     level,
-    title,
-    detail: `${missionText} · ${target.shipName} · ${target.combatRank}${wingText}${bountyText}`,
-    oggComment: getOggComment(level),
-    opponentWarning,
+    title: tonyText?.title ?? title,
+    detail: tonyText?.detail ?? `${missionText} · ${target.shipName} · ${target.combatRank}${wingText}${bountyText}`,
+    oggComment: tonyText?.oggComment ?? getOggComment(level),
+    opponentWarning: tonyText?.opponentWarning ?? opponentWarning,
     recommendation,
   };
 }

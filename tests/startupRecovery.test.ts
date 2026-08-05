@@ -34,3 +34,32 @@ test("release logging and process launches are configured for persistent hidden 
   assert.match(backend, /frontend_watchdog/);
   assert.match(backend, /heartbeat_timeout/);
 });
+
+test("the startup greeting is completed only after audible playback succeeds", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+  const speech = readFileSync("src/services/SpeechService.ts", "utf8");
+
+  assert.match(app, /"idle" \| "scheduled" \| "playing" \| "completed"/);
+  assert.match(app, /await speechService\.waitUntilReady\(30_000\)/);
+  assert.match(app, /const greetingCompleted = await speakGreeting\(\);[\s\S]*if \(!greetingCompleted\) throw[\s\S]*startupGreetingState\.current = "completed"/);
+  assert.doesNotMatch(app, /greetingPlayed\.current = true/);
+  assert.doesNotMatch(app, /startup_greeting_scheduled[\s\S]{0,800}setTimeout\(\(\) => \{[\s\S]{0,800}waitUntilReady/);
+  assert.match(speech, /async waitUntilReady\(timeoutMs = 30_000\)/);
+});
+
+test("the complete startup greeting lifecycle and suppression reasons are logged", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+
+  for (const event of [
+    "startup_app_started",
+    "startup_voice_server_ready",
+    "language_mode_at_startup",
+    "language_mode_after_commander_detection",
+    "startup_greeting_scheduled",
+    "startup_greeting_started",
+    "startup_greeting_finished",
+    "startup_greeting_suppressed",
+  ]) {
+    assert.match(app, new RegExp(event));
+  }
+});

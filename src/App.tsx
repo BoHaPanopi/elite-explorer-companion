@@ -20,7 +20,7 @@ import { speechService } from "./services/SpeechService";
 import { waitForEliteProcessExit } from "./services/UpdateWaitService";
 import { createStartupGreeting } from "./voices/greetings";
 import { createExplorationMessage, type ExplorationObservationKind } from "./voices/exploration";
-import { isTonySeason, resolveActiveTonyProfile, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "./features/tonyEdition";
+import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "./features/tonyEdition";
 
 type Page =
   | "dashboard"
@@ -31,6 +31,14 @@ type RouteStep = {
   system: string;
   starClass: string | null;
   position: [number, number, number] | null;
+};
+
+type NavigationProgress = {
+  currentSystem: string | null;
+  nextSystem: string | null;
+  remainingJumps: number;
+  remainingDistance: number | null;
+  activeRoute: RouteStep[];
 };
 
 type EliteSnapshot = {
@@ -58,7 +66,7 @@ type EliteSnapshot = {
     } | null;
   };
   journalPath: string;
-  route: RouteStep[];
+  navigationProgress: NavigationProgress;
 };
 
 type UpdateReadiness = {
@@ -66,8 +74,11 @@ type UpdateReadiness = {
   blocker: "voice_server_running" | "voice_server_locked" | "another_ogg_instance" | "installer_running" | "voice_server_missing" | null;
 };
 
+type StartupGreetingState = "idle" | "scheduled" | "playing" | "completed";
+
 const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
+const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
 
 function PlaceholderPage({
@@ -101,14 +112,35 @@ function App() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
   const [startupHealth, setStartupHealth] = useState<StartupHealth | null>(null);
-  const greetingPlayed = useRef(false);
+  const [lastKnownCommander, setLastKnownCommander] = useState<string | null>(
+    () => localStorage.getItem(LAST_KNOWN_COMMANDER_KEY),
+  );
+  const startupGreetingState = useRef<StartupGreetingState>("idle");
+  const lastGreetingSuppressionReason = useRef<string | null>(null);
+  const [greetingRetryNonce, setGreetingRetryNonce] = useState(0);
+  const startupModeLogged = useRef(false);
+  const lastLoggedJournalCommander = useRef<string | null>(null);
   const explorationBaselineReady = useRef(false);
   const lastExplorationObservation = useRef<string | null>(null);
-  const tonyProfile = resolveActiveTonyProfile(snapshot?.commander, snapshot?.eliteConnected === true);
+  const activeCommander = selectCommanderIdentity(snapshot?.commander, lastKnownCommander);
+  const oggMode = resolveOggMode(activeCommander, language);
+  const { language: oggLanguage, mode: languageMode, tonyProfile } = oggMode;
 
   const loadEliteSnapshot = useCallback(async () => {
     try {
       const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
+      if (result.commander) {
+        localStorage.setItem(LAST_KNOWN_COMMANDER_KEY, result.commander);
+        setLastKnownCommander(result.commander);
+        if (lastLoggedJournalCommander.current !== result.commander) {
+          lastLoggedJournalCommander.current = result.commander;
+          const detectedMode = resolveOggMode(result.commander, language);
+          void invoke("log_audio_event", {
+            event: "language_mode_after_commander_detection",
+            technical: `mode=${detectedMode.mode} commander=${JSON.stringify(result.commander)}`,
+          });
+        }
+      }
       setSnapshot(result);
       setJournalError(null);
     } catch (error) {
@@ -117,6 +149,23 @@ function App() {
       setIsLoading(false);
     }
   }, [language]);
+
+  useEffect(() => {
+    if (startupModeLogged.current || (isLoading && !lastKnownCommander)) return;
+    startupModeLogged.current = true;
+    const source = snapshot?.commander ? "journal" : lastKnownCommander ? "persisted" : "none";
+    void invoke("log_audio_event", {
+      event: "language_mode_at_startup",
+      technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)} source=${source}`,
+    });
+  }, [activeCommander, isLoading, languageMode, lastKnownCommander, snapshot?.commander]);
+
+  useEffect(() => {
+    void invoke("log_audio_event", {
+      event: "startup_app_started",
+      technical: "ui=ready",
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -224,10 +273,10 @@ function App() {
 
     if (!observation || observation.id === lastExplorationObservation.current) return;
     lastExplorationObservation.current = observation.id;
-    void speechService.speak(createExplorationMessage(observation.kind, language)).catch((error) => {
-      console.error(language === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
+    void speechService.speak(createExplorationMessage(observation.kind, oggLanguage)).catch((error) => {
+      console.error(oggLanguage === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
     });
-  }, [isLoading, language, snapshot?.exploration.latestObservation]);
+  }, [isLoading, oggLanguage, snapshot?.exploration.latestObservation]);
 
   useEffect(() => {
     if (!tonyProfile || tonyMessage || showSetup || availableUpdate) return;
@@ -244,9 +293,9 @@ function App() {
 
   const speakGreeting = useCallback(
     async (forceReturning?: boolean) => {
-      if (!bordcomputerName) return;
+      if (!bordcomputerName) return false;
 
-      const commanderName = snapshot?.commander?.trim() || "Commander";
+      const commanderName = activeCommander?.trim() || "Commander";
 
       const lastSession = Number(
         localStorage.getItem(LAST_COCKPIT_SESSION_KEY) ?? "0",
@@ -257,51 +306,127 @@ function App() {
         (lastSession > 0 &&
           Date.now() - lastSession >= RETURNING_AFTER_MS);
 
-      const greeting = createStartupGreeting({
+      const greetingContext = {
         bordcomputerName,
         commanderName,
         isReturning,
-      });
-
-      localStorage.setItem(
-        LAST_COCKPIT_SESSION_KEY,
-        String(Date.now()),
-      );
+      };
+      const greeting = tonyProfile
+        ? createTonyStartupGreeting(greetingContext)
+        : createStartupGreeting(greetingContext);
 
       try {
         const greetingText = `${greeting
           .map((segment) => segment.replace(/[.!?]+$/, ""))
           .join(", ")}.`;
         await speechService.speak(greetingText, { preRollMs: 650 });
+        localStorage.setItem(
+          LAST_COCKPIT_SESSION_KEY,
+          String(Date.now()),
+        );
+        return true;
       } catch (error) {
         console.error(language === "en" ? "Voice output failed:" : "Sprachausgabe fehlgeschlagen:", error);
+        return false;
       }
     },
-    [bordcomputerName, language, snapshot?.commander],
+    [activeCommander, bordcomputerName, language, tonyProfile],
   );
 
   useEffect(() => {
-    if (
-      greetingPlayed.current ||
-      showSetup ||
-      !bordcomputerName
-    ) {
+    if (startupGreetingState.current !== "idle") return;
+
+    const suppressionReason = !activeCommander
+      ? "commander_unknown"
+      : isLoading
+        ? "journal_initializing"
+        : !bordcomputerName
+          ? "onboard_computer_name_missing"
+          : showSetup
+            ? "setup_open"
+            : null;
+
+    if (suppressionReason) {
+      if (lastGreetingSuppressionReason.current !== suppressionReason) {
+        lastGreetingSuppressionReason.current = suppressionReason;
+        void invoke("log_audio_event", {
+          event: "startup_greeting_suppressed",
+          technical: `reason=${suppressionReason}`,
+        });
+      }
       return;
     }
 
-    greetingPlayed.current = true;
+    lastGreetingSuppressionReason.current = null;
+    startupGreetingState.current = "scheduled";
+    void invoke("log_audio_event", {
+      event: "startup_greeting_scheduled",
+      technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)}`,
+    });
 
-    const timerId = window.setTimeout(() => {
-      void speakGreeting();
-    }, 900);
+    let cancelled = false;
+
+    void (async () => {
+        const serverReady = await speechService.waitUntilReady(30_000);
+        if (cancelled) return;
+        if (!serverReady) {
+          startupGreetingState.current = "idle";
+          void invoke("log_audio_event", {
+            event: "startup_greeting_suppressed",
+            technical: "reason=voice_server_not_ready retryMs=1000",
+          });
+          window.setTimeout(() => setGreetingRetryNonce((value) => value + 1), 1000);
+          return;
+        }
+
+        void invoke("log_audio_event", {
+          event: "startup_voice_server_ready",
+          technical: "health=ok",
+        });
+        startupGreetingState.current = "playing";
+        void invoke("log_audio_event", {
+          event: "startup_greeting_started",
+          technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)}`,
+        });
+
+        try {
+          const greetingCompleted = await speakGreeting();
+          if (!greetingCompleted) throw new Error("Greeting playback did not reach ended.");
+          if (cancelled) return;
+          startupGreetingState.current = "completed";
+          void invoke("log_audio_event", {
+            event: "startup_greeting_finished",
+            technical: `mode=${languageMode}`,
+          });
+        } catch (error) {
+          if (cancelled) return;
+          startupGreetingState.current = "idle";
+          const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+          void invoke("log_audio_event", {
+            event: "startup_greeting_suppressed",
+            technical: `reason=playback_failed error=${JSON.stringify(message)} retryMs=1000`,
+          });
+          window.setTimeout(() => setGreetingRetryNonce((value) => value + 1), 1000);
+        }
+    })();
 
     return () => {
-      window.clearTimeout(timerId);
+      if (startupGreetingState.current === "scheduled") {
+        cancelled = true;
+        startupGreetingState.current = "idle";
+        void invoke("log_audio_event", {
+          event: "startup_greeting_suppressed",
+          technical: "reason=schedule_invalidated",
+        });
+      }
     };
   }, [
     bordcomputerName,
+    greetingRetryNonce,
+    isLoading,
+    languageMode,
     showSetup,
-    snapshot?.commander,
+    activeCommander,
     speakGreeting,
   ]);
 
@@ -309,7 +434,7 @@ function App() {
     localStorage.setItem(BORDCOMPUTER_NAME_KEY, name);
     setBordcomputerName(name);
     setShowSetup(false);
-    greetingPlayed.current = false;
+    startupGreetingState.current = "idle";
   }
 
   function closeTonyMessage() {
@@ -328,7 +453,7 @@ function App() {
         commander={
           isLoading
             ? t("loading")
-            : snapshot?.commander ?? t("unknown")
+            : activeCommander ?? t("unknown")
         }
         system={
           isLoading
@@ -347,8 +472,7 @@ function App() {
       case "navigation":
         return (
           <Navigation
-            currentSystem={snapshot?.system ?? null}
-            route={snapshot?.route ?? []}
+            progress={snapshot?.navigationProgress ?? null}
           />
         );
 

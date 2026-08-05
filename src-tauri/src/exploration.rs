@@ -107,7 +107,7 @@ impl ExplorationTracker {
 
         match event_name {
             "Commander" | "LoadGame" => {
-                if let Some(name) = string(event, "Name") {
+                if let Some(name) = journal_commander_name(event) {
                     self.commander = Some(name.to_string());
                 }
             }
@@ -337,6 +337,14 @@ impl ExplorationTracker {
 fn string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
     value.get(key).and_then(Value::as_str)
 }
+
+pub(crate) fn journal_commander_name(event: &Value) -> Option<&str> {
+    match string(event, "event")? {
+        "Commander" => string(event, "Name"),
+        "LoadGame" => string(event, "Commander").or_else(|| string(event, "Name")),
+        _ => None,
+    }
+}
 fn number(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(Value::as_u64)
 }
@@ -372,6 +380,22 @@ mod tests {
         let mut tracker = ExplorationTracker::default();
         tracker.apply(&json!({"event":"Commander","Name":"Panopi"}));
         tracker
+    }
+
+    #[test]
+    fn reads_and_preserves_commander_names_from_both_journal_events() {
+        assert_eq!(
+            journal_commander_name(&json!({"event":"Commander","Name":"helitony"})),
+            Some("helitony")
+        );
+        assert_eq!(
+            journal_commander_name(&json!({"event":"LoadGame","Commander":"Helitony2"})),
+            Some("Helitony2")
+        );
+        assert_eq!(
+            journal_commander_name(&json!({"event":"LoadGame","Name":"legacy-name"})),
+            Some("legacy-name")
+        );
     }
 
     #[test]

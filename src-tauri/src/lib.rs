@@ -1,7 +1,7 @@
 mod exploration;
 mod runtime_health;
 
-use exploration::{ExplorationSnapshot, ExplorationTracker};
+use exploration::{journal_commander_name, ExplorationSnapshot, ExplorationTracker};
 use runtime_health::{StartupHealth, UpdateReadiness};
 use serde::Serialize;
 use serde_json::Value;
@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Mutex,
+        Mutex, OnceLock,
     },
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -31,6 +31,8 @@ struct FrontendHeartbeat {
     last_seen_ms: std::sync::atomic::AtomicU64,
 }
 
+static LAST_LOGGED_COMMANDER: OnceLock<Mutex<Option<(PathBuf, Option<String>)>>> = OnceLock::new();
+
 fn unix_time_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -38,12 +40,22 @@ fn unix_time_ms() -> u64 {
         .unwrap_or_default()
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RouteStep {
     system: String,
     star_class: Option<String>,
     position: Option<[f64; 3]>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NavigationProgress {
+    current_system: Option<String>,
+    next_system: Option<String>,
+    remaining_jumps: usize,
+    remaining_distance: Option<f64>,
+    active_route: Vec<RouteStep>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -57,7 +69,7 @@ struct EliteSnapshot {
     elite_connected: bool,
     exploration: ExplorationSnapshot,
     journal_path: String,
-    route: Vec<RouteStep>,
+    navigation_progress: NavigationProgress,
 }
 
 #[tauri::command]
@@ -470,6 +482,97 @@ fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
         .unwrap_or_default()
 }
 
+fn active_navigation_route(
+    route: Vec<RouteStep>,
+    current_system: Option<&str>,
+    journal_systems: &[String],
+) -> Vec<RouteStep> {
+    let Some(current_system) = current_system.filter(|system| !system.is_empty()) else {
+        return route;
+    };
+
+    let candidates: Vec<usize> = route
+        .iter()
+        .enumerate()
+        .filter_map(|(index, step)| {
+            step.system
+                .eq_ignore_ascii_case(current_system)
+                .then_some(index)
+        })
+        .collect();
+
+    let Some(mut best_index) = candidates.first().copied() else {
+        let mut active = Vec::with_capacity(route.len() + 1);
+        active.push(RouteStep {
+            system: current_system.to_string(),
+            star_class: None,
+            position: None,
+        });
+        active.extend(route);
+        return active;
+    };
+
+    let mut best_score = 0;
+    for candidate in candidates {
+        let mut score = 0;
+        let mut route_index = candidate;
+        let mut history_index = journal_systems.len();
+
+        while history_index > 0 {
+            history_index -= 1;
+            if !route[route_index]
+                .system
+                .eq_ignore_ascii_case(&journal_systems[history_index])
+            {
+                break;
+            }
+            score += 1;
+            if route_index == 0 {
+                break;
+            }
+            route_index -= 1;
+        }
+
+        if score > best_score {
+            best_score = score;
+            best_index = candidate;
+        }
+    }
+
+    route.into_iter().skip(best_index).collect()
+}
+
+fn navigation_progress(
+    route: Vec<RouteStep>,
+    current_system: Option<&str>,
+    journal_systems: &[String],
+) -> NavigationProgress {
+    let active_route = active_navigation_route(route, current_system, journal_systems);
+    let remaining_distance = active_route
+        .windows(2)
+        .try_fold(0.0, |total, pair| {
+            let [start, end] = pair else { return None };
+            let start = start.position?;
+            let end = end.position?;
+            Some(
+                total
+                    + ((end[0] - start[0]).powi(2)
+                        + (end[1] - start[1]).powi(2)
+                        + (end[2] - start[2]).powi(2))
+                    .sqrt(),
+            )
+        })
+        .filter(|_| active_route.len() > 1);
+
+    NavigationProgress {
+        current_system: current_system.map(str::to_string),
+        next_system: active_route.get(1).map(|step| step.system.clone()),
+        remaining_jumps: active_route.len().saturating_sub(1),
+        remaining_distance,
+        active_route,
+    }
+}
+
 fn read_latest_snapshot(
     journal_path: &Path,
     journal_directory: &Path,
@@ -488,10 +591,11 @@ fn read_latest_snapshot(
 
     let reader = BufReader::new(file);
     let mut exploration = ExplorationTracker::default();
+    let mut journal_systems = Vec::new();
 
+    let planned_route = read_navigation_route(journal_directory);
     let mut snapshot = EliteSnapshot {
         journal_path: journal_path.display().to_string(),
-        route: read_navigation_route(journal_directory),
         ..EliteSnapshot::default()
     };
 
@@ -515,7 +619,7 @@ fn read_latest_snapshot(
 
         match event_name {
             "Commander" | "LoadGame" => {
-                if let Some(name) = event.get("Name").and_then(Value::as_str) {
+                if let Some(name) = journal_commander_name(&event) {
                     snapshot.commander = Some(name.to_string());
                 }
 
@@ -541,6 +645,12 @@ fn read_latest_snapshot(
             "Location" | "FSDJump" | "CarrierJump" => {
                 if let Some(system) = event.get("StarSystem").and_then(Value::as_str) {
                     snapshot.system = Some(system.to_string());
+                    if journal_systems
+                        .last()
+                        .is_none_or(|previous: &String| !previous.eq_ignore_ascii_case(system))
+                    {
+                        journal_systems.push(system.to_string());
+                    }
                 }
 
                 if let Some(docked) = event.get("Docked").and_then(Value::as_bool) {
@@ -555,9 +665,138 @@ fn read_latest_snapshot(
         }
     }
 
+    snapshot.navigation_progress =
+        navigation_progress(planned_route, snapshot.system.as_deref(), &journal_systems);
     snapshot.exploration = exploration.finish();
 
     Ok(snapshot)
+}
+
+#[cfg(test)]
+mod navigation_tests {
+    use super::*;
+
+    fn route(systems: &[&str]) -> Vec<RouteStep> {
+        systems
+            .iter()
+            .map(|system| RouteStep {
+                system: (*system).into(),
+                star_class: Some("K".into()),
+                position: None,
+            })
+            .collect()
+    }
+
+    fn names(route: &[RouteStep]) -> Vec<&str> {
+        route.iter().map(|step| step.system.as_str()).collect()
+    }
+
+    #[test]
+    fn keeps_a_newly_loaded_route_at_its_start() {
+        let active = active_navigation_route(route(&["A", "B", "C"]), Some("A"), &["A".into()]);
+        assert_eq!(names(&active), ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn advances_the_route_after_one_jump() {
+        let active = active_navigation_route(
+            route(&["A", "B", "C"]),
+            Some("B"),
+            &["A".into(), "B".into()],
+        );
+        assert_eq!(names(&active), ["B", "C"]);
+    }
+
+    #[test]
+    fn advances_the_route_after_multiple_jumps() {
+        let active = active_navigation_route(
+            route(&["A", "B", "C", "D"]),
+            Some("C"),
+            &["A".into(), "B".into(), "C".into()],
+        );
+        assert_eq!(names(&active), ["C", "D"]);
+    }
+
+    #[test]
+    fn restores_progress_from_the_current_system_after_an_app_restart() {
+        let active =
+            active_navigation_route(route(&["A", "B", "C", "D"]), Some("C"), &["C".into()]);
+        assert_eq!(names(&active), ["C", "D"]);
+    }
+
+    #[test]
+    fn manual_refresh_produces_the_same_active_route() {
+        let planned = route(&["A", "B", "C", "D"]);
+        let history = ["A".into(), "B".into(), "C".into()];
+        let automatic = active_navigation_route(planned.clone(), Some("C"), &history);
+        let manual = active_navigation_route(planned, Some("C"), &history);
+        assert_eq!(manual, automatic);
+    }
+
+    #[test]
+    fn fully_adopts_a_replanned_route() {
+        let active = active_navigation_route(
+            route(&["C", "X", "Y"]),
+            Some("C"),
+            &["A".into(), "B".into(), "C".into()],
+        );
+        assert_eq!(names(&active), ["C", "X", "Y"]);
+    }
+
+    #[test]
+    fn leaves_only_the_current_system_when_the_route_is_complete() {
+        let active = active_navigation_route(
+            route(&["A", "B", "C"]),
+            Some("C"),
+            &["A".into(), "B".into(), "C".into()],
+        );
+        assert_eq!(names(&active), ["C"]);
+    }
+
+    #[test]
+    fn uses_journal_history_to_choose_a_repeated_system() {
+        let active = active_navigation_route(
+            route(&["A", "B", "A", "C"]),
+            Some("A"),
+            &["A".into(), "B".into(), "A".into()],
+        );
+        assert_eq!(names(&active), ["A", "C"]);
+    }
+
+    #[test]
+    fn prepends_the_current_position_when_elite_returns_only_future_steps() {
+        let active = active_navigation_route(route(&["B", "C"]), Some("A"), &["A".into()]);
+        assert_eq!(names(&active), ["A", "B", "C"]);
+    }
+
+    #[test]
+    fn derives_every_navigation_kpi_from_the_same_active_route() {
+        let planned = vec![
+            RouteStep {
+                system: "A".into(),
+                star_class: None,
+                position: Some([0.0, 0.0, 0.0]),
+            },
+            RouteStep {
+                system: "B".into(),
+                star_class: None,
+                position: Some([3.0, 4.0, 0.0]),
+            },
+            RouteStep {
+                system: "C".into(),
+                star_class: None,
+                position: Some([3.0, 4.0, 12.0]),
+            },
+        ];
+
+        let progress = navigation_progress(planned, Some("B"), &["A".into(), "B".into()]);
+
+        assert_eq!(progress.current_system.as_deref(), Some("B"));
+        assert_eq!(progress.next_system.as_deref(), Some("C"));
+        assert_eq!(progress.remaining_jumps, 1);
+        assert_eq!(progress.remaining_distance, Some(12.0));
+        assert_eq!(names(&progress.active_route), ["B", "C"]);
+    }
 }
 
 #[tauri::command]
@@ -567,6 +806,20 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
     let journal_path = newest_journal_file(&journal_directory, locale)?;
 
     let mut snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
+    let commander_key = (journal_path.clone(), snapshot.commander.clone());
+    let last_logged = LAST_LOGGED_COMMANDER.get_or_init(|| Mutex::new(None));
+    if let Ok(mut previous) = last_logged.lock() {
+        if previous.as_ref() != Some(&commander_key) {
+            let commander = snapshot.commander.as_deref().unwrap_or("<not-found>");
+            log::info!(
+                "version={} phase=journal process=app.exe event=commander_read technical=path={} commander={}",
+                env!("CARGO_PKG_VERSION"),
+                journal_path.display(),
+                serde_json::to_string(commander).unwrap_or_else(|_| "\"<invalid>\"".into()),
+            );
+            *previous = Some(commander_key);
+        }
+    }
     snapshot.elite_connected = is_elite_dangerous_running();
 
     if !snapshot.elite_connected {

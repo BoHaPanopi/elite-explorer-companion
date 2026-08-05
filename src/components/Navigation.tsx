@@ -7,8 +7,13 @@ type RouteStep = {
 };
 
 type NavigationProps = {
-  currentSystem: string | null;
-  route: RouteStep[];
+  progress: {
+    currentSystem: string | null;
+    nextSystem: string | null;
+    remainingJumps: number;
+    remainingDistance: number | null;
+    activeRoute: RouteStep[];
+  } | null;
 };
 
 const fuelStars = new Set(["O", "B", "A", "F", "G", "K", "M"]);
@@ -21,56 +26,16 @@ function isFuelStar(starClass: string | null): boolean {
   return fuelStars.has(starClass.toUpperCase());
 }
 
-function distanceBetween(
-  start: [number, number, number] | null,
-  end: [number, number, number] | null,
-): number | null {
-  if (!start || !end) {
-    return null;
-  }
-
-  const [x1, y1, z1] = start;
-  const [x2, y2, z2] = end;
-
-  return Math.sqrt(
-    (x2 - x1) ** 2 +
-      (y2 - y1) ** 2 +
-      (z2 - z1) ** 2,
-  );
-}
-
-function calculateRouteDistance(route: RouteStep[]): number | null {
-  if (route.length < 2) {
-    return null;
-  }
-
-  let total = 0;
-
-  for (let index = 1; index < route.length; index += 1) {
-    const distance = distanceBetween(
-      route[index - 1].position,
-      route[index].position,
-    );
-
-    if (distance === null) {
-      return null;
-    }
-
-    total += distance;
-  }
-
-  return total;
-}
-
 export default function Navigation({
-  currentSystem,
-  route,
+  progress,
 }: NavigationProps) {
   const { t } = useI18n();
-  const nextSystem = route.length > 1 ? route[1] : null;
+  const route = progress?.activeRoute ?? [];
+  const currentSystem = progress?.currentSystem ?? null;
+  const nextSystem = progress?.nextSystem ?? null;
   const destination = route.at(-1) ?? null;
-  const remainingJumps = Math.max(route.length - 1, 0);
-  const totalDistance = calculateRouteDistance(route);
+  const remainingJumps = progress?.remainingJumps ?? 0;
+  const totalDistance = progress?.remainingDistance ?? null;
 
   return (
     <section className="navigation-page">
@@ -82,7 +47,7 @@ export default function Navigation({
 
         <article className="card">
           <span>{t("nextJump")}</span>
-          <strong>{nextSystem?.system ?? t("noRoute")}</strong>
+          <strong>{nextSystem ?? t("noRoute")}</strong>
         </article>
 
         <article className="card">
