@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Die vollständige Entwicklungsroadmap des OGG Bordcomputers.">
+  <title>OGG Roadmap · Bordcomputer-Entwicklung</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #05080a;
+      --panel: #0b1114;
+      --panel-strong: #10191d;
+      --line: #26373c;
+      --line-hot: #5d7f87;
+      --text: #e6ecec;
+      --muted: #94a4a7;
+      --amber: #f4a340;
+      --amber-soft: #ffd08b;
+      --cyan: #74dce4;
+      --cyan-soft: rgba(116, 220, 228, .12);
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(rgba(116, 220, 228, .025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(116, 220, 228, .025) 1px, transparent 1px),
+        radial-gradient(circle at 78% 8%, rgba(244, 163, 64, .08), transparent 28rem),
+        var(--void);
+      background-size: 32px 32px, 32px 32px, auto, auto;
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+
+    a { color: inherit; }
+    .shell { width: min(calc(100% - 2rem), var(--max)); margin-inline: auto; }
+    .eyebrow {
+      margin: 0 0 .75rem;
+      color: var(--amber);
+      font: 700 .75rem/1.2 Consolas, monospace;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .hero { padding: clamp(4rem, 9vw, 8rem) 0 3rem; border-bottom: 1px solid var(--line); }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(16rem, .65fr); gap: 3rem; align-items: end; }
+    h1 { max-width: 13ch; margin: 0; font-size: clamp(3.2rem, 10vw, 7.8rem); font-weight: 650; letter-spacing: -.065em; line-height: .87; }
+    h1 span { display: block; color: var(--amber); }
+    .hero-copy { margin: 1.5rem 0 0; max-width: 44rem; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); }
+    .status {
+      border: 1px solid var(--line-hot);
+      background: linear-gradient(145deg, rgba(116, 220, 228, .09), rgba(11, 17, 20, .92));
+      padding: 1.25rem;
+      clip-path: polygon(0 0, calc(100% - 1.2rem) 0, 100% 1.2rem, 100% 100%, 0 100%);
+    }
+    .status dl { display: grid; grid-template-columns: 1fr auto; gap: .7rem 1rem; margin: 0; }
+    .status dt { color: var(--muted); }
+    .status dd { margin: 0; color: var(--cyan); font-family: Consolas, monospace; }
+
+    .notice { padding: 1.25rem 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .94rem; }
+    .notice p { margin: .35rem 0; }
+    .notice a { color: var(--cyan); text-underline-offset: .2em; }
+
+    .section-head { display: grid; grid-template-columns: 10rem 1fr; gap: 2rem; margin-bottom: 2rem; align-items: baseline; }
+    .section-head h2 { margin: 0; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -.045em; line-height: 1; }
+    .section-head p { margin: 0; color: var(--muted); max-width: 50rem; }
+    .vision { padding: 5rem 0; }
+
+    .versions { padding: 2rem 0 6rem; }
+    .timeline { position: relative; display: grid; gap: 1.25rem; }
+    .timeline::before { content: ""; position: absolute; left: 5.2rem; top: 2rem; bottom: 2rem; width: 1px; background: linear-gradient(var(--amber), var(--cyan)); }
+    .version-card { position: relative; display: grid; grid-template-columns: 4.2rem 1fr; gap: 2rem; }
+    .version-number { color: var(--amber-soft); font: 700 .9rem/1 Consolas, monospace; padding-top: 1.7rem; text-align: right; }
+    .version-panel {
+      position: relative;
+      padding: clamp(1.4rem, 3vw, 2.25rem);
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(16, 25, 29, .96), rgba(8, 13, 15, .96));
+      clip-path: polygon(0 0, calc(100% - 1rem) 0, 100% 1rem, 100% 100%, 0 100%);
+    }
+    .version-panel::before { content: ""; position: absolute; left: -2.36rem; top: 1.8rem; width: .65rem; height: .65rem; border: 2px solid var(--amber); background: var(--void); transform: rotate(45deg); }
+    .version-card.current .version-panel { border-color: rgba(244, 163, 64, .7); box-shadow: inset 3px 0 var(--amber); }
+    .version-card.final .version-panel { border-color: rgba(116, 220, 228, .65); box-shadow: inset 3px 0 var(--cyan); }
+    .version-panel h3 { margin: 0 0 .55rem; font-size: clamp(1.35rem, 3vw, 2.15rem); letter-spacing: -.025em; }
+    .focus { margin: 0 0 1.4rem; color: var(--cyan); font-size: 1.02rem; }
+    .version-panel ol, .topic-card ul { margin: 0; padding-left: 1.3rem; }
+    .version-panel li, .topic-card li { padding: .3rem 0 .3rem .35rem; color: #c6d0d1; }
+    .version-panel li::marker { color: var(--amber); font-family: Consolas, monospace; }
+
+    .topics { padding: 6rem 0; border-top: 1px solid var(--line); }
+    .topic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .topic-card { padding: 1.6rem; background: rgba(11, 17, 20, .9); border: 1px solid var(--line); }
+    .topic-card h3 { margin: 0 0 1rem; color: var(--amber-soft); font-size: 1.25rem; }
+    .topic-card li::marker { color: var(--cyan); }
+
+    footer { padding: 2rem 0 4rem; border-top: 1px solid var(--line); color: var(--muted); }
+    footer .shell { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    footer a { color: var(--cyan); text-underline-offset: .2em; }
+
+    @media (max-width: 900px) {
+      .hero-grid, .section-head { grid-template-columns: 1fr; gap: 1.5rem; }
+      .status { max-width: 30rem; }
+      .timeline::before { left: .35rem; }
+      .version-card { grid-template-columns: 1fr; gap: .65rem; padding-left: 1.7rem; }
+      .version-number { padding: 0; text-align: left; }
+      .version-panel::before { left: -1.72rem; top: 1.7rem; }
+      .topic-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <p class="eyebrow">Old Guy of Grumpy · Entwicklungsroute</p>
+        <h1>OGG <span>Roadmap</span></h1>
+        <p class="hero-copy">Vom zuverlässigen Fundament zum vollständig integrierten Bordcomputer für Navigation, Exploration und Exobiologie.</p>
+      </div>
+      <aside class="status" aria-label="Roadmap-Status">
+        <p class="eyebrow">Navigationsstatus</p>
+        <dl>
+          <dt>Startpunkt</dt><dd>0.14.x</dd>
+          <dt>Nächster Meilenstein</dt><dd>0.15</dd>
+          <dt>Zielsystem</dt><dd>1.0</dd>
+          <dt>Versionsetappen</dt><dd>7</dd>
+        </dl>
+      </aside>
+    </div>
+  </header>
+
+  <div class="notice">
+    <div class="shell">
+      <p>Diese Seite bildet den Inhalt von <a href="../../OGG_ROADMAP.md">OGG_ROADMAP.md</a> ab. Abgeschlossene Arbeiten und der aktuelle Projektstand stehen im <a href="../../OGG_Project_Log.md">OGG Project Log</a>.</p>
+      <p>Zeitpunkte sind bewusst nicht fest zugesagt. Umfang und Reihenfolge können sich nach Erprobung ändern; die Versionsziele beschreiben die beabsichtigte Produktentwicklung.</p>
+    </div>
+  </div>
+
+  <main>
+    <section class="vision shell" aria-labelledby="vision-title">
+      <div class="section-head">
+        <p class="eyebrow">Mission</p>
+        <div>
+          <h2 id="vision-title">Vision</h2>
+          <p>OGG entwickelt sich zu einem ruhigen, verlässlichen Bordcomputer für lange Reisen in Elite Dangerous. Navigation, Exploration und Exobiologie werden in einem einheitlichen Cockpitbild zusammengeführt. Persönliche Commander-Profile, natürliches Audio und später VR- sowie Besatzungsfunktionen erweitern die Erfahrung, ohne Übersicht und Ruhe zu verlieren.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="versions shell" aria-labelledby="versions-title">
+      <div class="section-head">
+        <p class="eyebrow">Flugplan</p>
+        <div><h2 id="versions-title">Versionsetappen</h2></div>
+      </div>
+      <div class="timeline">
+        <article class="version-card">
+          <div class="version-number">0.14.x</div>
+          <div class="version-panel">
+            <h3>Fundament festigen</h3>
+            <p class="focus">Zuverlässigkeit der vorhandenen Kernfunktionen und konsistente Navigationsdaten.</p>
+            <ol>
+              <li>Sternklasse des relevanten Routensterns zuverlässig anzeigen.</li>
+              <li>Tankbarkeit und unbekannte Sternklassen eindeutig unterscheiden.</li>
+              <li>Update im Hintergrund laden und kontrolliert beim Beenden installieren.</li>
+              <li>Datei- und Prozesssperren vor Updates verständlich behandeln.</li>
+              <li>Startdiagnose, Recovery und Voice-Sidecar-Lebenszyklus weiter absichern.</li>
+              <li>Navigation, Update und Commander-Profile mit automatisierten Tests stabilisieren.</li>
+              <li>Debug- und Release-Dokumentation bereinigen.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card current">
+          <div class="version-number">0.15</div>
+          <div class="version-panel">
+            <h3>Ausbau des Bordcomputers</h3>
+            <p class="focus">OGG wird schrittweise zu einem ruhigen, verlässlichen und persönlichen Bordcomputer ausgebaut. Alle zukünftigen Funktionen sollen auf einer gemeinsamen Bordcomputer-Architektur aufbauen.</p>
+            <ol>
+              <li>Ruhigen, verlässlichen Bordcomputer als zentrale Produktidentität etablieren.</li>
+              <li>Navigation, Exploration und Exobiologie als gemeinsames Cockpit-System vorbereiten.</li>
+              <li>Persönliche Commander-Profile als Grundlage des Bordcomputers integrieren.</li>
+              <li>Natürliches Audio- und Meldungssystem vereinheitlichen.</li>
+              <li>Priorisierte Bordcomputer-Meldungen mit klaren Unterbrechungsregeln einführen.</li>
+              <li>Voice-Sidecar als festen Bestandteil des Bordcomputers integrieren.</li>
+              <li>Lokale Verarbeitung und Datenschutz als Grundprinzip festschreiben.</li>
+              <li>Einheitliche Cockpit-Darstellung als Basis für alle zukünftigen Module schaffen.</li>
+              <li>Vorbereitung für VR-, Second-Screen- und Overlay-Unterstützung.</li>
+              <li>Erweiterbare Architektur für Navigation, Exploration, Exobiologie und zukünftige Bordcomputer-Funktionen schaffen.</li>
+              <li>Commander-Profile als persönliche Erweiterung des Bordcomputers vorbereiten.</li>
+              <li>Langfristige Grundlage für Wing-/Multicrew-Unterstützung schaffen.</li>
+              <li>Audio-Ruhephasen, Priorisierung und konsistente Sprachführung vereinheitlichen.</li>
+              <li>Gemeinsame Bordcomputer-Architektur dokumentieren und als Referenz für alle folgenden Versionen festlegen.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card">
+          <div class="version-number">0.16</div>
+          <div class="version-panel">
+            <h3>Exploration Console</h3>
+            <p class="focus">Aus Journalereignissen einen klaren, handlungsorientierten Explorationsstatus erzeugen.</p>
+            <ol>
+              <li>Systemfortschritt für FSS, DSS und biologische Signale zusammenführen.</li>
+              <li>Neue, bekannte und vom Commander selbst entdeckte Funde klar unterscheiden.</li>
+              <li>Wertvolle oder unvollständige Scan-Ziele priorisieren, ohne unbelegte Werte vorzutäuschen.</li>
+              <li>Kompakte Systemübersicht mit Körpern, Scanstatus und offenen Aktionen einführen.</li>
+              <li>Ruhige Audiohinweise für abgeschlossene oder noch lohnende Explorationsschritte ergänzen.</li>
+              <li>Verlauf der aktuellen Sitzung lokal nachvollziehbar machen.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card">
+          <div class="version-number">0.17</div>
+          <div class="version-panel">
+            <h3>Exobiology Field Support</h3>
+            <p class="focus">Exobiologie vom ersten Signal bis zur abgeschlossenen Probe begleiten.</p>
+            <ol>
+              <li>Biologische Signale pro Himmelskörper bündeln.</li>
+              <li>Probenfortschritt und noch erforderliche Schritte sichtbar machen, soweit Journaldaten dies zuverlässig erlauben.</li>
+              <li>Fundorte und relevante Beobachtungen lokal erfassen.</li>
+              <li>Unbekannte, bereits bekannte und potenziell neue Codex-Funde eindeutig kennzeichnen.</li>
+              <li>Exobiologie-Ansicht für schnelle Erfassung während Flug und SRV-/On-foot-Phasen optimieren.</li>
+              <li>Seltene, nicht aufdringliche Audiohinweise für Proben- und Codexereignisse ergänzen.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card">
+          <div class="version-number">0.18</div>
+          <div class="version-panel">
+            <h3>Adaptive Navigation</h3>
+            <p class="focus">Vorausschauende Reiseunterstützung aus einer zentralen, verlässlichen Route.</p>
+            <ol>
+              <li>Kraftstoff- und Tankbarkeitskontext entlang der nächsten Routenschritte darstellen.</li>
+              <li>Warnung vor längeren Abschnitten ohne tankbaren Stern entwickeln.</li>
+              <li>Neuberechnete und abgebrochene Routen transparent behandeln.</li>
+              <li>Expeditionsziele, Wegpunkte und Fortschritt ergänzen.</li>
+              <li>Navigationsmeldungen nach Dringlichkeit priorisieren und Audio-Wiederholungen vermeiden.</li>
+              <li>Optionale kompakte Overlay-/Second-Screen-Ansicht erproben.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card">
+          <div class="version-number">0.19</div>
+          <div class="version-panel">
+            <h3>Personal Cockpit</h3>
+            <p class="focus">OGG wird persönlicher, ohne seine gemeinsame Kernidentität zu verlieren.</p>
+            <ol>
+              <li>Commander-Profile als klar getestetes, erweiterbares System ausbauen.</li>
+              <li>Profilspezifische Sprache, Anrede und ausgewählte Ereignisreaktionen ermöglichen.</li>
+              <li>Weitere natürliche Sprachfassungen nur mit eigenständig formuliertem OGG-Stil ergänzen.</li>
+              <li>Audio-Prioritäten, Abstände und Ruhephasen konfigurierbar machen.</li>
+              <li>Cockpit-Layouts und Informationsdichte in begrenzten, konsistenten Profilen anbieten.</li>
+              <li>Erste experimentelle Wing-/Multicrew-Sitzungsansicht hinter einer optionalen Funktion erproben.</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="version-card final">
+          <div class="version-number">1.0</div>
+          <div class="version-panel">
+            <h3>Trusted Onboard Computer</h3>
+            <p class="focus">Stabiler, dokumentierter und vollständig integrierter Bordcomputer für den täglichen Einsatz.</p>
+            <ol>
+              <li>Navigation, Exploration und Exobiologie als zusammenhängende Produkterfahrung abschließen.</li>
+              <li>Robuste Installation, Updates, Recovery und Migration zwischen Versionen sicherstellen.</li>
+              <li>Barrierefreiheit, Tastaturbedienung und skalierbare Cockpit-Darstellung abschließen.</li>
+              <li>VR-tauglichen Betriebsmodus mit hoher Lesbarkeit und geringer visueller Unruhe bereitstellen.</li>
+              <li>Wing-/Multicrew-Unterstützung für verlässlich verfügbare gemeinsame Ereignisse produktionsreif machen.</li>
+              <li>Commander-Profile, Datenschutz und lokale Datenhaltung vollständig dokumentieren.</li>
+              <li>Release-, Diagnose- und Supportabläufe für einen stabilen Betrieb etablieren.</li>
+            </ol>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="topics" aria-labelledby="topics-title">
+      <div class="shell">
+        <div class="section-head">
+          <p class="eyebrow">Systemmodule</p>
+          <div><h2 id="topics-title">Ziele &amp; Themenbereiche</h2></div>
+        </div>
+        <div class="topic-grid">
+          <article class="topic-card"><h3>Langfristige Ziele</h3><ul>
+            <li>Ein Bordcomputer, dessen Verhalten über UI und Audio hinweg unverwechselbar und konsistent bleibt.</li>
+            <li>Lokale Verarbeitung und geringe Abhängigkeit von externen Diensten.</li>
+            <li>Vorausschauende Hinweise ohne Spekulation oder Informationsüberlastung.</li>
+            <li>Eine modulare Grundlage für Navigation, Exploration, Exobiologie und Besatzungssituationen.</li>
+            <li>Gute Nutzbarkeit auf klassischem Monitor, Second Screen und in VR.</li>
+            <li>Verlässliche Langzeitreisen mit nachvollziehbarer Expeditionshistorie.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Geplante Funktionen</h3><ul>
+            <li>Zentraler Expeditions- und Sitzungsverlauf.</li>
+            <li>Wegpunkte, Reiseziele und Fortschrittsübersicht.</li>
+            <li>Kontextbezogene, priorisierte Bordcomputer-Meldungen.</li>
+            <li>Erweiterbare Commander-Profile.</li>
+            <li>Kompakte Cockpit- und Overlay-Ansichten.</li>
+            <li>Diagnoseexport mit datensparsamen, verständlichen Informationen.</li>
+            <li>Sichere Migration lokaler Einstellungen und Profile.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>UI-Meilensteine</h3><ul>
+            <li>Navigationskarte mit Sternklasse und Tankbarkeit vervollständigen.</li>
+            <li>Explorationsfortschritt als schnell erfassbare Systemansicht einführen.</li>
+            <li>Exobiologie als fokussierten Arbeitsmodus ergänzen.</li>
+            <li>Informationshierarchie für hohe Auflösungen, Second Screens und VR vereinheitlichen.</li>
+            <li>Barrierefreiheit, Skalierung, Kontrast und Bedienung ohne Maus systematisch prüfen.</li>
+            <li>Animationen auf erklärende Zustandswechsel begrenzen.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Audio-Meilensteine</h3><ul>
+            <li>Zentrale Prioritäts- und Unterbrechungsregeln für alle Meldungen definieren.</li>
+            <li>Wiederholungen und überlappende Ausgaben zuverlässig verhindern.</li>
+            <li>Navigations-, Explorations- und Exobiologie-Vokabular natürlich in jedem Profil formulieren.</li>
+            <li>Ruhephasen und Ereignisdrosselung einführen.</li>
+            <li>Voice-Sidecar, Recovery und Update-Verhalten weiter härten.</li>
+            <li>Optionale Ausgabegeräte- und Lautstärkesteuerung prüfen.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Exploration</h3><ul>
+            <li>Journalereignisse zu einem belastbaren Systemfortschritt verdichten.</li>
+            <li>Noch offene Scans und Kartierungen erkennbar machen.</li>
+            <li>Eigentümerschaft einer Entdeckung nur anzeigen, wenn Journaldaten sie bestätigen.</li>
+            <li>Relevante Funde hervorheben, ohne den Commander mit Einzelereignissen zu überladen.</li>
+            <li>Expeditionshistorie lokal und nachvollziehbar führen.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Exobiologie</h3><ul>
+            <li>Biologische Signale pro Körper und System strukturieren.</li>
+            <li>Proben- und Codexstatus sichtbar machen.</li>
+            <li>Fundnotizen und lokale Positionskontexte prüfen.</li>
+            <li>Seltene Funde ruhig, aber eindeutig hervorheben.</li>
+            <li>Bedienung für schnelle Wechsel zwischen Flug, SRV und On-foot optimieren.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Navigation</h3><ul>
+            <li>Sternklasse, Tankbarkeit, Restdistanz und Sprünge aus einer gemeinsamen Route ableiten.</li>
+            <li>Kraftstoffrisiken entlang der Route frühzeitig sichtbar machen.</li>
+            <li>Routenänderungen, Abschluss und Wiederaufnahme konsistent behandeln.</li>
+            <li>Expeditionswegpunkte und optionale Alternativziele unterstützen.</li>
+            <li>Navigationsinformationen vor dekorativen oder atmosphärischen Inhalten priorisieren.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Commander-Profile</h3><ul>
+            <li>Deutsch bleibt das Standardprofil.</li>
+            <li>Commander <code>Helitony</code> aktiviert automatisch das englische Commander-Profil.</li>
+            <li>Aktivierung basiert auf bestätigter Commander-Identität und wird automatisiert getestet.</li>
+            <li>Neue Profile verändern natürliche Sprache und persönliche Nuancen, nicht OGGs Kerncharakter.</li>
+            <li>Profilkonfiguration und lokale Speicherung erhalten klare Migrationsregeln.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>VR-Unterstützung</h3><ul>
+            <li>Lesbarkeit, Kontrast, Textgröße und Blickwege früh in allen neuen Ansichten berücksichtigen.</li>
+            <li>Einen ruhigen VR-Modus mit minimaler Bewegung und großen Interaktionszielen entwickeln.</li>
+            <li>Overlay- und Fensterverhalten mit realen VR-Setups erproben.</li>
+            <li>Audio als ergänzenden, aber niemals alleinigen Informationskanal nutzen.</li>
+            <li>VR-Unterstützung nur als stabil deklarieren, wenn Bedienung und Performance praktisch validiert sind.</li>
+          </ul></article>
+
+          <article class="topic-card"><h3>Wing-/Multicrew-Unterstützung</h3><ul>
+            <li>Zuerst prüfen, welche gemeinsamen Zustände aus verfügbaren Journaldaten verlässlich ableitbar sind.</li>
+            <li>Wing-Mitglieder, gemeinsame Ziele und relevante Ereignisse kompakt darstellen.</li>
+            <li>Rollenbezogene Meldungen für Pilot, Navigation und taktische Situationen untersuchen.</li>
+            <li>Datenschutz und lokale Kontrolle bei geteilten Informationen beibehalten.</li>
+            <li>Keine Netzwerk- oder Synchronisationsfunktion versprechen, bevor Datenquelle und Fehlerverhalten validiert sind.</li>
+          </ul></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>OGG · Old Guy of Grumpy</span>
+      <a href="../../README.md">Zurück zur Projektübersicht</a>
+    </div>
+  </footer>
+</body>
+</html>

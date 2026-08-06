@@ -20,7 +20,26 @@ Schwerpunkt: Zuverlässigkeit der vorhandenen Kernfunktionen und konsistente Nav
 - Navigation, Update und Commander-Profile mit automatisierten Tests stabilisieren.
 - Debug- und Release-Dokumentation bereinigen.
 
-## Version 0.15 – Exploration Console
+## Version 0.15 – Ausbau des Bordcomputers
+
+Schwerpunkt: OGG wird schrittweise zu einem ruhigen, verlässlichen und persönlichen Bordcomputer ausgebaut. Alle zukünftigen Funktionen sollen auf einer gemeinsamen Bordcomputer-Architektur aufbauen.
+
+- Ruhigen, verlässlichen Bordcomputer als zentrale Produktidentität etablieren.
+- Navigation, Exploration und Exobiologie als gemeinsames Cockpit-System vorbereiten.
+- Persönliche Commander-Profile als Grundlage des Bordcomputers integrieren.
+- Natürliches Audio- und Meldungssystem vereinheitlichen.
+- Priorisierte Bordcomputer-Meldungen mit klaren Unterbrechungsregeln einführen.
+- Voice-Sidecar als festen Bestandteil des Bordcomputers integrieren.
+- Lokale Verarbeitung und Datenschutz als Grundprinzip festschreiben.
+- Einheitliche Cockpit-Darstellung als Basis für alle zukünftigen Module schaffen.
+- Vorbereitung für VR-, Second-Screen- und Overlay-Unterstützung.
+- Erweiterbare Architektur für Navigation, Exploration, Exobiologie und zukünftige Bordcomputer-Funktionen schaffen.
+- Commander-Profile als persönliche Erweiterung des Bordcomputers vorbereiten.
+- Langfristige Grundlage für Wing-/Multicrew-Unterstützung schaffen.
+- Audio-Ruhephasen, Priorisierung und konsistente Sprachführung vereinheitlichen.
+- Gemeinsame Bordcomputer-Architektur dokumentieren und als Referenz für alle folgenden Versionen festlegen.
+
+## Version 0.16 – Exploration Console
 
 Schwerpunkt: Aus Journalereignissen einen klaren, handlungsorientierten Explorationsstatus erzeugen.
 
@@ -31,7 +50,7 @@ Schwerpunkt: Aus Journalereignissen einen klaren, handlungsorientierten Explorat
 - Ruhige Audiohinweise für abgeschlossene oder noch lohnende Explorationsschritte ergänzen.
 - Verlauf der aktuellen Sitzung lokal nachvollziehbar machen.
 
-## Version 0.16 – Exobiology Field Support
+## Version 0.17 – Exobiology Field Support
 
 Schwerpunkt: Exobiologie vom ersten Signal bis zur abgeschlossenen Probe begleiten.
 
@@ -42,7 +61,7 @@ Schwerpunkt: Exobiologie vom ersten Signal bis zur abgeschlossenen Probe begleit
 - Exobiologie-Ansicht für schnelle Erfassung während Flug und SRV-/On-foot-Phasen optimieren.
 - Seltene, nicht aufdringliche Audiohinweise für Proben- und Codexereignisse ergänzen.
 
-## Version 0.17 – Adaptive Navigation
+## Version 0.18 – Adaptive Navigation
 
 Schwerpunkt: Vorausschauende Reiseunterstützung aus einer zentralen, verlässlichen Route.
 
@@ -53,7 +72,7 @@ Schwerpunkt: Vorausschauende Reiseunterstützung aus einer zentralen, verlässli
 - Navigationsmeldungen nach Dringlichkeit priorisieren und Audio-Wiederholungen vermeiden.
 - Optionale kompakte Overlay-/Second-Screen-Ansicht erproben.
 
-## Version 0.18 – Personal Cockpit
+## Version 0.19 – Personal Cockpit
 
 Schwerpunkt: OGG wird persönlicher, ohne seine gemeinsame Kernidentität zu verlieren.
 
