@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Die vollständige Entwicklungsroadmap des OGG Bordcomputers.">
+  <link rel="canonical" href="https://bohapanopi.github.io/elite-explorer-companion/">
+  <meta property="og:url" content="https://bohapanopi.github.io/elite-explorer-companion/">
+  <meta property="og:title" content="OGG Roadmap · Bordcomputer-Entwicklung">
+  <meta property="og:description" content="Die vollständige Entwicklungsroadmap des OGG Bordcomputers.">
+  <meta property="og:type" content="website">
+  <link rel="alternate" hreflang="de" href="https://bohapanopi.github.io/elite-explorer-companion/?lang=de">
+  <link rel="alternate" hreflang="en" href="https://bohapanopi.github.io/elite-explorer-companion/?lang=en">
+  <link rel="alternate" hreflang="x-default" href="https://bohapanopi.github.io/elite-explorer-companion/">
   <title>OGG Roadmap · Bordcomputer-Entwicklung</title>
   <style>
     :root {
@@ -48,6 +56,9 @@
     }
 
     .hero { padding: clamp(4rem, 9vw, 8rem) 0 3rem; border-bottom: 1px solid var(--line); }
+    .language-switch { display: flex; justify-content: flex-end; gap: .45rem; margin-bottom: 1.5rem; }
+    .language-switch button { border: 1px solid var(--line-hot); background: var(--panel); color: var(--muted); padding: .45rem .7rem; font: 700 .78rem/1 Consolas, monospace; cursor: pointer; }
+    .language-switch button[aria-pressed="true"] { border-color: var(--amber); color: var(--amber-soft); }
     .hero-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(16rem, .65fr); gap: 3rem; align-items: end; }
     h1 { max-width: 13ch; margin: 0; font-size: clamp(3.2rem, 10vw, 7.8rem); font-weight: 650; letter-spacing: -.065em; line-height: .87; }
     h1 span { display: block; color: var(--amber); }
@@ -122,6 +133,10 @@
   <header class="hero">
     <div class="shell hero-grid">
       <div>
+        <nav class="language-switch" aria-label="Sprache" data-i18n-aria-label="languageLabel">
+          <button type="button" data-language="de" aria-pressed="true">DE</button>
+          <button type="button" data-language="en" aria-pressed="false">EN</button>
+        </nav>
         <p class="eyebrow">Old Guy of Grumpy · Entwicklungsroute</p>
         <h1>OGG <span>Roadmap</span></h1>
         <p class="hero-copy">Vom zuverlässigen Fundament zum vollständig integrierten Bordcomputer für Navigation, Exploration und Exobiologie.</p>
@@ -427,5 +442,6 @@
       <a href="https://github.com/BoHaPanopi/elite-explorer-companion">Zurück zur Projektübersicht</a>
     </div>
   </footer>
+  <script src="./i18n.js"></script>
 </body>
 </html>

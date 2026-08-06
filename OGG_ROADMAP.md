@@ -1,5 +1,7 @@
 # OGG Roadmap
 
+**Veröffentlichte Roadmap:** <https://bohapanopi.github.io/elite-explorer-companion/>
+
 Diese Datei beschreibt ausschließlich die geplante zukünftige Entwicklung von OGG. Abgeschlossene Arbeiten und der aktuelle Projektstand stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md). Alle Vorhaben unterliegen der Identität und den Produktprinzipien aus [`OGG_AI_CONTEXT.md`](./OGG_AI_CONTEXT.md).
 
 Zeitpunkte sind bewusst nicht fest zugesagt. Umfang und Reihenfolge können sich nach Erprobung ändern; die Versionsziele beschreiben die beabsichtigte Produktentwicklung.
