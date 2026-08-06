@@ -38,6 +38,17 @@ Schwerpunkt: OGG wird schrittweise zu einem ruhigen, verlässlichen und persönl
 - Langfristige Grundlage für Wing-/Multicrew-Unterstützung schaffen.
 - Audio-Ruhephasen, Priorisierung und konsistente Sprachführung vereinheitlichen.
 - Gemeinsame Bordcomputer-Architektur dokumentieren und als Referenz für alle folgenden Versionen festlegen.
+- Aktivierungswort als zentrale Schnittstelle des Bordcomputers.
+- VoiceAttack-Anbindung.
+- Importierbares VoiceAttack-Profil, das ohne manuelle Neuerstellung eingerichtet werden kann.
+- Offene Schnittstelle für weitere Sprachsteuerungsprogramme.
+- Stream-Deck-Unterstützung mit importierbarem Profil.
+- Discord-Anbindung für Statusmeldungen und ausgewählte Bordcomputer-Funktionen.
+- Android-Begleit-App beziehungsweise mobile Weboberfläche.
+- iOS-Begleit-App beziehungsweise mobile Weboberfläche.
+- Gemeinsames Befehlsmodell, damit Sprachsteuerung, Stream Deck, Discord und mobile Geräte dieselben Funktionen auslösen.
+- Sichere lokale Kommunikation, konfigurierbare Berechtigungen und keine ungefragte Datenübertragung.
+- Export-, Import- und Versionsmigration für alle Profile und Integrationen.
 
 ## Version 0.16 – Exploration Console
 
@@ -131,6 +142,37 @@ Schwerpunkt: Stabiler, dokumentierter und vollständig integrierter Bordcomputer
 - Ruhephasen und Ereignisdrosselung einführen.
 - Voice-Sidecar, Recovery und Update-Verhalten weiter härten.
 - Optionale Ausgabegeräte- und Lautstärkesteuerung prüfen.
+
+## Integrationen und Steuerung
+
+### VoiceAttack und Sprachsteuerung
+
+- Aktivierungswort als zentrale Schnittstelle des Bordcomputers.
+- VoiceAttack-Anbindung.
+- Importierbares VoiceAttack-Profil, das ohne manuelle Neuerstellung eingerichtet werden kann.
+- Offene Schnittstelle für weitere Sprachsteuerungsprogramme.
+
+### Stream Deck
+
+- Stream-Deck-Unterstützung mit importierbarem Profil.
+
+### Discord
+
+- Discord-Anbindung für Statusmeldungen und ausgewählte Bordcomputer-Funktionen.
+
+### Android
+
+- Android-Begleit-App beziehungsweise mobile Weboberfläche.
+
+### iOS
+
+- iOS-Begleit-App beziehungsweise mobile Weboberfläche.
+
+### Gemeinsame Befehls- und Schnittstellenarchitektur
+
+- Gemeinsames Befehlsmodell, damit Sprachsteuerung, Stream Deck, Discord und mobile Geräte dieselben Funktionen auslösen.
+- Sichere lokale Kommunikation, konfigurierbare Berechtigungen und keine ungefragte Datenübertragung.
+- Export-, Import- und Versionsmigration für alle Profile und Integrationen.
 
 ## Exploration
 

@@ -96,7 +96,10 @@
     .topic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
     .topic-card { padding: 1.6rem; background: rgba(11, 17, 20, .9); border: 1px solid var(--line); }
     .topic-card h3 { margin: 0 0 1rem; color: var(--amber-soft); font-size: 1.25rem; }
+    .topic-card h4 { margin: 0 0 .65rem; color: var(--cyan); font-size: 1rem; }
     .topic-card li::marker { color: var(--cyan); }
+    .topic-card.wide { grid-column: 1 / -1; }
+    .integration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
 
     footer { padding: 2rem 0 4rem; border-top: 1px solid var(--line); color: var(--muted); }
     footer .shell { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -109,7 +112,7 @@
       .version-card { grid-template-columns: 1fr; gap: .65rem; padding-left: 1.7rem; }
       .version-number { padding: 0; text-align: left; }
       .version-panel::before { left: -1.72rem; top: 1.7rem; }
-      .topic-grid { grid-template-columns: 1fr; }
+      .topic-grid, .integration-grid { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
@@ -196,6 +199,17 @@
               <li>Langfristige Grundlage für Wing-/Multicrew-Unterstützung schaffen.</li>
               <li>Audio-Ruhephasen, Priorisierung und konsistente Sprachführung vereinheitlichen.</li>
               <li>Gemeinsame Bordcomputer-Architektur dokumentieren und als Referenz für alle folgenden Versionen festlegen.</li>
+              <li>Aktivierungswort als zentrale Schnittstelle des Bordcomputers.</li>
+              <li>VoiceAttack-Anbindung.</li>
+              <li>Importierbares VoiceAttack-Profil, das ohne manuelle Neuerstellung eingerichtet werden kann.</li>
+              <li>Offene Schnittstelle für weitere Sprachsteuerungsprogramme.</li>
+              <li>Stream-Deck-Unterstützung mit importierbarem Profil.</li>
+              <li>Discord-Anbindung für Statusmeldungen und ausgewählte Bordcomputer-Funktionen.</li>
+              <li>Android-Begleit-App beziehungsweise mobile Weboberfläche.</li>
+              <li>iOS-Begleit-App beziehungsweise mobile Weboberfläche.</li>
+              <li>Gemeinsames Befehlsmodell, damit Sprachsteuerung, Stream Deck, Discord und mobile Geräte dieselben Funktionen auslösen.</li>
+              <li>Sichere lokale Kommunikation, konfigurierbare Berechtigungen und keine ungefragte Datenübertragung.</li>
+              <li>Export-, Import- und Versionsmigration für alle Profile und Integrationen.</li>
             </ol>
           </div>
         </article>
@@ -326,6 +340,34 @@
             <li>Voice-Sidecar, Recovery und Update-Verhalten weiter härten.</li>
             <li>Optionale Ausgabegeräte- und Lautstärkesteuerung prüfen.</li>
           </ul></article>
+
+          <article class="topic-card wide"><h3>Integrationen und Steuerung</h3>
+            <div class="integration-grid">
+              <section><h4>VoiceAttack und Sprachsteuerung</h4><ul>
+                <li>Aktivierungswort als zentrale Schnittstelle des Bordcomputers.</li>
+                <li>VoiceAttack-Anbindung.</li>
+                <li>Importierbares VoiceAttack-Profil, das ohne manuelle Neuerstellung eingerichtet werden kann.</li>
+                <li>Offene Schnittstelle für weitere Sprachsteuerungsprogramme.</li>
+              </ul></section>
+              <section><h4>Stream Deck</h4><ul>
+                <li>Stream-Deck-Unterstützung mit importierbarem Profil.</li>
+              </ul></section>
+              <section><h4>Discord</h4><ul>
+                <li>Discord-Anbindung für Statusmeldungen und ausgewählte Bordcomputer-Funktionen.</li>
+              </ul></section>
+              <section><h4>Android</h4><ul>
+                <li>Android-Begleit-App beziehungsweise mobile Weboberfläche.</li>
+              </ul></section>
+              <section><h4>iOS</h4><ul>
+                <li>iOS-Begleit-App beziehungsweise mobile Weboberfläche.</li>
+              </ul></section>
+              <section><h4>Gemeinsame Befehls- und Schnittstellenarchitektur</h4><ul>
+                <li>Gemeinsames Befehlsmodell, damit Sprachsteuerung, Stream Deck, Discord und mobile Geräte dieselben Funktionen auslösen.</li>
+                <li>Sichere lokale Kommunikation, konfigurierbare Berechtigungen und keine ungefragte Datenübertragung.</li>
+                <li>Export-, Import- und Versionsmigration für alle Profile und Integrationen.</li>
+              </ul></section>
+            </div>
+          </article>
 
           <article class="topic-card"><h3>Exploration</h3><ul>
             <li>Journalereignisse zu einem belastbaren Systemfortschritt verdichten.</li>
