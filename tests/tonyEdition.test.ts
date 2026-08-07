@@ -14,7 +14,7 @@ import {
   tonySeasonalStorageKey,
   tonyWelcomeStorageKey,
 } from "../src/features/tonyEdition.ts";
-import { createExplorationMessage, type ExplorationObservationKind } from "../src/voices/exploration.ts";
+import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 
 test("activates only for the two Tony commander identities", () => {
   assert.equal(resolveTonyProfile("Helitony"), "helitony");

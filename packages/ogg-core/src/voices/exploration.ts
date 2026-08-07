@@ -1,4 +1,4 @@
-import type { Language } from "../i18n";
+export type Language = "de" | "en" | "fr" | "it" | "es";
 
 export type ExplorationObservationKind =
   | "first_discovery_by_current_commander"
