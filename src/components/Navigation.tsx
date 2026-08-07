@@ -1,5 +1,5 @@
 import { useI18n } from "../i18n";
-import { classifyScoopability } from "../features/starClass";
+import { classifyScoopability } from "ogg-core";
 
 type RouteStep = {
   system: string;

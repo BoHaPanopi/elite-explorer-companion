@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classifyScoopability } from "../src/features/starClass.ts";
+import { classifyScoopability } from "ogg-core";
 
 test("all seven fuel-star classes are scoopable", () => {
   for (const starClass of ["K", "G", "B", "F", "O", "A", "M"]) {
