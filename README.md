@@ -1,5 +1,7 @@
 # React + TypeScript + Vite
 
+Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the Elite Explorer Companion project.
+
 ## Project Documentation
 
 - [OGG Identity and AI Context](./OGG_AI_CONTEXT.md) – product identity, personality, language, audio, UI, and development principles.

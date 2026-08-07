@@ -9,7 +9,7 @@
 | Projektname | Old Guy of Grumpy (Repository: `elite-explorer-companion`) |
 | Aktuelle Version | `0.14.4` |
 | Letztes GitHub-Release | `v0.14.4` – Navigation and Cockpit Layout, veröffentlicht am 5. August 2026 |
-| Nächster Meilenstein | `v0.15.0` – Exploration Console |
+| Nächster Meilenstein | `v0.15.0` – Onboard Computer Identity |
 | Letzte Aktualisierung | 5. August 2026 |
 
 ## Projektziel
@@ -51,6 +51,7 @@ OGG ist eine Windows-Desktop-Begleitanwendung für **Elite Dangerous**. Sie lies
 - [ ] Die noch generische Vite-`README.md` durch eine projektspezifische Installations-, Entwicklungs- und Release-Dokumentation ersetzen.
 - [ ] Lokale Debug-/Build-Artefakte (`__pycache__`, Testartefakte und Release-Downloads) prüfen und gegebenenfalls über `.gitignore` ausschließen.
 - [ ] Versionsbezeichnungen des Debug-Sprachservers auf die aktuelle Produktversion oder eine versionsunabhängige Bezeichnung umstellen.
+- [ ] Praktisch und automatisiert prüfen, dass Codex nach jeder erfolgreichen Projektänderung die lokale OGG-Instanz auf den neuen Entwicklungsstand aktualisiert und dieser lokale Build zuverlässig von der automatischen GitHub-Updateprüfung für Benutzer-Releases ausgeschlossen bleibt.
 
 ## Bekannte Fehler und Risiken
 

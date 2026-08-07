@@ -20,7 +20,19 @@ Schwerpunkt: Zuverlässigkeit der vorhandenen Kernfunktionen und konsistente Nav
 - Navigation, Update und Commander-Profile mit automatisierten Tests stabilisieren.
 - Debug- und Release-Dokumentation bereinigen.
 
-## Version 0.15 – Exploration Console
+## Version 0.15 – Onboard Computer Identity
+
+Schwerpunkt: Die Identität des persönlichen Bordcomputers nach der Ersteinrichtung zuverlässig verwalten.
+
+- Bordcomputer nach der Ersteinrichtung jederzeit umbenennen können.
+- Den geänderten Namen lokal und dauerhaft speichern.
+- Bestehende Namen und Einstellungen bei Updates zuverlässig übernehmen.
+- Umbenennung in allen unterstützten Sprachen vollständig anbieten.
+- Den neuen Namen unmittelbar in Oberfläche, Begrüßung und Sprachausgabe verwenden.
+- Eingaben verständlich prüfen und leere oder ungültige Namen sicher behandeln.
+- Sicherstellen und automatisiert prüfen, dass Codex nach jeder erfolgreichen Projektänderung die lokale OGG-Entwicklungsinstanz aktualisiert und dieser lokale Build von der automatischen GitHub-Updateprüfung für Benutzer-Releases ausgeschlossen bleibt.
+
+## Version 0.16 – Exploration Console
 
 Schwerpunkt: Aus Journalereignissen einen klaren, handlungsorientierten Explorationsstatus erzeugen.
 
@@ -31,7 +43,7 @@ Schwerpunkt: Aus Journalereignissen einen klaren, handlungsorientierten Explorat
 - Ruhige Audiohinweise für abgeschlossene oder noch lohnende Explorationsschritte ergänzen.
 - Verlauf der aktuellen Sitzung lokal nachvollziehbar machen.
 
-## Version 0.16 – Exobiology Field Support
+## Version 0.17 – Exobiology Field Support
 
 Schwerpunkt: Exobiologie vom ersten Signal bis zur abgeschlossenen Probe begleiten.
 
@@ -42,7 +54,7 @@ Schwerpunkt: Exobiologie vom ersten Signal bis zur abgeschlossenen Probe begleit
 - Exobiologie-Ansicht für schnelle Erfassung während Flug und SRV-/On-foot-Phasen optimieren.
 - Seltene, nicht aufdringliche Audiohinweise für Proben- und Codexereignisse ergänzen.
 
-## Version 0.17 – Adaptive Navigation
+## Version 0.18 – Adaptive Navigation
 
 Schwerpunkt: Vorausschauende Reiseunterstützung aus einer zentralen, verlässlichen Route.
 
@@ -53,7 +65,7 @@ Schwerpunkt: Vorausschauende Reiseunterstützung aus einer zentralen, verlässli
 - Navigationsmeldungen nach Dringlichkeit priorisieren und Audio-Wiederholungen vermeiden.
 - Optionale kompakte Overlay-/Second-Screen-Ansicht erproben.
 
-## Version 0.18 – Personal Cockpit
+## Version 0.19 – Personal Cockpit
 
 Schwerpunkt: OGG wird persönlicher, ohne seine gemeinsame Kernidentität zu verlieren.
 

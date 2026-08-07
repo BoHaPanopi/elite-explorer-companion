@@ -1,5 +1,7 @@
 # OGG Voice Guideline
 
+Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the Elite Explorer Companion project.
+
 ---
 
 ## 1. Purpose

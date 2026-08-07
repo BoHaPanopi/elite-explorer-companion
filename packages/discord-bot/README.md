@@ -1,5 +1,7 @@
 # discord-bot
 
+Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the Elite Explorer Companion project.
+
 The OGG Discord companion bot — bringing OGG into your server.
 
 ## What it does

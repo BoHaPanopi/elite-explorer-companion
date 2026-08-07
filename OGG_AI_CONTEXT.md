@@ -164,6 +164,7 @@ Diese Formulierungen bilden künftig den verbindlichen Sprachstil von OGG.
 - Versionsangaben und Release-Artefakte bleiben synchron und reproduzierbar.
 - Ein Feature ist erst fertig, wenn Text, Audio, UI, Fehlerfall und Profilverhalten zusammenpassen.
 - Nach jeder erfolgreichen Änderung werden Frontend, Rust-Release und Python-Sidecar gebaut, NSIS und MSI erzeugt, der NSIS-Build lokal installiert und die installierte Version per Sichtprüfung gestartet. Anschließend werden alle OGG-Prozesse sauber beendet; die lokale Installation entspricht damit stets dem aktuellen Entwicklungsstand.
+- Lokal installierte Entwicklungs- und Codex-Test-Builds werden eindeutig als lokale Builds gekennzeichnet und führen keine automatische GitHub-Updateprüfung für reguläre Benutzer-Releases aus.
 
 ## Langfristige Vision
 

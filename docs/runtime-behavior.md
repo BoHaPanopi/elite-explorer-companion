@@ -1,5 +1,7 @@
 # OGG runtime behavior
 
+Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the Elite Explorer Companion project.
+
 ## PyInstaller onefile voice server: two processes (by design)
 
 Status: **Accepted — by design**
