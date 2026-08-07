@@ -5,6 +5,11 @@
     "packages/*"
   ],
   "version": "0.14.6",
+  "homepage": "https://bohapanopi.github.io/elite-explorer-companion/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BoHaPanopi/elite-explorer-companion.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +18,7 @@
     "test:tony": "node --experimental-strip-types --test tests/tonyEdition.test.ts",
     "test:update": "node --experimental-strip-types --test tests/updateWait.test.ts tests/startupRecovery.test.ts",
     "test:star-class": "node --experimental-strip-types --test tests/starClass.test.ts",
+    "test:onboard-computer": "node --experimental-strip-types --test tests/onboardComputer.test.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build:local": "set \"OGG_LOCAL_TEST_BUILD=1\"&& tauri build"

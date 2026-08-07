@@ -1,5 +1,7 @@
 # OGG Roadmap
 
+**Veröffentlichte Roadmap:** <https://bohapanopi.github.io/elite-explorer-companion/>
+
 Diese Datei beschreibt ausschließlich die geplante zukünftige Entwicklung von OGG. Abgeschlossene Arbeiten und der aktuelle Projektstand stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md). Alle Vorhaben unterliegen der Identität und den Produktprinzipien aus [`OGG_AI_CONTEXT.md`](./OGG_AI_CONTEXT.md).
 
 Zeitpunkte sind bewusst nicht fest zugesagt. Umfang und Reihenfolge können sich nach Erprobung ändern; die Versionsziele beschreiben die beabsichtigte Produktentwicklung.
@@ -124,6 +126,37 @@ Schwerpunkt: Stabiler, dokumentierter und vollständig integrierter Bordcomputer
 - Ruhephasen und Ereignisdrosselung einführen.
 - Voice-Sidecar, Recovery und Update-Verhalten weiter härten.
 - Optionale Ausgabegeräte- und Lautstärkesteuerung prüfen.
+
+## Integrationen und Steuerung
+
+### VoiceAttack und Sprachsteuerung
+
+- Aktivierungswort als zentrale Schnittstelle des Bordcomputers.
+- VoiceAttack-Anbindung.
+- Importierbares VoiceAttack-Profil, das ohne manuelle Neuerstellung eingerichtet werden kann.
+- Offene Schnittstelle für weitere Sprachsteuerungsprogramme.
+
+### Stream Deck
+
+- Stream-Deck-Unterstützung mit importierbarem Profil.
+
+### Discord
+
+- Discord-Anbindung für Statusmeldungen und ausgewählte Bordcomputer-Funktionen.
+
+### Android
+
+- Android-Begleit-App beziehungsweise mobile Weboberfläche.
+
+### iOS
+
+- iOS-Begleit-App beziehungsweise mobile Weboberfläche.
+
+### Gemeinsame Befehls- und Schnittstellenarchitektur
+
+- Gemeinsames Befehlsmodell, damit Sprachsteuerung, Stream Deck, Discord und mobile Geräte dieselben Funktionen auslösen.
+- Sichere lokale Kommunikation, konfigurierbare Berechtigungen und keine ungefragte Datenübertragung.
+- Export-, Import- und Versionsmigration für alle Profile und Integrationen.
 
 ## Exploration
 
