@@ -1,7 +1,9 @@
 {
   "name": "elite-explorer-companion",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "version": "0.14.6",
   "type": "module",
   "scripts": {
@@ -20,9 +22,9 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@tauri-apps/plugin-window-state": "^2.4.1",
+    "ogg-core": "file:packages/ogg-core",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "ogg-core": "workspace:*"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
