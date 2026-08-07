@@ -3,7 +3,7 @@ import type {
   TacticalResult,
   TacticalTarget,
   ThreatLevel,
-} from "../types/tactical";
+} from "ogg-core";
 import { createTonyTacticalText, type TonyProfile } from "../features/tonyEdition";
 
 const rankScore: Record<string, number> = {

@@ -8,7 +8,7 @@ import { tacticalAlarmService } from "../services/TacticalAlarmService";
 import type {
   TacticalResult,
   TacticalTarget,
-} from "../types/tactical";
+} from "ogg-core";
 
 const demoTargets: TacticalTarget[] = [
   {

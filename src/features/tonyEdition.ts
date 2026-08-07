@@ -1,5 +1,5 @@
 import type { Language } from "../i18n";
-import type { TacticalTarget, ThreatLevel } from "../types/tactical";
+import type { TacticalTarget, ThreatLevel } from "ogg-core";
 
 export type TonyProfile = "helitony" | "helitony2";
 export type TonyMessageType = "welcome" | "seasonal";
