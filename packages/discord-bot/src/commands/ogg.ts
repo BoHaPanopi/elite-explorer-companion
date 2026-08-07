@@ -13,5 +13,5 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     commanderName: "Commander",
     isReturning: false,
   });
-  await interaction.reply(lines.join("\n"));
+  await interaction.reply(`${lines.join("\n")}\n\nOGG\n\no7`);
 }
