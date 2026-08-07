@@ -2,12 +2,22 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const IS_PRODUCTION_RUNTIME =
+  process.env.NODE_ENV === "production" || Boolean(process.env.RAILWAY_ENVIRONMENT_NAME);
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     console.error(`Missing required environment variable: ${name}`);
-    console.error("Copy packages/discord-bot/.env.example to packages/discord-bot/.env and fill in all values.");
-    process.exit(1);
+
+    if (IS_PRODUCTION_RUNTIME) {
+      console.error("Set this variable in your Railway service environment.");
+      process.exit(1);
+    }
+
+    console.error("For local development, copy packages/discord-bot/.env.example to packages/discord-bot/.env.");
+    console.error("Bot startup was skipped because credentials are missing.");
+    process.exit(0);
   }
   return value;
 }

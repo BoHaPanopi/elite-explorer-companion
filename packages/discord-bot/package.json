@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "start": "node --enable-source-maps ./dist/index.js",
+    "start": "node --enable-source-maps dist/index.js",
     "register": "node --enable-source-maps ./dist/register.js"
   },
   "dependencies": {

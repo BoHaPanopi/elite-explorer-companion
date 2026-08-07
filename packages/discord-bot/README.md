@@ -21,6 +21,8 @@ DISCORD_CLIENT_ID=
 DISCORD_GUILD_ID=
 ```
 
+In production (for example Railway), do not use a local `.env` file. Set these same variables in the service environment.
+
 ## Commands
 
 ```bash
@@ -33,3 +35,23 @@ node --env-file=packages/discord-bot/.env packages/discord-bot/dist/register.js
 # Start the bot
 node --env-file=packages/discord-bot/.env --enable-source-maps packages/discord-bot/dist/index.js
 ```
+
+## Railway (Monorepo)
+
+Use the repository root as the Railway service root so workspace dependencies (including `ogg-core`) resolve correctly.
+
+Recommended Railway commands:
+
+```bash
+# Build command
+npm run --workspace packages/discord-bot build
+
+# Start command
+npm run --workspace packages/discord-bot start
+```
+
+Required Railway environment variables:
+
+- `DISCORD_TOKEN`
+- `DISCORD_CLIENT_ID`
+- `DISCORD_GUILD_ID`
