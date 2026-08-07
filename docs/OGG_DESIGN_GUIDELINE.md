@@ -34,6 +34,30 @@ OGG's visual identity follows these principles:
 
 OGG should look like an onboard computer, not a generic Discord bot.
 
+### Official OGG Brand Color
+
+The official OGG primary brand color is:
+
+- Hex: `#00C8FF`
+- RGB: 0, 200, 255
+
+This color represents OGG across every platform. It is used for:
+
+- Discord role
+- Desktop application accents
+- OGG status indicators
+- Icons where appropriate
+- Documentation highlights
+- Website branding
+- Future OGG clients
+
+Do not replace this color with another blue or cyan.
+Minor platform-specific adjustments are allowed only if required for accessibility or platform limitations.
+The official color remains `#00C8FF`.
+The color is part of OGG's visual identity just like the logo and the name.
+
+The official OGG brand color is part of the permanent OGG identity and applies to all current and future clients.
+
 ---
 
 ## 3. Naming
