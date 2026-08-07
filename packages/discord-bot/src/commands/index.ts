@@ -1,0 +1,16 @@
+import type { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import * as ogg from "./ogg.js";
+import * as quote from "./quote.js";
+import * as about from "./about.js";
+import * as help from "./help.js";
+
+export type Command = {
+  data: Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+};
+
+const commands: Command[] = [ogg, quote, about, help];
+
+export const commandRegistry = new Map<string, Command>(
+  commands.map((c) => [c.data.name, c]),
+);

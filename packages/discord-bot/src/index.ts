@@ -1,14 +1,39 @@
+import { Events } from "discord.js";
 import { createDiscordClient } from "./services/discordClient.js";
 import { DISCORD_TOKEN } from "./config/env.js";
+import { commandRegistry } from "./commands/index.js";
 
 const client = createDiscordClient();
 
-client.once("ready", () => {
+client.once(Events.ClientReady, () => {
   console.log(`Discord bot ready as ${client.user?.tag}`);
 });
 
-client.on("error", (error) => {
+client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = commandRegistry.get(interaction.commandName);
+  if (!command) {
+    console.warn(`Unknown command: ${interaction.commandName}`);
+    await interaction.reply({ content: "Unknown command.", ephemeral: true });
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(`Command ${interaction.commandName} failed:`, error);
+    const msg = { content: "Something went wrong.", ephemeral: true };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(msg);
+    } else {
+      await interaction.reply(msg);
+    }
+  }
 });
 
 process.on("SIGINT", async () => {
