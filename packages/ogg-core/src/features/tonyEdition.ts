@@ -1,4 +1,4 @@
-import type { Language } from "../i18n";
+import type { Language } from "../types/language.ts";
 import type { TacticalTarget, ThreatLevel } from "ogg-core";
 
 export type TonyProfile = "helitony" | "helitony2";

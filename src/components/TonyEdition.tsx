@@ -3,7 +3,7 @@ import {
   seasonalMessage,
   type TonyMessageType,
   type TonyProfile,
-} from "../features/tonyEdition";
+} from "ogg-core";
 import { useI18n } from "../i18n";
 
 type DialogProps = {

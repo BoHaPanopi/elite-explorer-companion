@@ -4,7 +4,7 @@ import type {
   TacticalTarget,
   ThreatLevel,
 } from "ogg-core";
-import { createTonyTacticalText, type TonyProfile } from "../features/tonyEdition";
+import { createTonyTacticalText, type TonyProfile } from "ogg-core";
 
 const rankScore: Record<string, number> = {
   Harmless: 0,

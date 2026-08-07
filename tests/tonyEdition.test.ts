@@ -13,7 +13,7 @@ import {
   seasonalMessage,
   tonySeasonalStorageKey,
   tonyWelcomeStorageKey,
-} from "../src/features/tonyEdition.ts";
+} from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 
 test("activates only for the two Tony commander identities", () => {
