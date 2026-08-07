@@ -1,0 +1,26 @@
+{
+  "name": "discord-bot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "start": "node --enable-source-maps ./dist/index.js",
+    "register": "node --enable-source-maps ./dist/register.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.0.3",
+    "ogg-core": "file:../ogg-core"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.2"
+  }
+}
