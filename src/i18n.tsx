@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-
-export type Language = "de" | "en" | "fr" | "it" | "es";
+import type { Language } from "ogg-core";
+export type { Language } from "ogg-core";
 
 const STORAGE_KEY = "ogg.language";
 

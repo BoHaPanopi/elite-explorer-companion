@@ -1,4 +1,4 @@
-export type Language = "de" | "en" | "fr" | "it" | "es";
+import type { Language } from "../types/language.ts";
 
 export type ExplorationObservationKind =
   | "first_discovery_by_current_commander"
