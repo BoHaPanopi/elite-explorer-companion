@@ -22,6 +22,11 @@ __pycache__/
 .codex/
 src-tauri/tauri.local.conf.json
 
+# Environment credential files — keep .env.example tracked
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
