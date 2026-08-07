@@ -171,7 +171,37 @@ The personality defined here applies equally to all future expansions.
 
 ---
 
-## 10. Golden Rules
+## 10. OGG Evolution Process
+
+OGG's personality is never changed directly in source code.
+
+Every change to OGG's behaviour follows this order:
+
+1. Discuss and approve the idea.
+2. Update `OGG_VOICE_GUIDELINE.md`.
+3. Review the documented behaviour.
+4. Implement the behaviour in `ogg-core`.
+5. Verify all existing clients continue to use the shared implementation.
+6. Only then release the new behaviour.
+
+The rules are explicit:
+
+- No developer may invent new OGG behaviour directly in code.
+- No platform may create its own personality.
+- Personality changes always start in documentation.
+- Documentation is the source of intent.
+- `ogg-core` is the source of implementation.
+- Clients are the source of presentation only.
+
+### Reviewing Existing Behaviour
+
+Before changing any existing greeting, wisdom, tactical response, exploration message, or Commander interaction, the existing behaviour must first be documented, reviewed, and approved.
+
+This prevents accidental personality drift.
+
+---
+
+## 11. Golden Rules
 
 One personality.
 
