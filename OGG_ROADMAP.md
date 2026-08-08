@@ -63,6 +63,7 @@ Verbindliche Crew-Namensspezifikation: [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG
 - Audio- und Meldungssystem vereinheitlichen, inklusive Prioritäts- und Unterbrechungsregeln.
 - Voice-Sidecar stabilisieren.
 - Lokale Verarbeitung und Datenschutz beibehalten.
+- Sicherheitsgrundsaetze fuer least privilege, lokale Verarbeitung, klare Integrationsgrenzen und fail-closed-Verhalten verbindlich dokumentieren.
 
 Definition nach 0.15: OGG, Crew und Bordcomputer sind in Identität, Sprache, Rollen und Grundverhalten festgelegt. Spätere Alphas erweitern Fähigkeiten, nicht die grundlegende Identität.
 
@@ -118,6 +119,7 @@ Schwerpunkt: Stabile Bordcomputer-Funktionen über gemeinsame sichere Schnittste
 - Explizite lokale Berechtigungen pro Integration.
 - Sichere lokale Kommunikation und keine ungefragte Datenübertragung.
 - Export, Import und Versionsmigration der Integrationsprofile.
+- Allowlist-Modell, widerrufbare lokale Grants und sichere Transportgrenzen fuer Integrationen festziehen.
 
 ## Version 0.20 – Personal Cockpit
 
@@ -171,6 +173,7 @@ Schwerpunkt: Stabiler, dokumentierter und vollständig integrierter Bordcomputer
 - Wing-/Multicrew-Unterstützung für verlässlich verfügbare gemeinsame Ereignisse produktionsreif machen.
 - Commander-Profile, Datenschutz und lokale Datenhaltung vollständig dokumentieren.
 - Release-, Diagnose- und Supportabläufe für einen stabilen Betrieb etablieren.
+- Release-/Installer-Signierung, produktionsreife Update-Integritaet und vollstaendige Sicherheitsdokumentation abschliessen.
 
 ## Community / Infrastruktur
 

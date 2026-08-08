@@ -1,6 +1,6 @@
 # OGG Identity and AI Context
 
-Diese Datei beschreibt die verbindliche Identität von OGG. Sie ist ein Leitfaden für Produktentscheidungen, Texte, Audio, UI und neue Funktionen. Technischer Projektstand und Änderungshistorie stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md); zukünftige Vorhaben stehen in [`OGG_ROADMAP.md`](./OGG_ROADMAP.md). Der verbindliche Namensstand der Crew für Alpha 0.15 steht in [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG_CREW_SPEC_0_15.md).
+Diese Datei beschreibt die verbindliche Identität von OGG. Sie ist ein Leitfaden für Produktentscheidungen, Texte, Audio, UI und neue Funktionen. Technischer Projektstand und Änderungshistorie stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md); zukünftige Vorhaben stehen in [`OGG_ROADMAP.md`](./OGG_ROADMAP.md). Der verbindliche Namensstand der Crew für Alpha 0.15 steht in [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG_CREW_SPEC_0_15.md). Die oeffentliche Sicherheitsphilosophie steht in [`SECURITY.md`](./SECURITY.md) und das ausfuehrliche Vertrauens- und Sicherheitsmodell in [`docs/SECURITY_MODEL.md`](./docs/SECURITY_MODEL.md).
 
 ## Was OGG ist
 
@@ -177,6 +177,17 @@ Verbindliches Rollenprinzip:
 - Kernfunktionen sollen ohne dauerhafte Cloud-Abhängigkeit arbeiten.
 - Datenschutz folgt dem Prinzip der Datensparsamkeit; lokale Daten bleiben soweit möglich lokal.
 - Lokalisierung bedeutet natürliche, profilspezifische Formulierung und nicht bloßen Zeichenkettenaustausch.
+
+## Sicherheitsgrundsaetze
+
+- Elite Explorer Companion folgt dem Prinzip least privilege; normaler Betrieb erfolgt mit normalen Benutzerrechten.
+- Lokale Daten werden moeglichst lokal verarbeitet; keine versteckte Telemetrie oder ungefragte Hintergrunduebertragung.
+- Integrationen erhalten nur explizit erlaubte Funktionen ueber klar definierte Schnittstellen.
+- OGG, Sprachsteuerung, KI-Komponenten und Integrationen duerfen keine beliebigen Shell-, CMD-, PowerShell- oder Skriptbefehle aus natuerlicher Sprache oder externen Eingaben ausfuehren.
+- Bei Unsicherheit gilt fail closed statt fail open.
+- Oeffentliche Sicherheitsdetails werden transparent dokumentiert, ohne Secrets, Zugangsdaten oder unmittelbar missbrauchsfoerdernde Interna zu veroeffentlichen.
+
+Details und oeffentliche Trust-Boundaries stehen in [`docs/SECURITY_MODEL.md`](./docs/SECURITY_MODEL.md).
 
 ## Entwicklungsgrundsätze
 
