@@ -2,21 +2,26 @@ import { Events } from "discord.js";
 import { createDiscordClient } from "./services/discordClient.js";
 import { DISCORD_TOKEN, DISCORD_GUILD_ID } from "./config/env.js";
 import { commandRegistry } from "./commands/index.js";
+import { handleGuildMemberAdd } from "./events/guildMemberAdd.js";
+import { handleInteractionCreate } from "./events/interactionCreate.js";
 
 const client = createDiscordClient();
+
+console.log("Registered commands:", [...commandRegistry.keys()]);
 
 client.once(Events.ClientReady, async () => {
   const user = client.user!;
   console.log(`Bot username : ${user.username}`);
   console.log(`Bot ID       : ${user.id}`);
 
-  // fetch the configured guild to confirm the bot can see it
   try {
     const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
     console.log(`Guild name   : ${guild.name}`);
     console.log(`Guild ID     : ${guild.id}`);
   } catch {
-    console.warn(`Could not fetch guild ${DISCORD_GUILD_ID} — the bot may not be a member yet.`);
+    console.warn(
+      `Could not fetch guild ${DISCORD_GUILD_ID} — the bot may not be a member yet.`
+    );
   }
 });
 
@@ -24,13 +29,35 @@ client.on(Events.Error, (error) => {
   console.error("Discord client error:", error);
 });
 
+client.on(Events.GuildMemberAdd, async (member) => {
+  try {
+    await handleGuildMemberAdd(member);
+  } catch (error) {
+    console.error("Guild member add handler failed:", error);
+  }
+});
+
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) {
+    try {
+      await handleInteractionCreate(interaction);
+    } catch (error) {
+      console.error("Interaction handler failed:", error);
+    }
+
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
+  console.log("Incoming command:", interaction.commandName);
+  console.log("Registry at runtime:", [...commandRegistry.keys()]);
+
   const command = commandRegistry.get(interaction.commandName);
+
   if (!command) {
-    console.warn(`Unknown command: ${interaction.commandName}`);
-    await interaction.reply({ content: "Unknown command.", ephemeral: true });
+    console.warn(`Unregistered slash command: ${interaction.commandName}`);
+
     return;
   }
 
@@ -38,7 +65,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await command.execute(interaction);
   } catch (error) {
     console.error(`Command ${interaction.commandName} failed:`, error);
-    const msg = { content: "Something went wrong.", ephemeral: true };
+
+    const msg = {
+      content: "Something went wrong.",
+      ephemeral: true,
+    };
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp(msg);
     } else {

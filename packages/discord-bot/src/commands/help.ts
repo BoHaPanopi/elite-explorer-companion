@@ -13,6 +13,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       "`/quote` — Return a space-themed quote.",
       "`/about` — Learn about OGG and this bot.",
       "`/help` — Show this message.",
+      "`/test-onboarding` — Trigger the Discord onboarding flow for yourself (admin only).",
     ].join("\n"),
   );
 }
