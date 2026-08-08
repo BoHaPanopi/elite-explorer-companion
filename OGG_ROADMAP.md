@@ -46,6 +46,8 @@ Schwerpunkt: Zuverlässigkeit der vorhandenen Kernfunktionen und konsistente Nav
 
 Schwerpunkt: Den Bordcomputer mit OGG und seiner Crew vollständig definieren und als feste Produktgrundlage abschließen.
 
+Verbindliche Crew-Namensspezifikation: [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG_CREW_SPEC_0_15.md)
+
 - OGG vollständig festlegen: Charakter, Verhalten, originaler Oberland-Dialekt, Ansprache, Ereignislogik und Wiederholungsregeln.
 - OGGs Crew vollständig festlegen: Mitglieder, Namen, Aufgaben, Zuständigkeiten, Persönlichkeiten, Stimmen sowie Verhältnis zu OGG und Commander.
 - Kommunikationsregeln zwischen OGG und Crew festlegen: Prioritäten, Zuständigkeiten, Unterbrechungsregeln und keine überlappenden Meldungen.

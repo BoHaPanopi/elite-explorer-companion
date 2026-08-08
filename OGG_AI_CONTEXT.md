@@ -1,6 +1,6 @@
 # OGG Identity and AI Context
 
-Diese Datei beschreibt die verbindliche Identität von OGG. Sie ist ein Leitfaden für Produktentscheidungen, Texte, Audio, UI und neue Funktionen. Technischer Projektstand und Änderungshistorie stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md); zukünftige Vorhaben stehen in [`OGG_ROADMAP.md`](./OGG_ROADMAP.md).
+Diese Datei beschreibt die verbindliche Identität von OGG. Sie ist ein Leitfaden für Produktentscheidungen, Texte, Audio, UI und neue Funktionen. Technischer Projektstand und Änderungshistorie stehen in [`OGG_Project_Log.md`](./OGG_Project_Log.md); zukünftige Vorhaben stehen in [`OGG_ROADMAP.md`](./OGG_ROADMAP.md). Der verbindliche Namensstand der Crew für Alpha 0.15 steht in [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG_CREW_SPEC_0_15.md).
 
 ## Was OGG ist
 
