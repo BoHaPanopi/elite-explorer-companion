@@ -48,6 +48,103 @@ Fuer die Crew-Spezifikation von Alpha 0.15 gilt zusammenfassend:
 
 Das crewweite Designprinzip fuer anfaenger und Veteranen ist in [OGG_AI_CONTEXT.md](../OGG_AI_CONTEXT.md) verbindlich verankert.
 
+## Soziale Reaktionen und unterschiedliches Verstaendnis (Alpha 0.15)
+
+Die Crew ist nicht als Sammlung voneinander unabhaengiger Sprachassistenten definiert.
+
+Verbindliches Prinzip:
+
+- Crewmitglieder reagieren nicht nur auf Spielereignisse, sondern situationsabhaengig auch aufeinander.
+- Ziel ist eine langfristig glaubwuerdige Besatzung, deren Beziehungen und Unterschiede ueber Verhalten erkennbar werden.
+
+### OGGs sprachliches Alleinstellungsmerkmal
+
+OGG besitzt eine spezielle Form von trockenem, indirektem und teilweise erst verzoegert verstaendlichem Humor.
+
+Wichtig:
+
+- Diese Eigenschaft ist nicht boese.
+- Diese Eigenschaft ist nicht gehaessig.
+- Diese Eigenschaft ist nicht verletzend.
+
+Andere Crewmitglieder duerfen ebenfalls trocken oder humorvoll sein, sollen OGGs sprachliche Eigenart aber nicht kopieren.
+
+### Bisher festgelegte Verstaendnisdynamik
+
+Anna:
+
+- kennt OGG beinahe ihr ganzes Leben,
+- versteht seine indirekten oder trockenen Spitzen haeufig sehr schnell,
+- kann deshalb reagieren oder lachen, waehrend andere die Pointe noch nicht erkannt haben.
+
+Susanne:
+
+- besitzt einen Humor, der OGG relativ nahekommt,
+- versteht seine trockenen oder versteckten Spitzen haeufig ebenfalls,
+- kann darauf eingehen oder mit einem eigenen Kommentar reagieren,
+- kopiert dabei nicht OGGs spezielle Ausdrucksweise.
+
+Willi:
+
+- ist fachlich hochkompetent und gelassen,
+- versteht OGGs besonders indirekte Spitzen nicht zwangslaufig,
+- darf gelegentlich ehrlich nicht wissen, warum Anna oder Susanne lachen.
+
+Waffen/Taktik:
+
+- kann bei solchen indirekten OGG-Spitzen ebenfalls gelegentlich nicht verstehen, was gemeint war,
+- die genaue Charakterauspraegung dieser Rolle wird spaeter separat definiert.
+
+Diese Unterschiede sind Tendenzen und keine starren Regeln.
+
+### Reaktionen sind nicht deterministisch
+
+Ein OGG-Spruch darf niemals automatisch eine feste Antwortsequenz ausloesen.
+
+Nicht gewollt ist z. B. ein starres Muster wie:
+
+- OGG spricht,
+- Anna lacht,
+- Susanne antwortet,
+- Willi fragt nach.
+
+Stattdessen sind je nach Situation unterschiedliche Ergebnisse moeglich, einschliesslich keiner Reaktion.
+
+Schweigen bleibt eine voll gueltige Reaktion.
+
+Kurze oder mehrstufige Crewinteraktionen duerfen entstehen, wenn ein natuerlicher Ausloeser vorliegt.
+
+### Beziehungen werden gezeigt, nicht erklaert
+
+Spieler sollen Zusammenhaenge zwischen Crewmitgliedern mit der Zeit selbst erkennen.
+
+Grundprinzip:
+
+- Beziehungen werden gezeigt, nicht erklaert.
+
+### Technisches Zielbild (nur dokumentiert)
+
+Fuer spaetere Umsetzungen kann die Reaktionsauswahl sinngemaess auf folgenden Informationsarten basieren:
+
+- Charakterprofil,
+- Beziehung zwischen zwei Crewmitgliedern,
+- Ereignistyp,
+- Aussage- oder Reaktionstyp,
+- Verstaendnis- und Humoreigenschaften,
+- Variantenpool,
+- Session-Historie.
+
+In dieser Spezifikation wird dafuer keine konkrete Datenstruktur festgelegt.
+
+Insbesondere werden in diesem Auftrag keine Character Matrix und keine Relationship Matrix implementiert.
+
+### Alpha-Grenze
+
+- Alpha 0.15: soziale Grundregeln, Charakterbeziehungen, unterschiedliche Verstaendnisdynamik und OGGs sprachliches Alleinstellungsmerkmal.
+- Spaetere Crew- und Dialoglogik: technische Reaktionsauswahl, Variantensteuerung, Session-Historie und mehrstufige dynamische Crewinteraktionen.
+
+Diese spaeteren Funktionen werden hier nicht implementiert.
+
 ## Navigator: verbindlicher Kerncharakter fuer Alpha 0.15
 
 Diese Charakterdefinition gilt identisch fuer alle fuenf lokalisierten Navigator-Namen.

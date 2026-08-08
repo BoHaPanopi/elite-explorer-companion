@@ -159,6 +159,7 @@ Schwerpunkt: Mobile und externe Geräte auf Basis stabiler Schnittstellen anbind
 - Weitere Expeditionsfunktionen.
 - VR-spezifische Betriebsarten.
 - Weitere externe Darstellungen.
+- Technische Crew-Interaktionslogik fuer soziale Reaktionsauswahl, Variantensteuerung und Session-Historie auf Basis der in 0.15 definierten Charakter- und Beziehungsprinzipien ausbauen.
 - Zusätzliche Crew- und Spezialmodule nur, wenn architektonisch passend.
 - OGG-Identität darf nicht verwässert werden.
 

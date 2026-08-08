@@ -121,6 +121,32 @@ Diese Regeln gelten verbindlich fuer alle vier Fachrollen: Navigation, Wissensch
 - Die Crew spricht nur, wenn die Situation einen fachlichen oder charakterlichen Grund dafuer bietet.
 - Es werden keine kuenstlichen Gespraeche nur zur Erzeugung von Crew-Atmosphaere gefuehrt.
 
+## Crew als Besatzung, nicht als Einzel-Assistenten
+
+Die Crew ist nicht als Sammlung voneinander unabhaengiger Sprachassistenten gedacht.
+
+Verbindliches Prinzip:
+
+- Crewmitglieder reagieren nicht nur auf Spielereignisse, sondern situationsabhaengig auch aufeinander.
+- Interaktionen zwischen Crewmitgliedern brauchen einen natuerlichen Ausloeser; reine Atmosphaeren-Dialoge bleiben ausgeschlossen.
+- Schweigen ist immer eine gueltige Reaktion.
+- Es gibt keine festen Antwortketten nach dem Muster Person A sagt X, Person B muss Y sagen.
+
+Unterschiedliches Verstaendnis innerhalb der Crew ist ausdruecklich vorgesehen.
+
+Besonders fuer OGG gilt:
+
+- OGG besitzt eine eigene, trockene, indirekte und teils erst verzoegert verstaendliche Form von Humor.
+- Diese Eigenschaft ist nie boese, nie gehaessig und nie verletzend gemeint.
+- Dieses sprachliche Muster bleibt ein Alleinstellungsmerkmal von OGG.
+- Andere Crewmitglieder duerfen ebenfalls trocken oder humorvoll reagieren, sollen OGGs spezifische Ausdrucksweise aber nicht kopieren.
+
+Beziehungen und Vertrautheit innerhalb der Crew werden ueber Verhalten sichtbar.
+
+Grundsatz:
+
+- Beziehungen werden gezeigt, nicht erklaert.
+
 ## Crewweites Designprinzip
 
 Dieses Prinzip gilt verbindlich fuer alle vier Fachrollen: Navigation, Wissenschaft, Technik und Waffen/Taktik.
