@@ -108,6 +108,31 @@ Diese Formulierungen bilden künftig den verbindlichen Sprachstil von OGG.
 - Audio muss deaktivierbar sein und darf die Bedienung nie blockieren.
 - Sprachfassungen werden eigenständig und natürlich geschrieben, nicht mechanisch übersetzt.
 
+## Crewweite Kommunikationsregeln
+
+Diese Regeln gelten verbindlich fuer alle vier Fachrollen: Navigation, Wissenschaft, Technik und Waffen/Taktik.
+
+- Das fachlich zustaendige Crewmitglied liefert die relevante Information, Analyse, Empfehlung oder Warnung.
+- OGG kann darauf situationsabhaengig zustimmen, bestaetigen, ergaenzen, trocken kommentieren, gegebenenfalls widersprechen oder vollstaendig schweigen.
+- Eine fachliche Crewmeldung erzwingt niemals automatisch eine Antwort von OGG.
+- Es gibt keine festen Dialogketten nach dem Muster Crewmitglied spricht, danach muss OGG antworten.
+- Crewinteraktionen sind ereignisabhaengig, situationsabhaengig, variabel, nicht verpflichtend und wiederholungsarm.
+- Auch verschiedene Fachcrewmitglieder duerfen miteinander kommunizieren, wenn ihre Zustaendigkeiten sich in einer konkreten Situation sinnvoll ueberschneiden.
+- Die Crew spricht nur, wenn die Situation einen fachlichen oder charakterlichen Grund dafuer bietet.
+- Es werden keine kuenstlichen Gespraeche nur zur Erzeugung von Crew-Atmosphaere gefuehrt.
+
+Verbindliches Rollenprinzip:
+
+- Fachcrew analysiert, informiert und beraet.
+- OGG kommentiert, bewertet und reagiert.
+
+## Vorrang der Fachinformation
+
+- Bei relevanten oder kritischen Ereignissen hat fachliche Information immer Vorrang vor Humor.
+- Humor darf Information begleiten, anschliessen oder vollstaendig entfallen.
+- Humor darf niemals eine wichtige Information verdecken, eine Warnung verzoegern, die Verstaendlichkeit reduzieren oder eine kritische Meldung ins Laecherliche ziehen.
+- OGG bleibt charakterstark, uebernimmt aber nicht die Fachrolle des zustaendigen Crewmitglieds.
+
 ## UI-Prinzipien
 
 - Navigation hat Vorrang vor Animation.

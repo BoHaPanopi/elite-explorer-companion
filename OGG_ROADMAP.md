@@ -72,6 +72,7 @@ Schwerpunkt: Die bereits funktionierende Navigation als verlässliches Datenfund
 
 - Aktuelles System, nächster Sprung, Zielsystem, verbleibende Sprünge und Restdistanz robust darstellen.
 - Sternklasse, Tankbarkeit und Kraftstoffkontext aus einer gemeinsamen aktiven Route ableiten.
+- Vorausschauende Navigationslogik fuer Fuel Horizon, Sicherheitsreserve und Fuel-Scoop-Beruecksichtigung auf Basis der in 0.15 definierten Navigator-Prinzipien technisch umsetzen.
 - Vor längeren Abschnitten ohne tankbaren Stern warnen.
 - Neuberechnung, Abbruch, Abschluss und Wiederaufnahme von Routen konsistent behandeln.
 - Expeditionsziele, Wegpunkte und Fortschritt ergänzen.

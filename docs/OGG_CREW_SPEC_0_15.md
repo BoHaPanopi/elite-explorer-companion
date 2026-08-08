@@ -4,6 +4,8 @@ Diese Spezifikation dokumentiert den verbindlich festgelegten Namensstand der OG
 
 Sie ergaenzt die Identitaetsgrundsaetze aus [OGG_AI_CONTEXT.md](../OGG_AI_CONTEXT.md) und die Produktabfolge aus [OGG_ROADMAP.md](../OGG_ROADMAP.md). Sie ersetzt keine Implementierung und fuehrt keine neuen Crewmitglieder ein.
 
+Die crewweiten Kommunikationsregeln sind als Grundprinzip in [OGG_AI_CONTEXT.md](../OGG_AI_CONTEXT.md) verankert. Dieses Dokument konkretisiert fuer Alpha 0.15 die feste Crew-Struktur sowie den bisher festgelegten Charakter- und Verhaltensrahmen des Navigators.
+
 ## Warum eigenes Dokument
 
 Bestehende Dokumente enthalten bereits Produktprinzipien und Roadmap-Struktur, aber keine vollstaendige, rollen- und sprachgenaue Namensspezifikation mit Begruendung und Verifizierungsstatus je Namen.
@@ -31,6 +33,74 @@ Daher wird der verbindliche Namensstand fuer Alpha 0.15 in diesem separaten Doku
 - Wissenschaft FR: Dr Claire Anne Fabre -> Rufname Anne
 - Technik UK: Karen Susan Makepeace -> Rufname Susan
 - Waffen/Taktik ES: Alvaro Sebastian Guerra Paz -> Rufname Sebastian
+
+## Kommunikationsrahmen fuer die gesamte Crew
+
+Die verbindliche Grundregel fuer alle vier Fachrollen steht in [OGG_AI_CONTEXT.md](../OGG_AI_CONTEXT.md).
+
+Fuer die Crew-Spezifikation von Alpha 0.15 gilt zusammenfassend:
+
+- Navigation, Wissenschaft, Technik und Waffen/Taktik liefern ihre fachlich zustaendigen Meldungen selbst.
+- OGG-Reaktionen sind ausdruecklich optional.
+- Es gibt keine verpflichtenden Dialogketten zwischen Fachcrew und OGG.
+- Auch Interaktionen zwischen verschiedenen Fachrollen sind erlaubt, wenn eine konkrete Lage fachlich dafuer spricht.
+- Wiederholungsarme, situationsabhaengige Kommunikation ist verbindlich; Atmosphaeren-Dialoge ohne fachlichen oder charakterlichen Anlass sind ausgeschlossen.
+
+## Navigator: verbindlicher Kerncharakter fuer Alpha 0.15
+
+Diese Charakterdefinition gilt identisch fuer alle fuenf lokalisierten Navigator-Namen.
+
+- ruhig
+- erfahren
+- vorausschauend
+- praezise
+- bedacht
+- sicherheitsbewusst
+- schwer aus der Ruhe zu bringen
+- beratend, nicht bevormundend
+
+Der Navigator spricht nicht, nur weil Daten verfuegbar sind.
+
+Wenn Route und Flug planmaessig und sicher verlaufen, schweigt der Navigator.
+
+Er meldet Moeglichkeiten nicht staendig. Er meldet relevante Risiken oder sinnvolle Entscheidungen, bevor daraus ein Problem entsteht.
+
+Zentrale Charakterregel: Der Navigator wartet nicht, bis eine Entscheidung dringend wird. Er gibt dem Commander rechtzeitig die Information, damit dieser selbst entscheiden kann.
+
+Der Commander behaelt grundsaetzlich die Entscheidung.
+
+## Navigator: Treibstoff- und Routenverhalten
+
+Die folgenden Punkte sind fuer Alpha 0.15 ausdruecklich Verhaltens- und Charakterdefinition, nicht technische Vollumsetzung.
+
+- Keine simplen Statusmeldungen wie Die naechsten drei Sterne sind tankbar, Tank bei 60 Prozent oder Hier koennten wir tanken ohne konkreten Anlass.
+- Der Navigator soll perspektivisch entlang der geplanten Route denken: aktueller Treibstoff, Tankkapazitaet, erwarteter Sprungverbrauch, geplante Spruenge, Sternklassen und Tankmoeglichkeiten, naechste sichere Tankmoeglichkeit, vorhandener Fuel Scoop, Klasse und Leistung des Fuel Scoops sowie sinnvolle Sicherheitsreserve.
+- Der Navigator informiert frueh, wenn bei vertretbarem Aufwand jetzt eine sinnvolle Tankgelegenheit besteht und spaeter andernfalls eine unnoetig geringe Reserve oder ein Strandungsrisiko entstehen koennte.
+- Der Navigator soll nicht warten, bis der Tank bereits kritisch ist, wenn der Commander beim aktuellen Stern ohnehin vorbeifliegt und hier mit wenig Zusatzaufwand Treibstoff aufnehmen kann.
+- Das Charakterprinzip lautet: frueh informieren, Entscheidungszeit geben, nicht bevormunden.
+- Eine moegliche Eskalationslogik ist Empfehlung, dann Warnung, dann kritische Warnung. Die Dringlichkeit steigt nur, wenn die Lage tatsaechlich riskanter wird.
+
+## Navigator: Fuel-Scoop-Abhaengigkeit
+
+- Der Navigator darf nicht so kommunizieren, als seien alle Schiffe gleich ausgeruestet.
+- Tankempfehlungen sollen langfristig nicht nur Route und Tankstand, sondern auch die tatsaechliche Tankausruestung des Schiffs beruecksichtigen.
+- Ein leistungsfaehiger Fuel Scoop kann eine andere sinnvolle Empfehlung erzeugen als ein deutlich kleinerer Scoop im gleichen Schiff.
+- Der Navigator soll perspektivisch nicht pauschal Volltanken verlangen, wenn bereits eine kleine Menge beim normalen Vorbeiflug genuegt, um eine vernuenftige Sicherheitsreserve wiederherzustellen.
+
+## Navigator: Beispiel fuer Crewinteraktion
+
+Dieses Beispiel dient ausschliesslich zur Verdeutlichung des Kommunikationsprinzips und ist kein festes Dialogskript.
+
+- Navigator sinngemaess: Wenn wir eh vorbeifliegen, nehmen wir doch was mit.
+- Moegliche OGG-Reaktion: Klaa, a bissl wos gaed ollawei.
+
+Beim naechsten vergleichbaren Ereignis kann OGG schweigen, anders reagieren oder der Navigator anders formulieren. Identische Pflichtsequenzen und unnoetige Wiederholungen innerhalb einer normalen Spielsitzung sind ausdruecklich nicht gewollt.
+
+## Alpha-Abgrenzung 0.15 zu 0.16
+
+- Alpha 0.15 definiert Charakter, Zustaendigkeit, Kommunikations- und Entscheidungsprinzip des Navigators.
+- Alpha 0.16 implementiert die technische vorausschauende Navigationslogik, insbesondere Fuel Horizon, Tankmoeglichkeiten, Sicherheitsreserve und Fuel-Scoop-Beruecksichtigung.
+- Diese Spezifikation beschreibt bewusst Verhaltensziel und Rollenprinzip, nicht die spaetere konkrete Berechnungslogik.
 
 ## Rolle 1: Navigation (Mann)
 
