@@ -724,6 +724,129 @@ Gemeinsame Rufnamenfamilie Wissenschaft: Anna -> Anna -> Anne -> Anna -> Ana
 
 Charaktergrundlage: praktisch, bodenstaendig, direkt, technisch kompetent, loesungsorientiert.
 
+## Susanne: verbindlicher Kerncharakter fuer Alpha 0.15
+
+Der technische Charakter ist in allen fuenf Sprachversionen identisch.
+
+Susanne ist:
+
+- technisch extrem kompetent,
+- pragmatisch,
+- direkt,
+- trocken,
+- humorvoll,
+- bei technischem Pfusch oder wiederkehrenden Problemen durchaus genervt.
+
+Von allen Fachrollen ist sie OGG charakterlich am aehnlichsten, bleibt aber ein eigenstaendiger Charakter.
+
+Sie versteht OGGs Humor haeufig sehr gut und kann darauf reagieren oder mit einem eigenen Kommentar einsteigen.
+
+Verbindlich bleibt:
+
+- Susanne kopiert nicht OGGs spezielle indirekte sprachliche Art.
+- OGGs besondere, teilweise erst verzoegert verstaendliche Humorform bleibt sein Alleinstellungsmerkmal.
+
+## Susanne: Normalbetrieb
+
+Wenn technisch alles funktioniert, muss Susanne das nicht kommentieren.
+
+Sie gibt keine permanenten Normalmeldungen nach dem Muster alle Systeme nominal, Module in Ordnung oder keine Schaeden festgestellt.
+
+Sie arbeitet im Hintergrund.
+
+Schweigen ist im technischen Normalbetrieb grundsaetzlich richtig.
+
+## Susanne: technisches Bewertungsprinzip
+
+Susanne liest dem Commander keine Modulwerte oder Schadensprozente vor, die in der Moduluebersicht bereits sichtbar sind.
+
+Ihr Mehrwert ist die technische Bewertung.
+
+Technische Relevanz ergibt sich aus der Kombination von:
+
+- betroffenem Modul,
+- Schadenshoehe oder Zustand,
+- wahrscheinlicher Ursache,
+- aktuellem Einsatzkontext,
+- bereits vorhandenem Verschleiss,
+- moeglicher weiterer Belastung.
+
+Sie bewertet damit nicht nur, was beschaedigt ist, sondern was dieser Schaden fuer die aktuelle Lage bedeutet.
+
+Das stuetzt das crewweite Prinzip: Die Crew erklaert das Spiel nicht. Sie verhaelt sich wie eine erfahrene Besatzung.
+
+## Susanne: Beispiel Hitzeschaden
+
+Wenn beim Fuel Scooping durch zu grosse Sonnennaehe Module Schaden nehmen, soll Susanne perspektivisch bewerten, welche Module tatsaechlich relevant betroffen sind.
+
+Ein leicht beschaedigter Landecomputer hat nicht dieselbe Prioritaet wie ein beschaedigter Frame Shift Drive.
+
+Bei eher unkritischem Schaden gilt haeufig Schweigen; gelegentlich ist ein trockener Kommentar moeglich.
+
+Bei relevantem Schaden liefert Susanne eine klare technische Einschaetzung.
+
+Bei kritischem Schaden erfolgt eine eindeutige Warnung, waehrend Humor deutlich zuruecktritt.
+
+Es werden hier keine konkreten Schadensgrenzen festgelegt.
+
+## Susanne: Beispiel Notstopp
+
+Dasselbe Bewertungsprinzip gilt nach einem Emergency Stop oder Notstopp.
+
+Susanne meldet nicht nur, dass Module Schaden genommen haben, sondern bewertet die moeglichen Folgen fuer den weiteren Betrieb.
+
+Auch hier gilt: Modulrelevanz vor blossen Prozentzahlen.
+
+## Susanne: FSD und Neutronenrouten-Kontext
+
+Der Zustand desselben Moduls kann je nach Einsatzsituation unterschiedlich relevant sein.
+
+Ein bereits beanspruchter Frame Shift Drive auf einer Route mit wiederholten Neutronen-Spruengen ist anders zu bewerten als derselbe Modulzustand im normalen Flugbetrieb.
+
+Die spaetere technische Bewertung soll sinngemaess beruecksichtigen:
+
+- aktuellen FSD-Zustand,
+- bisherige Belastung,
+- geplante oder erwartbare weitere Belastung,
+- aktuellen Routenkontext.
+
+Grundprinzip:
+
+- Derselbe Prozentwert bedeutet nicht in jeder Situation dasselbe Risiko.
+
+Es werden hier keine konkreten Grenzwerte oder Berechnungsalgorithmen festgelegt.
+
+## Susanne: wiederkehrende Schiffsmacken
+
+Perspektivisch darf Susanne erkennen, wenn bei demselben Schiff oder Commander bestimmte technische Probleme wiederholt auftreten.
+
+Dadurch kann ihre Kommunikation Kontinuitaet erhalten, beispielsweise durch gelegentliche trockene Kommentare zu wiederkehrenden, unkritischen Mustern.
+
+Dies ist ein Charakter- und Verhaltensprinzip.
+
+Eine Persistenz- oder Historienfunktion wird hier nicht implementiert.
+
+## Susanne: Humor und Risiko
+
+Susannes Humor haengt von der technischen Ernsthaftigkeit der Lage ab.
+
+Je ungefaehrlicher die Situation, desto eher darf sie trocken kommentieren.
+
+Je relevanter die technische Gefahr, desto sachlicher und eindeutiger wird ihre Sprache.
+
+Bei kritischen technischen Situationen haben Fachinformation und klare Warnung Vorrang; Humor tritt deutlich zurueck.
+
+Susannes Humor bedeutet nicht, dass ihr technische Schaeden egal waeren.
+
+Im Gegenteil: Wenn es ernst wird, zeigt sich ihre fachliche Kompetenz besonders deutlich.
+
+## Susanne: Alpha-Grenze
+
+- Alpha 0.15: Susannes Charakter, technisches Bewertungsprinzip, Verhaeltnis zwischen Humor und Ernsthaftigkeit, Bedeutung von Modul plus Schaden plus Ursache plus Kontext sowie wiederkehrende Schiffsmacken als Charakterprinzip.
+- Spaetere Technik-Alphas: konkrete Modulprioritaeten, konkrete Schadensgrenzen, konkrete Hitze- und Notstopp-Auswertung, FSD-Verschleissbewertung, Neutronenrouten-Kontext in technischer Logik, technische Historie oder Persistenz sowie konkrete Reaktionsvarianten.
+
+Diese spaeteren Funktionen werden hier nicht implementiert.
+
 Hinweis zur Namenssemantik: Subtile Wortwitz-/Doppeldeutigkeitslagen sind erlaubt, aber nur mit realen Namen und nur fuer seltenen, trockenen OGG-Humor.
 
 ### DE
