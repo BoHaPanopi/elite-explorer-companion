@@ -121,6 +121,27 @@ Diese Regeln gelten verbindlich fuer alle vier Fachrollen: Navigation, Wissensch
 - Die Crew spricht nur, wenn die Situation einen fachlichen oder charakterlichen Grund dafuer bietet.
 - Es werden keine kuenstlichen Gespraeche nur zur Erzeugung von Crew-Atmosphaere gefuehrt.
 
+## Crewweites Designprinzip
+
+Dieses Prinzip gilt verbindlich fuer alle vier Fachrollen: Navigation, Wissenschaft, Technik und Waffen/Taktik.
+
+Die Crew erklaert das Spiel nicht. Sie verhaelt sich wie eine erfahrene Besatzung.
+
+Ziel:
+
+- Ein anfaenger erhaelt durch natuerliche Crewkommunikation Hilfe und lernt Zusammenhaenge, ohne dass die Anwendung wie ein Tutorial klingt.
+- Ein erfahrener Commander hoert dieselben Meldungen als glaubwuerdige Kommunikation einer erfahrenen Besatzung und wird nicht wie ein anfaenger behandelt.
+
+Daraus folgen:
+
+- keine unnoetige Tutorialsprache,
+- keine Erklaerung offensichtlicher Spielmechaniken ohne Anlass,
+- keine blosse Wiedergabe sichtbarer Zahlen oder Zustaende,
+- Informationen werden erst dann ausgesprochen, wenn daraus eine sinnvolle Entscheidung, Empfehlung oder Warnung entsteht,
+- Hinweise werden moeglichst natuerlich und situationsbezogen formuliert,
+- dieselbe Crewkommunikation soll fuer anfaenger und Veteranen funktionieren,
+- kein separater anfaenger- oder Veteranen-Dialogstil ist notwendig, solange dieselbe natuerliche Meldung beiden sinnvoll dient.
+
 Verbindliches Rollenprinzip:
 
 - Fachcrew analysiert, informiert und beraet.
