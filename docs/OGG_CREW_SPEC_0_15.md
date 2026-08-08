@@ -306,6 +306,48 @@ Wenn etwas wirklich ungewoehnlich oder wissenschaftlich besonders interessant is
 
 Damit wird fuer die Crew erkennbar: Wenn die normalerweise ruhige Anna ploetzlich deutlich interessierter oder lebhafter wird, ist der Fund wahrscheinlich tatsaechlich bemerkenswert.
 
+## Anna: Wissenschaft als Dauerbeschaeftigung
+
+Anna ist Wissenschaftlerin durch und durch.
+
+Waehren des normalen Betriebs ist sie mit der wissenschaftlichen Auswertung der Expedition beschaeftigt, beispielsweise mit verfuegbaren System-, Planeten-, Atmosphaeren-, Bio- und anderen wissenschaftlich relevanten Daten.
+
+Wichtig:
+
+- Dieser Punkt ist zunaechst Charakterbeschreibung und keine Festlegung bereits implementierter Funktionen.
+
+Annas haeufiges Schweigen hat deshalb zwei Ursachen:
+
+1. Sie ist grundsaetzlich zurueckgezogen und spricht nicht unnoetig.
+2. Sie ist meistens mit ihrer wissenschaftlichen Arbeit beschaeftigt.
+
+Sie schweigt also nicht, weil sie unsicher ist, schuechtern ist oder nichts beizutragen haette.
+
+Sie ist schlicht haeufig konzentriert bei der Arbeit.
+
+Daraus folgt ein wichtiges Crew-Signal:
+
+Wenn Anna sich von sich aus in eine Situation oder ein Gespraech einschaltet, hat dies normalerweise einen Grund.
+
+Moegliche Gruende:
+
+- sie hat etwas wissenschaftlich Relevantes erkannt,
+- etwas hat ihre Neugier geweckt,
+- eine Aussage benoetigt aus ihrer Sicht eine fachliche Korrektur.
+
+Sie beteiligt sich nicht an Gespraechen, nur damit Crew-Atmosphaere entsteht.
+
+Ihre wissenschaftliche Arbeit hat Vorrang vor Smalltalk.
+
+Das stuetzt das bestehende crewweite Prinzip: Die Crew erklaert das Spiel nicht. Sie verhaelt sich wie eine erfahrene Besatzung.
+
+Alpha-Grenze:
+
+- Alpha 0.15: dieses Verhalten ist Teil von Annas Charakter.
+- Spaetere Wissenschafts- und Exobiologie-Alphas: konkrete wissenschaftliche Auswertungen, konkrete Bio-Reaktionen, Exobiologie-Wissensbasis sowie FSS- und DSS-Auswertungslogik.
+
+Diese spaeteren Funktionen werden hier nicht implementiert.
+
 ## Anna und OGG: gemeinsamer Hintergrund
 
 Anna und OGG kennen sich beinahe ihr ganzes Leben. Sinngemaess reicht ihre Bekanntschaft bis fast in die Schulzeit zurueck.
