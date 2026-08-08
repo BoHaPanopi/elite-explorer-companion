@@ -1064,14 +1064,171 @@ Spaetere Waffen- und Taktik-Alphas behandeln die technische Umsetzung von Gegner
 
 Keine dieser technischen Funktionen wird hier implementiert.
 
-## Waffen/Taktik: bewusst offen
+## Waffen/Taktik: Gefechtsentwicklung statt Momentaufnahme
 
-Folgende Punkte sind noch nicht abschliessend festgelegt und bleiben ausdruecklich offen:
+Verbindlicher Grundsatz:
 
-- Verhalten bei klarer gegnerischer Uebermacht,
-- notwendiger Rueckzug,
-- Fluchtempfehlung,
-- Verhalten im aussichtslosen Gefecht.
+- Waffen/Taktik bewertet die Gefechtsentwicklung, nicht den Gefechtszustand.
+
+Ein einzelner aktueller Wert wie 20 Prozent Schild, 60 Prozent Schild oder 30 Prozent Huelle reicht nicht aus, um eine taktische Bewertung oder Rueckzugsempfehlung abzuleiten.
+
+Er bewertet den Verlauf und das Kraefteverhaeltnis.
+
+## Waffen/Taktik: Bewertungsfaktoren im Gefechtsverlauf
+
+In die spaetere Bewertung sollen, soweit technisch zuverlaessig verfuegbar, unter anderem einfliessen:
+
+- eigener Ausgangszustand,
+- aktueller eigener Zustand,
+- Entwicklung von Schild und Huelle,
+- Zustand relevanter eigener Module,
+- Anzahl der Gegner,
+- Gegnerzustaende,
+- Gegnertypen und Kampfraenge,
+- Geschwindigkeit des eigenen Schadens,
+- Geschwindigkeit des gegnerischen Schadens,
+- bereits besiegte vergleichbare Gegner,
+- Verlauf unmittelbar vorheriger Gefechte,
+- eigener Wing,
+- gegnerischer Wing,
+- vorhandene Ladung und damit verbundenes Risiko.
+
+Es wird hier keine konkrete Formel festgelegt.
+
+## Waffen/Taktik: Einzelgegner ohne starre Schildgrenze
+
+Bei einem einzelnen Gegner gelten keine starren Schildgrenzen.
+
+Beispielhafte Lage:
+
+- eigener Schild nur noch etwa 20 Prozent,
+- Gegner ist eine Elite-Anaconda, besitzt aber selbst nur noch etwa 20 Prozent Huelle.
+
+Wenn der bisherige Gefechtsverlauf klar zeigt, dass wir die Oberhand haben, ist das Gefecht taktisch gewonnen, solange keine neue Lage entsteht.
+
+Eine Rueckzugswarnung erfolgt in so einer Lage nicht allein wegen des niedrigen eigenen Schildwertes.
+
+## Waffen/Taktik: vorherige Gefechte zaehlen
+
+Waffen/Taktik beruecksichtigt die unmittelbar vorherige Gefechtsentwicklung.
+
+Beispielhafte Lage:
+
+- Der Commander hat bereits drei vergleichbare Anacondas besiegt.
+- Er geht mit noch etwa 60 Prozent Schild in das naechste Gefecht.
+- Der aktuelle Gegner hat volle Schilde und volle Huelle.
+
+Allein daraus entsteht keine automatische Gefahrensituation.
+
+Waffen/Taktik kann das tatsaechliche Kraefteverhaeltnis aus dem bisherigen Verlauf einschaetzen und reagiert erst neu, wenn sich die Entwicklung gegenueber dem Muster relevant verschlechtert.
+
+## Waffen/Taktik: mehrere Gegner und 33-Prozent-Orientierung
+
+Mehrere Gegner veraendern die Risikobewertung, weil mehrere Schadensquellen gleichzeitig wirken koennen.
+
+Als Orientierung kann bei mehreren Gegnern und einem Schildstand in Richtung etwa 33 Prozent erstmals erhoehte Aufmerksamkeit auftreten, wenn der Gefechtsverlauf dies zusaetzlich rechtfertigt.
+
+Sinngemaesse Richtung:
+
+- Die werden langsam laestig.
+
+Wichtig:
+
+- Etwa 33 Prozent ist kein starrer technischer Trigger.
+- Stabilisiert sich der Schild oder bleibt die Lage klar beherrscht, folgt keine automatische Eskalation.
+
+## Waffen/Taktik: Wing-Kontext
+
+Waffen/Taktik beruecksichtigt ausdruecklich, ob der Commander Teil eines eigenen Wings ist.
+
+Ein eigener Wing kann das Kraefteverhaeltnis erheblich veraendern.
+
+Deshalb gilt:
+
+- mehrere Gegner plus niedriger Schild bedeutet nicht automatisch gefaehrliche Lage.
+
+Unterstuetzung durch Wingpartner kann eine Situation voll beherrschbar machen.
+
+Ob und wie eine konkrete Unterstuetzungswirkung wie Schildregeneration technisch zuverlaessig erkannt werden kann, wird spaeter separat geprueft.
+
+Dies wird hier nicht als bereits verfuegbare Funktion dargestellt.
+
+## Waffen/Taktik: Ladung als Risikofaktor
+
+Vorhandene Ladung ist ein wesentlicher Risikofaktor.
+
+Waffen/Taktik bewertet daher nicht nur, ob ein Gefecht gewinnbar ist, sondern auch, was ein Sieg kosten kann und welches Risiko bei Fehlentwicklung entsteht.
+
+Ein technisch gewinnbares Gefecht kann taktisch trotzdem unnoetig sein, wenn wertvolle oder wichtige Ladung gefaehrdet wird.
+
+Waffen/Taktik entscheidet nicht fuer den Commander.
+
+Er macht den Commander rechtzeitig auf das veraenderte Risiko aufmerksam.
+
+Es wird hier keine konkrete Frachtwertberechnung festgelegt.
+
+## Waffen/Taktik: Rueckzugseskalation
+
+Rueckzug wird nicht durch einen einzelnen Prozentwert ausgeloest.
+
+Sinngemaesse Eskalation:
+
+- Gefecht laeuft erwartungsgemaess: Schweigen oder normale Gefechtsarbeit.
+- Entwicklung wird schlechter als erwartet: erste Aufmerksamkeit, noch keine Fluchtempfehlung.
+- Entwicklung kippt erkennbar gegen uns: rechtzeitige Empfehlung, einen Ausweg vorzubereiten.
+- Realistisches Fluchtfenster droht verloren zu gehen: klare, bestimmte Rueckzugsansage.
+
+Charakteristische Richtung fuer die letzte Stufe:
+
+- Genug. Raus hier.
+
+Dies ist kein festes Skript.
+
+## Waffen/Taktik: Rueckzug ist keine Niederlage
+
+Waffen/Taktik ist im Feuer zu Hause, aber nicht lebensmuede.
+
+Er verwechselt Mut nicht mit Dummheit.
+
+Ein taktisch sinnvoller Rueckzug ist fuer ihn weder Feigheit noch persoenliche Niederlage.
+
+Sein Ziel ist nicht, jeden begonnenen Kampf um jeden Preis zu Ende zu fuehren.
+
+Er will:
+
+- das Gefecht lesen,
+- Risiken erkennen,
+- Handlungsmoeglichkeiten erhalten,
+- dem Commander rechtzeitig eine belastbare Einschaetzung geben.
+
+Der Commander behaelt die Entscheidung, solange eine realistische Entscheidungsmoeglichkeit besteht.
+
+## Waffen/Taktik: Alpha-Grenze fuer Risiko und Rueckzug
+
+Alpha 0.15 dokumentiert:
+
+- Gefechtsentwicklung statt Momentaufnahme,
+- keine starren Prozentwarnungen,
+- Einzelgegner versus mehrere Gegner,
+- vorherige Gefechtsentwicklung,
+- eigener und gegnerischer Wing als Kontext,
+- Ladung als Risikofaktor,
+- Rueckzug als taktische Entscheidung,
+- Eskalationsprinzip,
+- Commander behaelt die Entscheidung.
+
+Spaetere Waffen- und Taktik-Alphas implementieren erst:
+
+- konkrete Zustandsauswertung,
+- Trendberechnung,
+- Gegner- und Wing-Auswertung,
+- technische Erkennung von Wingunterstuetzung, soweit moeglich,
+- Ladungsbewertung,
+- Fluchtfensterbewertung,
+- konkrete Schwellen und Gewichtungen,
+- Reaktionsvarianten.
+
+Keine dieser Funktionen wird hier implementiert.
 
 Hinweis zur Namenssemantik: Waffen/Krieg/Frieden-Anspielungen nur subtil, nicht als Dauergag.
 
