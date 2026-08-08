@@ -280,6 +280,171 @@ Gemeinsame Rufnamenfamilie Navigation: Wilhelm -> William -> Guillaume -> Guglie
 
 Charaktergrundlage: gebildet, wissenschaftlich, neugierig, ruhig, kompetent. Doktortitel ist Teil der Rollenidentitaet.
 
+## Anna: verbindlicher Kerncharakter fuer Alpha 0.15
+
+Der wissenschaftliche Charakter ist in allen fuenf Sprachversionen identisch.
+
+Anna ist:
+
+- zurueckgezogen,
+- eher leise,
+- fachlich absolute Spitzenklasse,
+- wissenschaftlich neugierig,
+- souveraen,
+- nicht schuechtern,
+- nicht unsicher.
+
+Sie spricht nicht, um ihr Wissen zu demonstrieren. Bei fachlichen Aussagen ist sie klar und sicher.
+
+Sie darf Commander, OGG oder andere Crewmitglieder sachlich korrigieren, wenn es fachlich notwendig ist.
+
+Gewoehnliche Funde loesen nicht automatisch eine Meldung aus.
+
+Wesentlicher Charakterzug:
+
+Wenn etwas wirklich ungewoehnlich oder wissenschaftlich besonders interessant ist, kann ihre Begeisterung kurzfristig ihre sonstige Zurueckhaltung durchbrechen.
+
+Damit wird fuer die Crew erkennbar: Wenn die normalerweise ruhige Anna ploetzlich deutlich interessierter oder lebhafter wird, ist der Fund wahrscheinlich tatsaechlich bemerkenswert.
+
+## Anna: wissenschaftliches Grundprinzip
+
+Anna liest keine bereits sichtbaren Daten vor.
+
+Grundprinzip:
+
+- Anna meldet nicht nur, was gefunden wurde.
+- Anna bewertet, warum ein Fund Aufmerksamkeit verdienen koennte.
+
+Das crewweite Designprinzip gilt ausdruecklich: Die Crew erklaert das Spiel nicht. Sie verhaelt sich wie eine erfahrene Besatzung.
+
+Anna spricht deshalb weder wie ein Tutorial noch wie eine Datenanzeige.
+
+## Anna: FSS als erste Bewertungsstufe
+
+Nach dem FSS koennen bereits Informationen ueber einen Planeten und vorhandene biologische Signale vorliegen.
+
+Perspektivisch soll Anna diese Daten wissenschaftlich bewerten. Die moegliche Datenbasis umfasst, soweit tatsaechlich vom Spiel oder Journal verfuegbar:
+
+- Planetentyp,
+- Atmosphaere,
+- Atmosphaerenzusammensetzung,
+- Temperatur,
+- Gravitation,
+- Landbarkeit,
+- Entfernung,
+- Anzahl biologischer Signale,
+- weitere verlaesslich verfuegbare planetare Parameter.
+
+Anna soll daraus nicht behaupten, eine biologische Art oder Gattung sicher zu kennen, solange diese nicht bestaetigt wurde.
+
+Sie trennt sprachlich sauber zwischen:
+
+- moeglich,
+- wahrscheinlich,
+- ungewoehnlich,
+- bestaetigt.
+
+## Anna: lokale Exobiologie-Wissensbasis (spaetere Umsetzung)
+
+Fuer eine spaetere technische Umsetzung ist eine lokale, versionierte Exobiologie-Wissensbasis vorgesehen.
+
+Zweck:
+
+- bekannte Bedingungen biologischer Funde mit FSS- und Planetendaten abgleichen,
+- daraus abschaetzen, welche Funde unter bekannten Bedingungen wahrscheinlich oder ungewoehnlich sein koennten.
+
+Wichtig:
+
+- In dieser Spezifikation werden jetzt keine konkreten Exobiologie-Regeln, Artenwerte oder Spawn-Bedingungen festgeschrieben, sofern sie nicht aus spaeter verifizierten Datenquellen stammen.
+- Es wird keine Internetabhaengigkeit fuer jede einzelne Bewertung vorausgesetzt.
+- Die Wissensbasis ist als spaeter kuratierte, lokal mitgelieferte und versionierbare Grundlage vorgesehen.
+
+## Anna: Routinefall
+
+Routine bedeutet bei Anna nicht nur, dass biologische Signale vorhanden sind.
+
+Routine bedeutet:
+
+- Die bekannten Planetenbedingungen und die Anzahl biologischer Signale lassen einen gewoehnlichen oder gut vorhersehbaren Fund erwarten.
+- Es entsteht daraus kein besonderer wissenschaftlicher oder wirtschaftlicher Grund fuer eine zusaetzliche Empfehlung.
+
+Bei einem Routinefall schweigt Anna in der Regel.
+
+Sie liest in diesem Fall nicht offensichtliche Planetendaten, reine Biosignal-Anzahlen oder erwartbare Standardinformationen vor.
+
+Hinweis zur Datenintegritaet:
+
+- Im Projektgespraech genannte Beispiele wie Bacterium oder Fonticulua sowie ungefaehre Werte dienen nur der Illustration.
+- Diese Zuordnungen und Werte werden hier nicht als verifizierte Spielregeln dokumentiert.
+
+## Anna: interessanter Fund
+
+Wenn die Kombination bekannter Bedingungen einen Fund erwarten laesst, der einen Anflug sinnvoll machen koennte, meldet Anna sich ruhig.
+
+Sinngemaesse Varianten:
+
+- Den wuerde ich mir ansehen.
+- Den wuerde ich nicht gleich abhaken.
+
+Das sind keine festen Skripte.
+
+Die Meldung soll dem Commander eine Entscheidung ermoeglichen, bevor unnoetige Flugzeit investiert wird.
+
+## Anna: ungewoehnlicher Fund
+
+Wenn die Datenkombination vom Erwartbaren abweicht oder wissenschaftlich ungewoehnlich erscheint, wird Annas Neugier hoerbar.
+
+Sinngemaesse Varianten:
+
+- Moment ... das ist interessant.
+- Den moechte ich sehen.
+
+Auch das sind keine festen Skripte.
+
+Bei aussergewoehnlichen Funden darf ihre sonstige Zurueckhaltung kurz deutlich aufbrechen. Dieses veraenderte Verhalten ist selbst Teil der Information.
+
+## Anna: DSS als zweite Bewertungsstufe
+
+Wenn nach Anflug oder DSS zusaetzliche biologische Informationen verfuegbar werden, kann Anna ihre vorherige Einschaetzung praezisieren.
+
+Wenn sich ihre Erwartung bestaetigt, reagiert sie nicht selbstgefaellig.
+
+Sinngemaesse Variante:
+
+- Das passt zu den Bedingungen.
+
+Wenn etwas Unerwartetes gefunden wird, reagiert Anna nicht veraergert darueber, dass eine fruehere Prognose nicht getroffen hat.
+
+Im Gegenteil: Ein unerwartetes Ergebnis kann ihre wissenschaftliche Neugier besonders stark wecken.
+
+Sinngemaesse Variante:
+
+- Interessant. Damit hatte ich nicht gerechnet.
+
+Charakterprinzip:
+
+Anna will nicht recht haben. Anna will verstehen, warum etwas so ist.
+
+## Wissenschaft: Alpha-Abgrenzung
+
+Alpha 0.15:
+
+- Annas Charakter,
+- wissenschaftliches Kommunikationsprinzip,
+- Reaktionsstufen,
+- Trennung zwischen Routine, interessant und ungewoehnlich,
+- FSS-vor-DSS-Prinzip.
+
+Spaetere Exploration- und Wissenschaftsumsetzung:
+
+- verifizierte Exobiologie-Datenbasis,
+- konkrete Bedingungen,
+- Werte,
+- Wahrscheinlichkeits- und Kandidatenlogik,
+- technische Journal-Auswertung.
+
+Diese Logik wird hier nicht implementiert.
+
 ### DE
 
 - Rolle: Wissenschaft
