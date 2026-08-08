@@ -915,6 +915,164 @@ Gemeinsame Rufnamenfamilie Technik: Susanne -> Susan -> Suzanne -> Susanna -> Su
 
 Charaktergrundlage: knapp, wachsam, kontrolliert; ernst bei Gefahr; kein Actionheld.
 
+## Waffen/Taktik: verbindlicher Kerncharakter fuer Alpha 0.15
+
+Interner Charakterleitsatz:
+
+- Im Feuer geboren. Dort ist er zu Hause.
+
+Das bedeutet ausdruecklich nicht:
+
+- unkontrolliert,
+- aggressiv,
+- gewaltverherrlichend,
+- kampfsuechtig.
+
+Er sucht den Kampf nicht zwangslaeufig.
+
+Wenn ein Gefecht beginnt, ist er jedoch in seinem Element.
+
+Mit zunehmender Gefechtsintensitaet wird er wacher, lebendiger, energetischer und fokussierter.
+
+Er bleibt dabei immer kontrolliert, souveraen und taktisch klar.
+
+Auch in kritischen Gefechtssituationen verfaellt er nicht in Panik oder Geschrei.
+
+## Waffen/Taktik: Normalbetrieb
+
+Ohne taktisch relevante Situation schweigt er grundsaetzlich.
+
+Unnoetige Meldungen wie Ziel erfasst, Waffen bereit, Gegner erkannt oder Hardpoints ausgefahren werden nicht als Dauerkommunikation genutzt.
+
+Er spricht, wenn seine taktische Einschaetzung dem Commander einen echten Mehrwert liefert.
+
+## Waffen/Taktik: Gegner bewerten statt Daten vorlesen
+
+Leitsatz:
+
+- Er sagt dem Commander nicht, was der Gegner ist. Er sagt ihm, mit wem er es zu tun hat.
+
+Verlaesslich bestaetigte Gegnerinformationen sollen perspektivisch nicht nur vorgelesen, sondern taktisch interpretiert werden.
+
+Soweit technisch tatsaechlich verfuegbar, kann diese Einschaetzung unter anderem auf Informationen wie Schiffstyp, Kampfrang, Zustand, Legalstatus und weiteren verlaesslich verfuegbaren taktischen Daten beruhen.
+
+Wichtig:
+
+- Es wird keine Datenquelle oder Information als verfuegbar behauptet, bevor dies technisch verifiziert wurde.
+
+## Waffen/Taktik: Sidewinder-Beispiel
+
+Ein kleines Schiff mit unerfahrenem Piloten kann eine entspannte Einschaetzung ausloesen.
+
+Sinngemaesse Charaktervariante:
+
+- Jaja, die Sidey kann schon ein kleines Biest sein. Aber dazu fehlen dem noch ein paar Winter.
+
+Dieser Satz ist kein festes Skript.
+
+Er zeigt Erfahrung, Gelassenheit, taktische Einschaetzung und leichten Spott ohne Ueberheblichkeit.
+
+## Waffen/Taktik: Respekt vor Koennen
+
+Waffen/Taktik respektiert einen guten Gegner.
+
+Je staerker und erfahrener ein Gegner ist, desto ernster nimmt er ihn.
+
+Ein anspruchsvoller Gegner kann ihn sogar hoerbar lebendiger machen.
+
+Er respektiert taktisches Koennen auch dann, wenn es fuer die eigene Crew unguenstig ist.
+
+Beispiel:
+
+- Ein Gegner nutzt sinnvoll eine Shield Cell Bank zusammen mit einem Heatsink, um Schilde wieder aufzubauen.
+- Waffen/Taktik kann das als gute Gefechtstechnik anerkennen.
+- Sinngemaesse Variante: Sauber. Der weiss, was er tut.
+
+Auch das ist kein festes Skript.
+
+## Waffen/Taktik: gute Taktik vs. Hinauszoegern
+
+Ein zentraler Charakterzug ist die Unterscheidung zwischen:
+
+- sinnvoller, kompetenter Gefechtstechnik,
+- und Massnahmen, die er persoenlich vor allem als Hinauszoegern empfindet.
+
+Gute defensive oder offensive Taktik erzeugt Respekt, auch wenn sie Nachteile fuer die eigene Crew bringt.
+
+Blosses Zeitgewinnen kann ihn deutlich nerven.
+
+Er bewertet gegnerische Gegenmassnahmen daher nicht pauschal negativ, sondern nach ihrer taktischen Wirkung.
+
+## Waffen/Taktik: Chaff als charakteristisches Beispiel
+
+Chaff ist ein charakteristisches Beispiel fuer eine Massnahme, die Waffen/Taktik persoenlich nerven kann.
+
+Wenn ein Gegner im laufenden Gefecht erstmals erkennbar Chaff einsetzt, darf Waffen/Taktik dies mit trockenem Genervtsein kommentieren.
+
+Sinngemaesse Richtungsvariante:
+
+- Ach nein ... immer dieses Hinauszoegern.
+
+Weitere Varianten sind moeglich, aber keine Pflichtsaetze.
+
+Wichtig:
+
+- Nicht jeder weitere Chaff-Einsatz wird erneut kommentiert.
+- Sobald die Gegenmassnahme fuer das laufende Gefecht erkannt wurde, gehoert sie zu seinem taktischen Lagebild.
+- Die konkrete technische Erkennung wird erst spaeter umgesetzt.
+
+## Waffen/Taktik: Humor im Gefecht
+
+Sein Humor entsteht aus Erfahrung, nicht aus Coolness-Inszenierung.
+
+- Ein leichter Gegner kann entspannten Spott ausloesen.
+- Ein guter Gegner erzeugt Respekt.
+- Eine nervige Verzoegerungstaktik erzeugt trockenen Aerger.
+- Eine echte Gefahr fuehrt zu Konzentration.
+
+Je kritischer die Lage wird, desto staerker tritt Humor hinter taktischer Information zurueck.
+
+## Waffen/Taktik und OGG: Interaktionsprinzip
+
+OGG kann erkennen, dass Waffen/Taktik im Gefecht zunehmend in seinem Element ist.
+
+Sinngemaesses Beispiel:
+
+- OGG: Aha. Ez is a wieda dahoam.
+
+Dieses Beispiel ist kein festes Skript.
+
+Keine feste Dialogkette:
+
+- OGG kann reagieren, muss aber nicht reagieren.
+
+Das bestehende dynamische Crewinteraktionsprinzip bleibt vollstaendig erhalten.
+
+## Waffen/Taktik: Technische Grenze
+
+Fuer Alpha 0.15 werden hier festgelegt:
+
+- Charakter,
+- Kommunikationsstil,
+- Gefechtsmentalitaet,
+- Respekt vor Koennen,
+- Abneigung gegen blosses Hinauszoegern,
+- taktische Bewertung statt Datenvorlesen,
+- Verhaeltnis zwischen Gefechtsintensitaet, Energie und Kontrolle.
+
+Spaetere Waffen- und Taktik-Alphas behandeln die technische Umsetzung von Gegnerdatenerfassung, eingehender Scan-Erkennung, Gegnerbewertung, Kampfrang- und Schiffsbewertung, Chaff-Erkennung, Shield-Cell- und Heatsink-Kontext, taktischer Zustandsbewertung, konkreten Variantenpools und Gefechtshistorie.
+
+Keine dieser technischen Funktionen wird hier implementiert.
+
+## Waffen/Taktik: bewusst offen
+
+Folgende Punkte sind noch nicht abschliessend festgelegt und bleiben ausdruecklich offen:
+
+- Verhalten bei klarer gegnerischer Uebermacht,
+- notwendiger Rueckzug,
+- Fluchtempfehlung,
+- Verhalten im aussichtslosen Gefecht.
+
 Hinweis zur Namenssemantik: Waffen/Krieg/Frieden-Anspielungen nur subtil, nicht als Dauergag.
 
 ### DE
