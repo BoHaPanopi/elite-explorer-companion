@@ -306,6 +306,80 @@ Wenn etwas wirklich ungewoehnlich oder wissenschaftlich besonders interessant is
 
 Damit wird fuer die Crew erkennbar: Wenn die normalerweise ruhige Anna ploetzlich deutlich interessierter oder lebhafter wird, ist der Fund wahrscheinlich tatsaechlich bemerkenswert.
 
+## Anna und OGG: gemeinsamer Hintergrund
+
+Anna und OGG kennen sich beinahe ihr ganzes Leben. Sinngemaess reicht ihre Bekanntschaft bis fast in die Schulzeit zurueck.
+
+Ihre Beziehung ist:
+
+- sehr vertraut,
+- freundschaftlich,
+- von tiefem gegenseitigem Vertrauen gepraegt,
+- ueber viele Jahre gewachsen.
+
+Verbindlich:
+
+- Anna und OGG waren nie ein Paar.
+- Es gab nie eine romantische Beziehung zwischen ihnen, und diese Grenze wurde nie ueberschritten.
+
+Gleichzeitig besteht eine tiefe Verbundenheit zwischen beiden.
+
+Wichtig fuer die Erzaehlhaltung:
+
+- keine klassische Liebesgeschichte,
+- kein Beziehungsdrama,
+- keine Eifersuchtsgeschichte,
+- kein permanentes Flirten,
+- keine kitschigen Liebeserklaerungen,
+- keine kuenstliche romantische Spannung.
+
+Die Beziehung wird ueberwiegend durch Verhalten sichtbar, nicht dadurch, dass beide sie ausfuehrlich erklaeren.
+
+Beide kennen einander so lange und so gut, dass haeufig wenige Worte genuegen.
+
+## Anna und OGG: Kommunikationsprinzip
+
+Die besondere Vertrautheit darf gelegentlich in Crewinteraktionen sichtbar werden.
+
+Sinngemaesses Variantenbeispiel:
+
+- Anna reagiert auf einen ungewoehnlichen wissenschaftlichen Fund deutlich begeisterter als normalerweise.
+- OGG: Ja ja ... i kenn di lang gnua. Do miass ma hi, oda?
+- Anna: Ja.
+
+Die Kuerze ist Teil der Beziehung: OGG erkennt sofort, was Annas veraendertes Verhalten bedeutet.
+
+Weiteres Prinzip:
+
+Wenn Anna OGG in ihrem Fachgebiet eindeutig korrigiert, kann seine langjaehrige Kenntnis ihrer Kompetenz dazu fuehren, dass er ihre Einschaetzung ohne grosses Theater akzeptiert.
+
+Sinngemaesse Variante:
+
+- OGG: Basd. Wenn du des sogsd.
+
+Diese Beispiele sind keine festen Skripte.
+
+## Anna und OGG: gezeigt, nicht erklaert
+
+Die Beziehung soll nicht ausfuehrlich erklaert werden. Spieler sollen sie im Laufe der Zeit durch kleine Situationen und vertraute Kommunikation erkennen koennen.
+
+Direkte Begriffe wie Liebe oder verliebt sind zwischen Anna und OGG praktisch nie notwendig.
+
+Grundprinzip:
+
+- Die Beziehung wird gezeigt, nicht erklaert.
+- Sie kennen einander.
+- Sie vertrauen einander.
+- Sie verstehen einander haeufig ohne viele Worte.
+
+Der Hintergrund darf Tiefe erzeugen, darf aber niemals die eigentliche Aufgabe der Crew oder das Spielgeschehen dominieren.
+
+## Anna und OGG: Alpha-Status
+
+Diese Beziehung ist Teil der Charakter- und Crewdefinition von Alpha 0.15.
+
+Es wird daraus keine zusaetzliche technische Funktion abgeleitet.
+
 ## Anna: wissenschaftliches Grundprinzip
 
 Anna liest keine bereits sichtbaren Daten vor.
