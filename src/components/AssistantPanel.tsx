@@ -1,5 +1,5 @@
 import { useI18n } from "../i18n";
-import oggPortrait from "../assets/ogg-portrait.jpg";
+import oggOfficialPortrait from "../assets/ogg-official-portrait.png";
 
 type Props = {
 	name: string | null;
@@ -13,22 +13,28 @@ export default function AssistantPanel({
 	onRename,
 }: Props) {
 	const { t } = useI18n();
+	const normalizedName = name?.trim();
+	const displayName =
+		normalizedName?.toLowerCase() === "old guy of grumpy"
+			? "Old Guy of Grumpy"
+			: normalizedName || "Old Guy of Grumpy";
 
 	return (
 		<article className="panel assistant-panel">
 			<span>{t("onboardComputer")}</span>
 
 			<div className="assistant-panel__layout">
-				<div className="assistant-panel__portrait-wrap" aria-hidden="true">
+				<div className="assistant-panel__portrait-wrap">
 					<img
-						className="assistant-panel__portrait"
-						src={oggPortrait}
-						alt=""
+						className="assistant-panel__portrait-image"
+						src={oggOfficialPortrait}
+						alt="Old Guy of Grumpy"
+						loading="eager"
 					/>
 				</div>
 
 				<div className="assistant-panel__content">
-					<h2>{name ?? t("unnamed")}</h2>
+					<h2>{displayName}</h2>
 					<p>{t("assistantDescription")}</p>
 
 					<div className="assistant-actions">

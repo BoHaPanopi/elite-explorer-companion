@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import oggPortrait from "../assets/ogg-portrait.jpg";
 
 type CrewPageProps = {
   bordcomputerName: string;
@@ -123,11 +122,7 @@ export default function CrewPage({
 
       <article className="crew-hero">
         <div className="crew-hero__portrait-wrap">
-          <img
-            className="crew-hero__portrait"
-            src={oggPortrait}
-            alt="Portrait von Old Guy of Grumpy"
-          />
+          <div className="crew-hero__portrait" aria-hidden="true" />
           <span className="crew-hero__online">
             <i aria-hidden="true" />
             ONLINE
