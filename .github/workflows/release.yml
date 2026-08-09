@@ -40,11 +40,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Old Guy of Grumpy v0.14.10
+            Old Guy of Grumpy v0.14.11
 
-            - Improved development/runtime isolation and sidecar recovery.
-            - Removed the mandatory name prompt on first start.
-            - Completed localized crew profile portrait assignments.
-            - General stability improvements.
+            - Fixed application close permissions on Windows.
+            - Restored closing via the window close button and taskbar.
+            - Improved exit-path regression coverage.
+            - Preserved deferred updater behavior.
           releaseDraft: false
           prerelease: false
