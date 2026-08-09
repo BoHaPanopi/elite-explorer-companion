@@ -195,8 +195,6 @@ const portraitSourcesByFileName = new Map(
   }),
 );
 
-const invalidPortraitFileNames = new Set(["karen.png", "suzanne.png", "sebastien.png"]);
-
 function storageKey(role: CrewRole): string {
   return `eec.crew.selection.${role}`;
 }
@@ -242,6 +240,5 @@ export function getCrewVariants(role: CrewRole): CrewVariant[] {
 }
 
 export function resolveCrewPortraitSource(fileName: string): string | null {
-  if (invalidPortraitFileNames.has(fileName)) return null;
   return portraitSourcesByFileName.get(fileName) ?? null;
 }
