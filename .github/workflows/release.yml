@@ -40,12 +40,14 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            OGG v0.14.6 localization, updater reliability, and mission-status layout release.
+            Old Guy of Grumpy v0.14.7 expands the onboard crew and command-center experience.
 
-            - Expanded German and English localization across cockpit and assistant views
-            - Clearer onboard-computer lock state and commander-specific activation behavior
-            - More reliable deferred update installation, startup recovery, and local test builds
-            - Centered mission-status card content for a cleaner, balanced command-center layout
-            - Additional automated coverage for startup recovery and fresh Windows profiles
+            - Added individual portraits for all 20 localized crew members
+            - Added portrait integration to crew configuration
+            - Added safe portrait handling so missing crew portraits never fall back to another crew member
+            - Improved onboard-computer and settings presentation
+            - Preserved individual crew selections across UI-language changes
+            - Improved crew reset behavior and mixed-language crew configuration
+            - Additional UI and reliability refinements
           releaseDraft: false
           prerelease: false
