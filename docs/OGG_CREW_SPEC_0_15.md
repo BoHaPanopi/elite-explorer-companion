@@ -1294,6 +1294,101 @@ Hinweis zur Namenssemantik: Waffen/Krieg/Frieden-Anspielungen nur subtil, nicht 
 
 Gemeinsame Rufnamenfamilie Waffen/Taktik: Bastian -> Sebastian -> Sebastien -> Sebastiano -> Sebastian
 
+## UI- und Settings-Prinzipien Alpha 0.15 (verbindlich)
+
+Diese Regeln dokumentieren die heute festgelegten UI-/Layout-Entscheidungen fuer Alpha 0.15.
+
+Sie ergaenzen die Crew- und Bordcomputer-Spezifikation, ersetzen keine bestehende Implementierung und fuehren in diesem Dokument keine technische Erkennungslogik ein.
+
+### 1) Gemeinsames Grundlayout in breiter Ansicht
+
+- Die Navigation ist die visuelle Referenz fuer die drei Hauptbereiche:
+  - Kommandozentrale
+  - Navigation
+  - Einstellungen
+- Der obere Seitenbereich soll beim Wechsel zwischen diesen Bereichen ruhig und konsistent bleiben.
+- Die Kommandozentrale erhaelt in der breiten Ansicht wie Navigation und Einstellungen einen Seitenkopf mit:
+  - SYSTEMSTEUERUNG
+  - Kommandozentrale
+  - Trennlinie
+- Die Oberkante des ersten Sidebar-Buttons Kommandozentrale muss pixelgenau mit der Oberkante der ersten Inhaltskarte des jeweiligen Bereichs fluchten.
+- Diese horizontale Startachse ist eine verbindliche Layoutregel fuer alle drei Hauptbereiche.
+- Beim Seitenwechsel darf diese Achse nicht springen.
+- Die schmale Ansicht behaelt ihr eigenes vertikales Responsive-Konzept; diese Regel wird dort nicht erzwungen, wenn sie keinen gestalterischen Vorteil bringt.
+
+### 2) Einstellungen in schmaler Ansicht: feste Reihenfolge
+
+Verbindliche Reihenfolge:
+
+1. Moduleinstellungen
+2. Bordcomputer
+3. Sprache
+4. Journalquelle
+
+Begruendung:
+
+- Module koennen automatisch erkannt werden, duerfen aber vom Commander bewusst uebersteuert werden.
+- Bordcomputer/Crew wird seltener, aber bewusst konfiguriert.
+- UI-Sprache wird normalerweise selten geaendert.
+- Journalquelle wird ueberwiegend fuer Wartung und Fehlerbehebung benoetigt.
+
+### 3) Moduleinstellungen: Erkennung und manuelle Uebersteuerung
+
+- Das System soll spaeter anhand von Journal, Schiff und Ausruestung automatisch ein passendes Einsatzprofil erkennen koennen (z. B. Exploration, Mining, Kampf, Handel).
+- Automatische Erkennung ist der Standard.
+- Der Commander behaelt die Moeglichkeit zur manuellen Uebersteuerung.
+- Eine manuelle Auswahl darf nicht unmittelbar durch die automatische Erkennung ueberschrieben werden.
+- Eine Rueckkehr zu Automatisch muss jederzeit moeglich sein.
+- In dieser Spezifikation wird nur das UI-/Verhaltensprinzip festgelegt; keine Erkennungslogik wird hier implementiert.
+
+### 4) Journalquelle: behalten und bewusst nachrangig platzieren
+
+- Der Journalbereich wird nicht entfernt.
+- Die bestehende visuelle Journal-/Verbindungsanzeige im OGG-Bereich bleibt fuer den normalen Betrieb relevant.
+- Die Journal-Karte dient primaer Wartung und Fehlerbehebung und steht deshalb in der schmalen Settings-Ansicht verbindlich ganz unten.
+
+### 5) Bordcomputer-Karte
+
+- Test greeting wird kuenftig durch Configure Crew bzw. lokalisierte Entsprechung ersetzt.
+- Configure Crew und Rename onboard computer sind gleich grosse, symmetrische Aktionen.
+- Funktionssymbole verwenden den bestehenden Cyan/Blau-Akzent der App.
+- Die Beschreibung enthaelt keine konfigurierbare personality und keine activation phrase, da diese dort keine Commander-Einstellung darstellen.
+- Sinngemaesse englische Beschreibung: Voice output and crew are configured here.
+- Crew-Konfiguration gehoert ausdruecklich zum Bordcomputer und nicht zur allgemeinen Sprachkarte.
+
+### 6) Crew-Konfiguration
+
+- Klick auf Configure Crew oeffnet eine kompakte Crew-Konfiguration.
+- Vier Crewrollen werden angezeigt.
+- Fuer jede Rolle kann separat eine der fuenf vorhandenen Sprach-/Regionalvarianten DE/UK/FR/IT/ES gewaehlt werden.
+- Internationale Misch-Crews sind ausdruecklich erlaubt.
+- Standardmaessig folgt die Crew der gewaehlten UI-Sprache.
+- Individuelle Crew-Auswahl wird persistent gespeichert.
+- Keine zusaetzlichen permanenten Sidebar-Eintraege und keine unnoetigen Einstellungsbuttons.
+
+### 7) Sprache: klare Abgrenzung
+
+- Die Sprachkarte bleibt fuer die allgemeine UI-Sprache zustaendig.
+- Crew-Auswahl wird nicht in diese Karte integriert.
+- UI-Sprache und Crew-Identitaeten/-Sprachen sind getrennte Konzepte.
+
+### 8) OGG-Portrait und visuelle Identitaet
+
+- Das bisherige reine OGG-Schriftkaestchen soll perspektivisch durch ein OGG-Portrait ersetzt werden.
+- OGG soll als Holo-Me-artiger Charakter dargestellt werden: realistisches Charakterportrait, kein Comic-/Maskottchenstil.
+- Die UI bleibt bewusst im Cyan/Blau-Schema.
+- Charakterportraits duerfen sich davon bewusst abheben und ihre natuerliche Holo-Me-Anmutung behalten.
+- OGG-Portrait-Merkmale: Glatze, weisser Bart, schwarze rechteckige Brille, aelterer Charakter, dunkler futuristischer Anzug.
+- Das Portrait sitzt in der Bordcomputer-Karte links neben Name/Beschreibung.
+- In dieser Spezifikation wird keine konkrete Bilddatei implementiert oder generiert.
+
+### Alpha-0.15-Abgrenzung fuer diesen Abschnitt
+
+- Keine Neugestaltung der Navigation.
+- Keine UI-Implementierung in diesem Dokument.
+- Keine technische Modul-/Journal-/Crew-Erkennungslogik in diesem Dokument.
+- Bestehende funktionierende Regeln bleiben bestehen und werden nicht entfernt.
+
 ## Gesamtuebersicht (20 Namen)
 
 - Navigation: 5 Namen
