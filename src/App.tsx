@@ -8,6 +8,7 @@ import { exit } from "@tauri-apps/plugin-process";
 import "./App.css";
 import AssistantPanel from "./components/AssistantPanel";
 import BordcomputerSetup from "./components/BordcomputerSetup";
+import CrewConfigDialog from "./components/CrewConfigDialog";
 import Dashboard from "./components/Dashboard";
 import JournalPanel from "./components/JournalPanel";
 import LanguageSettings from "./components/LanguageSettings";
@@ -19,6 +20,10 @@ import TopBar from "./components/TopBar";
 import { TonyAbout, TonyMessageDialog } from "./components/TonyEdition";
 import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
 import { useI18n } from "./i18n";
+import {
+  readCrewSelections,
+  type CrewSelectionMap,
+} from "./features/crewProfiles";
 import { speechService } from "./services/SpeechService";
 import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "ogg-core";
@@ -92,11 +97,30 @@ function PlaceholderPage({
   title: string;
 }) {
   const { t } = useI18n();
+
+  const profileLabels = [
+    t("automatic"),
+    t("explorationProfile"),
+    t("miningProfile"),
+    t("combatProfile"),
+    t("tradeProfile"),
+  ];
+
   return (
     <section className="panel module-settings-panel">
       <span>{t("module")}</span>
       <h2>{title}</h2>
-      <button type="button" disabled>{t("moduleHint")}</button>
+      <p className="muted">{t("moduleProfileHint")}</p>
+      <div className="module-profile-options" aria-label={t("activeProfile")}>
+        {profileLabels.map((label, index) => (
+          <span
+            className={index === 0 ? "module-profile-options__chip module-profile-options__chip--active" : "module-profile-options__chip"}
+            key={label}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }
@@ -108,6 +132,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
+  const [crewSelections, setCrewSelections] = useState<CrewSelectionMap>(() => readCrewSelections());
+  const [showCrewConfig, setShowCrewConfig] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
   const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("downloading");
@@ -510,25 +536,25 @@ function App() {
         return (
           <section className="settings-layout">
             <div className="settings-module">
-            <PlaceholderPage title={t("moduleSettings")} />
-            </div>
-            <div className="settings-language"><LanguageSettings /></div>
-            <div className="settings-journal">
-            <JournalPanel
-              journalPath={snapshot?.journalPath ?? ""}
-              onRefresh={() => void loadEliteSnapshot()}
-              onOpenFolder={() => void invoke("open_journal_directory")}
-              showPath
-            />
+              <PlaceholderPage title={t("moduleSettings")} />
             </div>
             <div className="settings-computer">
-            <AssistantPanel
-              name={bordcomputerName}
-              onTestGreeting={() => {
-                speechService.logTestButtonClick();
-                void speakGreeting(true);
-              }}
-            />
+              <AssistantPanel
+                name={bordcomputerName}
+                onConfigureCrew={() => setShowCrewConfig(true)}
+                onRename={() => setShowSetup(true)}
+              />
+            </div>
+            <div className="settings-language">
+              <LanguageSettings />
+            </div>
+            <div className="settings-journal">
+              <JournalPanel
+                journalPath={snapshot?.journalPath ?? ""}
+                onRefresh={() => void loadEliteSnapshot()}
+                onOpenFolder={() => void invoke("open_journal_directory")}
+                showPath
+              />
             </div>
             {tonyProfile && <div className="settings-tony"><TonyAbout onOpenWelcome={() => setTonyMessage("welcome")} /></div>}
           </section>
@@ -549,11 +575,15 @@ function App() {
 
       <main className="content">
         <OggBrand journalState={journalError ? "error" : isLoading ? "initializing" : "normal"} />
-        {page !== "dashboard" && (
-          <TopBar
-            title={page === "navigation" ? t("navigation") : t("settings")}
-          />
-        )}
+        <TopBar
+          title={
+            page === "navigation"
+              ? t("navigation")
+              : page === "settings"
+                ? t("settings")
+                : t("commandCenter")
+          }
+        />
 
         {renderPage()}
 
@@ -577,6 +607,13 @@ function App() {
             />
           </div>
         </div>
+      )}
+      {showCrewConfig && (
+        <CrewConfigDialog
+          selections={crewSelections}
+          onSelectionsChange={setCrewSelections}
+          onClose={() => setShowCrewConfig(false)}
+        />
       )}
       {availableUpdate && <UpdateDialog version={availableUpdate.version} phase={updatePhase} error={updateError} onDismiss={dismissUpdateNotice} />}
       {startupHealth && !startupHealth.ready && <StartupRecoveryDialog health={startupHealth} onHealthChange={(health) => setStartupHealth(health.ready ? null : health)} />}

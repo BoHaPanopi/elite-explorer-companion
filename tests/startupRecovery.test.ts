@@ -102,10 +102,11 @@ test("initial setup explains the temporary computer-name limitation in every sup
   for (const key of ["computerQuestion", "renameLater", "computerName", "enterName", "characters", "cancel", "saveName"]) {
     assert.equal((messages.match(new RegExp(`${key}:`, "g")) ?? []).length, 5);
   }
-  assert.doesNotMatch(panel, /onConfigure|configureNow|openSettings/);
-  assert.match(panel, /<button type="button" disabled>\{t\("renameComputer"\)\}<\/button>/);
-  assert.match(panel, /t\("renameAvailableFrom015"\)/);
-  for (const key of ["renameComputer", "renameAvailableFrom015"]) {
+  assert.match(panel, /onConfigureCrew/);
+  assert.match(panel, /onRename/);
+  assert.doesNotMatch(panel, /onTestGreeting/);
+  assert.match(panel, /t\("configureCrew"\)/);
+  for (const key of ["renameComputer", "configureCrew"]) {
     assert.equal((messages.match(new RegExp(`${key}:`, "g")) ?? []).length, 5);
   }
 });
