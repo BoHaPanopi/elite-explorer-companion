@@ -34,6 +34,7 @@ export async function installDownloadedUpdateOnExit(
   prepare: () => Promise<UpdateReadiness>,
   pause: () => Promise<void>,
   onBlocked?: (blocker: string | null) => void,
+  onInstallStarted?: () => void,
 ): Promise<void> {
   let readiness = await prepare();
   while (!readiness.ready) {
@@ -41,5 +42,6 @@ export async function installDownloadedUpdateOnExit(
     await pause();
     readiness = await prepare();
   }
+  onInstallStarted?.();
   await update.install();
 }

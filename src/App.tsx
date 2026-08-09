@@ -270,7 +270,12 @@ function App() {
     let unlisten: (() => void) | undefined;
     void getCurrentWindow().onCloseRequested(async (event) => {
       const update = pendingUpdate.current;
-      if (!update || updatePhaseRef.current !== "ready") return;
+      if (!update) return;
+      if (updatePhaseRef.current === "installing") {
+        event.preventDefault();
+        return;
+      }
+      if (updatePhaseRef.current !== "ready") return;
 
       event.preventDefault();
       updatePhaseRef.current = "installing";
@@ -282,9 +287,9 @@ function App() {
           () => invoke<UpdateReadiness>("prepare_for_update"),
           () => new Promise((resolve) => window.setTimeout(resolve, 500)),
           (blocker) => void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: blocker }),
+          () => void invoke("log_update_phase", { phase: "install_started", cause: "application_exit", technical: null }),
         );
         pendingUpdate.current = null;
-        void invoke("log_update_phase", { phase: "install_started", cause: "application_exit", technical: null });
         await exit(0);
       } catch (error) {
         updatePhaseRef.current = "error";

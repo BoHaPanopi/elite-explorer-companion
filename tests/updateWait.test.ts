@@ -27,9 +27,15 @@ test("installs the downloaded update only when the exit workflow runs", async ()
   let installed = false;
   let prepareCalls = 0;
   const blockers: Array<string | null> = [];
+  const sequence: string[] = [];
 
   await installDownloadedUpdateOnExit(
-    { async install() { installed = true; } },
+    {
+      async install() {
+        sequence.push("install");
+        installed = true;
+      },
+    },
     async () => {
       prepareCalls += 1;
       return prepareCalls === 1
@@ -38,20 +44,26 @@ test("installs the downloaded update only when the exit workflow runs", async ()
     },
     async () => undefined,
     (blocker) => blockers.push(blocker),
+    () => sequence.push("install_started"),
   );
 
   assert.equal(installed, true);
   assert.equal(prepareCalls, 2);
   assert.deepEqual(blockers, ["voice_server_running"]);
+  assert.deepEqual(sequence, ["install_started", "install"]);
 });
 
 test("the app downloads automatically and never waits for Elite before installation", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const backendSource = readFileSync(new URL("../src-tauri/src/lib.rs", import.meta.url), "utf8");
   const translations = readFileSync(new URL("../src/i18n.tsx", import.meta.url), "utf8");
 
   assert.match(appSource, /downloadUpdate\(update\)/);
   assert.match(appSource, /onCloseRequested/);
   assert.match(appSource, /cause: "application_exit"/);
+  assert.match(appSource, /updatePhaseRef\.current === "installing"[\s\S]*event\.preventDefault\(\)/);
+  assert.match(appSource, /\(\) => void invoke\("log_update_phase", \{ phase: "install_started", cause: "application_exit", technical: null \}\)/);
+  assert.doesNotMatch(backendSource, /close_app\.exit\(0\)/);
   assert.doesNotMatch(appSource, /waitForEliteProcessExit/);
   assert.match(translations, /Update bereit\. Es wird beim Beenden von OGG installiert\./);
 });

@@ -1045,12 +1045,9 @@ pub fn run() {
             }
 
             if let Some(window) = app.get_webview_window("main") {
-                let close_app = app.handle().clone();
                 window.on_window_event(move |event| {
                     if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
                         log::info!("version={} phase=window_close process=app.exe cause=user_requested", env!("CARGO_PKG_VERSION"));
-                        stop_voice_server(&close_app);
-                        close_app.exit(0);
                     }
                 });
             }

@@ -40,14 +40,10 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Old Guy of Grumpy v0.14.7 expands the onboard crew and command-center experience.
+            Old Guy of Grumpy v0.14.8 fixes deferred update installation on Windows.
 
-            - Added individual portraits for all 20 localized crew members
-            - Added portrait integration to crew configuration
-            - Added safe portrait handling so missing crew portraits never fall back to another crew member
-            - Improved onboard-computer and settings presentation
-            - Preserved individual crew selections across UI-language changes
-            - Improved crew reset behavior and mixed-language crew configuration
-            - Additional UI and reliability refinements
+            - Fixed an issue where downloaded updates could fail to install when OGG was closed
+            - Improved deferred updater shutdown sequencing
+            - Added regression coverage for the update-install exit path
           releaseDraft: false
           prerelease: false
