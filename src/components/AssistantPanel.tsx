@@ -45,7 +45,7 @@ export default function AssistantPanel({
 							{t("configureCrew")}
 						</button>
 
-						<button type="button" onClick={onRename} disabled={!name}>
+						<button type="button" onClick={onRename}>
 							<span className="assistant-actions__icon" aria-hidden="true">
 								✎
 							</span>

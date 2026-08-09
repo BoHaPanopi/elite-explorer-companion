@@ -107,9 +107,13 @@ test("local test builds skip only their own updater check", () => {
 test("initial setup explains the temporary computer-name limitation in every supported language", () => {
   const messages = readFileSync("src/i18n.tsx", "utf8");
   const panel = readFileSync("src/components/AssistantPanel.tsx", "utf8");
+  const app = readFileSync("src/App.tsx", "utf8");
 
   assert.match(messages, /Der Bordcomputer-Name kann derzeit nach der Ersteinrichtung noch nicht geändert werden\. Diese Funktion folgt mit Version 0\.15\./);
   assert.match(messages, /The onboard computer name cannot currently be changed after initial setup\. This feature will follow with version 0\.15\./);
+  assert.match(app, /if \(savedName\) \{\s*setBordcomputerName\(savedName\);\s*\}/);
+  assert.doesNotMatch(app, /else \{\s*setShowSetup\(true\);\s*\}/);
+  assert.match(app, /onCancel=\{\(\) => setShowSetup\(false\)\}/);
   for (const translatedSetup of ["Configuration initiale", "Configurazione iniziale", "Configuración inicial"]) {
     assert.match(messages, new RegExp(translatedSetup));
   }
@@ -120,6 +124,8 @@ test("initial setup explains the temporary computer-name limitation in every sup
   assert.match(panel, /onRename/);
   assert.doesNotMatch(panel, /onTestGreeting/);
   assert.match(panel, /t\("configureCrew"\)/);
+  assert.match(panel, /<button type="button" onClick=\{onRename\}>/);
+  assert.doesNotMatch(panel, /onClick=\{onRename\} disabled=\{!name\}/);
   for (const key of ["renameComputer", "configureCrew"]) {
     assert.equal((messages.match(new RegExp(`${key}:`, "g")) ?? []).length, 5);
   }

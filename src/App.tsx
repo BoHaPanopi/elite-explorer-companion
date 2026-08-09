@@ -306,8 +306,6 @@ function App() {
 
     if (savedName) {
       setBordcomputerName(savedName);
-    } else {
-      setShowSetup(true);
     }
   }, []);
 
@@ -604,11 +602,7 @@ function App() {
             <BordcomputerSetup
               initialName={bordcomputerName ?? ""}
               onSave={saveBordcomputerName}
-              onCancel={
-                bordcomputerName
-                  ? () => setShowSetup(false)
-                  : undefined
-              }
+              onCancel={() => setShowSetup(false)}
             />
           </div>
         </div>
