@@ -327,10 +327,10 @@ Charaktergrundlage: ruhig, praezise, vorausschauend, maritim gepraegt.
 
 - Rolle: Navigation
 - Sprache: EN-UK
-- Vollstaendiger Name: William Tucker
+- Vollstaendiger Name: Antony William Hanam
 - OGG-Rufname: William
-- Region/Herkunft: Devon
-- Realer/regionaler Bezug: Devon als maritime Region ist belastbar; die konkrete Devon-Bindung von Tucker ist noch gesondert zu verifizieren.
+- Region/Herkunft: West Sussex / Southern England
+- Realer/regionaler Bezug: West Sussex / Southern England als maritime Region ist belastbar; die konkrete regionale Bindung von Hanam ist noch gesondert zu verifizieren.
 - Bedeutung/Anspielung: William gehoert zur Wilhelm-Namensfamilie.
 - Grund der Auswahl: britisches maritimes Gegenstueck zur norddeutschen Navigation.
 - Verifizierungsstand Herkunftsbezug: teilweise offen
@@ -1317,7 +1317,7 @@ Belastbar bestaetigt in verfuegbarer Recherche:
 
 Teilweise oder noch offen (mit verfuegbaren Mitteln nicht abschliessend bestaetigt):
 
-- Feingranulare Regionalitaeten einzelner Nachnamen auf Stadt-/Provinzebene (z. B. Tucker in Devon, Fabre in Toulouse, Ferrari in Bologna/Emilia-Romagna, Sanchez Martin in Salamanca, Sauer in Mitteldeutschland).
+- Feingranulare Regionalitaeten einzelner Nachnamen auf Stadt-/Provinzebene (z. B. Hanam in West Sussex / Southern England, Fabre in Toulouse, Ferrari in Bologna/Emilia-Romagna, Sanchez Martin in Salamanca, Sauer in Mitteldeutschland).
 - Jungverdorben als konkret belegter realer Familienname in frei zugaenglichen Referenzquellen.
 - Macchina als belastbar belegter Familienname inkl. regionaler Verteilung.
 - Oberst als belastbar belegter elsaessischer Familienname.
