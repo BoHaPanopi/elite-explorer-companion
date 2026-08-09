@@ -40,10 +40,11 @@ jobs:
           tagName: v__VERSION__
           releaseName: Old Guy of Grumpy v__VERSION__
           releaseBody: |
-            Old Guy of Grumpy v0.14.8 fixes deferred update installation on Windows.
+            Old Guy of Grumpy v0.14.10
 
-            - Fixed an issue where downloaded updates could fail to install when OGG was closed
-            - Improved deferred updater shutdown sequencing
-            - Added regression coverage for the update-install exit path
+            - Improved development/runtime isolation and sidecar recovery.
+            - Removed the mandatory name prompt on first start.
+            - Completed localized crew profile portrait assignments.
+            - General stability improvements.
           releaseDraft: false
           prerelease: false
