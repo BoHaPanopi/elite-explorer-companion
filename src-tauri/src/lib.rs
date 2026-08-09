@@ -87,26 +87,58 @@ fn installed_sidecar_path() -> Option<PathBuf> {
     })
 }
 
+fn bundled_sidecar_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join(runtime_health::VOICE_BUNDLE_BINARY)
+}
+
+fn cache_sidecar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_local_data_dir()
+        .map_err(|error| error.to_string())
+        .map(|directory| {
+            directory
+                .join("repair-cache")
+                .join(env!("CARGO_PKG_VERSION"))
+                .join(runtime_health::VOICE_PROCESS)
+        })
+}
+
+fn replace_with_verified_sidecar(source: &Path, destination: &Path) -> Result<(), String> {
+    if !runtime_health::valid_windows_x64_executable(source) {
+        return Err(format!(
+            "voice-server source is missing or invalid: {}",
+            source.display()
+        ));
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    let pending = destination.with_extension("pending");
+    fs::copy(source, &pending).map_err(|error| error.to_string())?;
+    if !runtime_health::valid_windows_x64_executable(&pending) {
+        let _ = fs::remove_file(&pending);
+        return Err(format!(
+            "voice-server recovery copy is invalid: {}",
+            pending.display()
+        ));
+    }
+
+    let _ = fs::remove_file(destination);
+    fs::rename(&pending, destination).map_err(|error| error.to_string())
+}
+
 fn maintain_voice_server_recovery(app: &tauri::AppHandle) -> Result<(), String> {
     let installed =
         installed_sidecar_path().ok_or_else(|| "voice-server path is unavailable".to_string())?;
-    let cache_directory = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("repair-cache");
-    let cached = cache_directory.join(runtime_health::VOICE_PROCESS);
+    let bundled = bundled_sidecar_path();
+    let cached = cache_sidecar_path(app)?;
 
     if runtime_health::valid_windows_x64_executable(&installed) {
-        fs::create_dir_all(&cache_directory).map_err(|error| error.to_string())?;
-        let pending = cache_directory.join("ogg-voice-server.pending");
-        fs::copy(&installed, &pending).map_err(|error| error.to_string())?;
-        if !runtime_health::valid_windows_x64_executable(&pending) {
-            let _ = fs::remove_file(&pending);
-            return Err("voice-server recovery copy is invalid".into());
-        }
-        let _ = fs::remove_file(&cached);
-        fs::rename(&pending, &cached).map_err(|error| error.to_string())?;
+        replace_with_verified_sidecar(&installed, &cached)?;
         log::info!(
             "version={} phase=recovery_cache process={} cause=verified_copy",
             env!("CARGO_PKG_VERSION"),
@@ -116,11 +148,22 @@ fn maintain_voice_server_recovery(app: &tauri::AppHandle) -> Result<(), String> 
     }
 
     if runtime_health::valid_windows_x64_executable(&cached) {
-        fs::copy(&cached, &installed).map_err(|error| error.to_string())?;
+        replace_with_verified_sidecar(&cached, &installed)?;
         if runtime_health::valid_windows_x64_executable(&installed) {
             log::warn!("version={} phase=automatic_repair process={} cause=installed_sidecar_missing_or_invalid", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS);
             return Ok(());
         }
+    }
+
+    if runtime_health::valid_windows_x64_executable(&bundled) {
+        replace_with_verified_sidecar(&bundled, &installed)?;
+        replace_with_verified_sidecar(&installed, &cached)?;
+        log::warn!(
+            "version={} phase=automatic_repair process={} cause=runtime_sidecar_restored_from_bundle",
+            env!("CARGO_PKG_VERSION"),
+            runtime_health::VOICE_PROCESS
+        );
+        return Ok(());
     }
 
     Err("voice-server executable is missing or invalid and no recovery copy is available".into())

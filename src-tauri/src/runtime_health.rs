@@ -24,6 +24,7 @@ use windows_sys::Win32::{
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const VOICE_PROCESS: &str = "ogg-voice-server.exe";
+pub const VOICE_BUNDLE_BINARY: &str = "ogg-voice-server-x86_64-pc-windows-msvc.exe";
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

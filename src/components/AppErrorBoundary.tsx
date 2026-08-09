@@ -1,15 +1,16 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import StartupRecoveryDialog, { type StartupHealth } from "./StartupRecoveryDialog";
 
-type State = { failed: boolean };
+type State = { failed: boolean; version: string };
 
 export default class AppErrorBoundary extends Component<{ children: ReactNode }, State> {
-  state: State = { failed: false };
+  state: State = { failed: false, version: "" };
 
   static getDerivedStateFromError(): State {
-    return { failed: true };
+    return { failed: true, version: "" };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -18,6 +19,7 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
       cause: "render_failed",
       technical: `${error.message}\n${info.componentStack ?? ""}`,
     });
+    void getVersion().then((version) => this.setState({ version })).catch(() => {});
   }
 
   render() {
@@ -26,7 +28,7 @@ export default class AppErrorBoundary extends Component<{ children: ReactNode },
       ready: false,
       phase: "frontend",
       processName: "app.exe",
-      version: "0.14.1",
+      version: this.state.version,
       reason: null,
     };
     return <StartupRecoveryDialog health={health} onHealthChange={(next) => { if (next.ready) window.location.reload(); }} />;

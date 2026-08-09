@@ -15,10 +15,14 @@ test("the embedded boot surface cannot remain an unexplained black screen", () =
 
 test("the React recovery surface exposes all required actions", () => {
   const dialog = readFileSync("src/components/StartupRecoveryDialog.tsx", "utf8");
+  const boundary = readFileSync("src/components/AppErrorBoundary.tsx", "utf8");
 
   for (const action of ["relaunch", "repair_runtime", "open_log_directory", "exit(1)"]) {
     assert.match(dialog, new RegExp(action.replace(/[()]/g, "\\$&")));
   }
+  assert.match(boundary, /getVersion/);
+  assert.doesNotMatch(boundary, /0\.14\.1/);
+  assert.match(dialog, /health\.version &&/);
 });
 
 test("release logging and process launches are configured for persistent hidden diagnostics", () => {
@@ -33,6 +37,9 @@ test("release logging and process launches are configured for persistent hidden 
   assert.match(health, /share_mode\(0\)/);
   assert.match(backend, /frontend_watchdog/);
   assert.match(backend, /heartbeat_timeout/);
+  assert.match(health, /VOICE_BUNDLE_BINARY/);
+  assert.match(backend, /bundled_sidecar_path/);
+  assert.match(backend, /runtime_sidecar_restored_from_bundle/);
 });
 
 test("the startup greeting is completed only after audible playback succeeds", () => {
@@ -77,11 +84,18 @@ test("local test builds skip only their own updater check", () => {
   const app = readFileSync("src/App.tsx", "utf8");
   const backend = readFileSync("src-tauri/src/lib.rs", "utf8");
   const packageJson = readFileSync("package.json", "utf8");
+  const tauriConfig = readFileSync("src-tauri/tauri.conf.json", "utf8");
+  const tauriDevConfig = readFileSync("src-tauri/tauri.dev.conf.json", "utf8");
+  const tauriRunner = readFileSync("scripts/run-tauri.mjs", "utf8");
   const workflow = readFileSync(".github/workflows/release.yml", "utf8");
 
   assert.match(backend, /option_env!\("OGG_LOCAL_TEST_BUILD"\)/);
   assert.match(packageJson, /set \\"OGG_LOCAL_TEST_BUILD=1\\"&& tauri build/);
-  assert.doesNotMatch(packageJson, /tauri\.local\.conf\.json/);
+  assert.match(packageJson, /node scripts\/run-tauri\.mjs/);
+  assert.match(tauriConfig, /"identifier": "de\.panopi\.eliteexplorercompanion"/);
+  assert.match(tauriDevConfig, /"identifier": "de\.panopi\.eliteexplorercompanion\.dev"/);
+  assert.match(tauriRunner, /argv\[0\] === "dev"/);
+  assert.match(tauriRunner, /tauri\.dev\.conf\.json/);
   assert.match(app, /distribution === "local-test"/);
   assert.match(app, /scope=this_installation_only/);
   assert.match(app, /let updateCheckStartedForSession = false/);
