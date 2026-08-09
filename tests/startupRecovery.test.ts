@@ -80,6 +80,22 @@ test("an update notice stays dismissed for the current session", () => {
   assert.match(app, /phase: "notice_dismissed"[\s\S]*scope=current_session/);
 });
 
+test("the production capability allows exit and normal window close only", () => {
+  const capability = JSON.parse(readFileSync("src-tauri/capabilities/default.json", "utf8")) as {
+    permissions: string[];
+    identifier: string;
+  };
+
+  assert.equal(capability.identifier, "default");
+  assert.deepEqual(capability.permissions, [
+    "core:default",
+    "updater:default",
+    "process:allow-exit",
+    "core:window:allow-close",
+    "process:allow-restart",
+  ]);
+});
+
 test("local test builds skip only their own updater check", () => {
   const app = readFileSync("src/App.tsx", "utf8");
   const backend = readFileSync("src-tauri/src/lib.rs", "utf8");

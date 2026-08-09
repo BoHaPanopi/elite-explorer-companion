@@ -270,7 +270,10 @@ function App() {
     let unlisten: (() => void) | undefined;
     void getCurrentWindow().onCloseRequested(async (event) => {
       const update = pendingUpdate.current;
-      if (!update) return;
+      if (!update) {
+        await exit(0);
+        return;
+      }
       if (updatePhaseRef.current === "installing") {
         event.preventDefault();
         return;

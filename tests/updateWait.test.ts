@@ -61,9 +61,20 @@ test("the app downloads automatically and never waits for Elite before installat
   assert.match(appSource, /downloadUpdate\(update\)/);
   assert.match(appSource, /onCloseRequested/);
   assert.match(appSource, /cause: "application_exit"/);
+  assert.match(appSource, /if \(!update\) \{\s*await exit\(0\);\s*return;\s*\}/);
   assert.match(appSource, /updatePhaseRef\.current === "installing"[\s\S]*event\.preventDefault\(\)/);
   assert.match(appSource, /\(\) => void invoke\("log_update_phase", \{ phase: "install_started", cause: "application_exit", technical: null \}\)/);
   assert.doesNotMatch(backendSource, /close_app\.exit\(0\)/);
   assert.doesNotMatch(appSource, /waitForEliteProcessExit/);
   assert.match(translations, /Update bereit\. Es wird beim Beenden von OGG installiert\./);
+});
+
+test("the normal close path exits explicitly when no update is pending", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /void getCurrentWindow\(\)\.onCloseRequested\(async \(event\) => \{/);
+  assert.match(appSource, /const update = pendingUpdate\.current;/);
+  assert.match(appSource, /if \(!update\) \{\s*await exit\(0\);\s*return;\s*\}/);
+  assert.match(appSource, /if \(updatePhaseRef\.current === "installing"\) \{/);
+  assert.doesNotMatch(appSource, /if \(!update\) return;/);
 });
