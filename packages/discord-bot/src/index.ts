@@ -4,6 +4,7 @@ import { DISCORD_TOKEN, DISCORD_GUILD_ID } from "./config/env.js";
 import { commandRegistry } from "./commands/index.js";
 import { handleGuildMemberAdd } from "./events/guildMemberAdd.js";
 import { handleInteractionCreate } from "./events/interactionCreate.js";
+import { handleMessageCreate } from "./events/messageCreate.js";
 
 const client = createDiscordClient();
 
@@ -34,6 +35,14 @@ client.on(Events.GuildMemberAdd, async (member) => {
     await handleGuildMemberAdd(member);
   } catch (error) {
     console.error("Guild member add handler failed:", error);
+  }
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  try {
+    await handleMessageCreate(message);
+  } catch (error) {
+    console.error("Message handler failed:", error);
   }
 });
 
