@@ -1,4 +1,4 @@
-import { Events } from "discord.js";
+import { ApplicationFlagsBitField, Events } from "discord.js";
 import { createDiscordClient } from "./services/discordClient.js";
 import { DISCORD_TOKEN, DISCORD_GUILD_ID } from "./config/env.js";
 import { commandRegistry } from "./commands/index.js";
@@ -14,6 +14,12 @@ client.once(Events.ClientReady, async () => {
   const user = client.user!;
   console.log(`Bot username : ${user.username}`);
   console.log(`Bot ID       : ${user.id}`);
+
+  const app = await client.application?.fetch().catch(() => null);
+  const appFlags = app?.flags ?? new ApplicationFlagsBitField(0);
+  console.log(
+    `Application Flags: GatewayMessageContent=${appFlags.has(ApplicationFlagsBitField.Flags.GatewayMessageContent)} GatewayMessageContentLimited=${appFlags.has(ApplicationFlagsBitField.Flags.GatewayMessageContentLimited)}`,
+  );
 
   try {
     const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
