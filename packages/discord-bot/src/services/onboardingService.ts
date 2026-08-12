@@ -82,7 +82,6 @@ export async function sendOnboardingMessage(
     await rulesChannel.send({
       content: createRulesOnboardingMessage({
         locale: input.localeHint ?? input.member.guild.preferredLocale,
-        userMention: `<@${input.member.id}>`,
       }),
       components: [
         createAcceptButton(

@@ -97,7 +97,7 @@ async function disableAcceptButton(interaction: ButtonInteraction): Promise<void
   try {
     await interaction.message.edit({
       components: [
-        createAcceptButton(interaction.customId, interaction.component.label, true),
+        createAcceptButton(interaction.customId, "Accept Rules", true),
       ],
     });
   } catch (error) {

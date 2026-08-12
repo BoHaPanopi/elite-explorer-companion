@@ -1,4 +1,4 @@
-import type { Collection, Guild, GuildEmoji, Message } from "discord.js";
+import type { Guild, GuildEmoji, Message } from "discord.js";
 
 export type OggEmojiKey =
   | "eyebrow"
