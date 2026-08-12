@@ -1,8 +1,10 @@
 mod diagnostics;
 mod exploration;
+mod local_speech;
 mod runtime_health;
 
 use exploration::{journal_commander_name, ExplorationSnapshot, ExplorationTracker};
+use local_speech::{LocalSpeechState, LocalVoice, SpeakLocalRequest};
 use runtime_health::{StartupHealth, UpdateReadiness};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -20,8 +22,6 @@ use std::{
 };
 use tauri::{LogicalSize, Manager};
 
-use tauri_plugin_shell::process::CommandChild;
-use tauri_plugin_shell::ShellExt;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::GetFocus as WinGetFocus;
@@ -39,10 +39,6 @@ use windows_sys::Win32::{
     },
 };
 
-struct VoiceServer {
-    child: Mutex<Option<CommandChild>>,
-    stopping: AtomicBool,
-}
 struct StartupStatus(Mutex<StartupHealth>);
 struct FrontendHeartbeat {
     ready: AtomicBool,
@@ -56,6 +52,13 @@ static KNOWN_STAR_CLASSES: OnceLock<Mutex<HashMap<u64, String>>> = OnceLock::new
 static JOURNAL_DIAG_CURSOR: OnceLock<Mutex<HashMap<PathBuf, usize>>> = OnceLock::new();
 static JOURNAL_SNAPSHOT_REQUEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static JOURNAL_SNAPSHOT_CACHE: OnceLock<Mutex<Option<JournalSnapshotCacheEntry>>> = OnceLock::new();
+static ANNA_LIVE_JOURNAL_CURSOR: OnceLock<Mutex<Option<AnnaLiveJournalCursor>>> = OnceLock::new();
+
+#[derive(Clone, Debug)]
+struct AnnaLiveJournalCursor {
+    path: PathBuf,
+    line_number: usize,
+}
 static LAST_WINDOW_STATE: OnceLock<Mutex<HashMap<String, WindowSnapshot>>> = OnceLock::new();
 #[cfg(target_os = "windows")]
 static INSTALLED_WINDOW_SUBCLASSES: OnceLock<Mutex<Vec<isize>>> = OnceLock::new();
@@ -694,128 +697,25 @@ fn is_elite_dangerous_running() -> bool {
     runtime_health::process_running("EliteDangerous64.exe")
 }
 
-fn installed_sidecar_path() -> Option<PathBuf> {
-    env::current_exe().ok().and_then(|executable| {
-        executable
-            .parent()
-            .map(|directory| directory.join(runtime_health::VOICE_PROCESS))
-    })
+#[tauri::command]
+fn list_local_voices() -> Result<Vec<LocalVoice>, String> {
+    local_speech::list_local_voices()
 }
 
-fn maintain_voice_server_recovery(app: &tauri::AppHandle) -> Result<(), String> {
-    let installed =
-        installed_sidecar_path().ok_or_else(|| "voice-server path is unavailable".to_string())?;
-    let cache_directory = app
-        .path()
-        .app_local_data_dir()
+#[tauri::command]
+async fn speak_local(
+    state: tauri::State<'_, LocalSpeechState>,
+    request: SpeakLocalRequest,
+) -> Result<(), String> {
+    let speech = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || local_speech::speak_local(&speech, request))
+        .await
         .map_err(|error| error.to_string())?
-        .join("repair-cache");
-    let cached = cache_directory.join(runtime_health::VOICE_PROCESS);
-
-    if runtime_health::valid_windows_x64_executable(&installed) {
-        fs::create_dir_all(&cache_directory).map_err(|error| error.to_string())?;
-        let pending = cache_directory.join("ogg-voice-server.pending");
-        fs::copy(&installed, &pending).map_err(|error| error.to_string())?;
-        if !runtime_health::valid_windows_x64_executable(&pending) {
-            let _ = fs::remove_file(&pending);
-            return Err("voice-server recovery copy is invalid".into());
-        }
-        let _ = fs::remove_file(&cached);
-        fs::rename(&pending, &cached).map_err(|error| error.to_string())?;
-        log::info!(
-            "version={} phase=recovery_cache process={} cause=verified_copy bundled_sidecar_path={}",
-            env!("CARGO_PKG_VERSION"),
-            runtime_health::VOICE_PROCESS,
-            installed.display()
-        );
-        return Ok(());
-    }
-
-    if runtime_health::valid_windows_x64_executable(&cached) {
-        fs::copy(&cached, &installed).map_err(|error| error.to_string())?;
-        if runtime_health::valid_windows_x64_executable(&installed) {
-            log::warn!("version={} phase=automatic_repair process={} cause=installed_sidecar_missing_or_invalid runtime_sidecar_restored_from_bundle bundled_sidecar_path={}", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS, installed.display());
-            return Ok(());
-        }
-    }
-
-    Err("voice-server executable is missing or invalid and no recovery copy is available".into())
 }
 
-fn stop_voice_server(app: &tauri::AppHandle) -> bool {
-    log::info!(
-        "version={} phase=background_service_stop process={} cause=requested",
-        env!("CARGO_PKG_VERSION"),
-        runtime_health::VOICE_PROCESS
-    );
-    app.state::<VoiceServer>()
-        .stopping
-        .store(true, Ordering::SeqCst);
-    runtime_health::terminate_voice_servers();
-    let stopped = runtime_health::wait_for_voice_servers(std::time::Duration::from_secs(5));
-    if let Ok(mut child) = app.state::<VoiceServer>().child.lock() {
-        *child = None;
-    }
-    if !stopped {
-        log::error!("version={} phase=background_service_stop process={} cause=process_still_running technical=timeout", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS);
-    }
-    stopped
-}
-
-fn start_voice_server(app: &tauri::AppHandle) -> Result<(), String> {
-    app.state::<VoiceServer>()
-        .stopping
-        .store(true, Ordering::SeqCst);
-    runtime_health::terminate_voice_servers();
-    if !runtime_health::wait_for_voice_servers(std::time::Duration::from_secs(5)) {
-        return Err("previous voice-server process could not be stopped".into());
-    }
-
-    let sidecar_path =
-        installed_sidecar_path().ok_or_else(|| "voice-server path is unavailable".to_string())?;
-    if !runtime_health::valid_windows_x64_executable(&sidecar_path) {
-        return Err("voice-server executable is missing or invalid".into());
-    }
-
-    app.state::<VoiceServer>()
-        .stopping
-        .store(false, Ordering::SeqCst);
-    let parent_pid = std::process::id().to_string();
-    let (mut events, child) = app
-        .shell()
-        .sidecar("ogg-voice-server")
-        .map_err(|error| error.to_string())?
-        .args(["--parent-pid", &parent_pid])
-        .spawn()
-        .map_err(|error| error.to_string())?;
-
-    app.state::<VoiceServer>()
-        .child
-        .lock()
-        .map_err(|_| "voice-server state is unavailable".to_string())?
-        .replace(child);
-
-    let app_handle = app.clone();
-    tauri::async_runtime::spawn(async move {
-        while events.recv().await.is_some() {}
-        if !app_handle
-            .state::<VoiceServer>()
-            .stopping
-            .load(Ordering::SeqCst)
-        {
-            let reason = "voice server exited unexpectedly";
-            log::error!("version={} phase=background_service_exit process={} cause=unexpected_exit technical=event_stream_closed", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS);
-            if let Ok(mut health) = app_handle.state::<StartupStatus>().0.lock() {
-                *health = StartupHealth::degraded(reason);
-            }
-        }
-    });
-    log::info!(
-        "version={} phase=background_service_ready process={} cause=started",
-        env!("CARGO_PKG_VERSION"),
-        runtime_health::VOICE_PROCESS
-    );
-    Ok(())
+#[tauri::command]
+fn stop_local_speech(state: tauri::State<'_, LocalSpeechState>) -> Result<(), String> {
+    local_speech::stop_local_speech(state.inner())
 }
 
 #[tauri::command]
@@ -971,24 +871,12 @@ fn log_audio_event(event: String, technical: Option<String>) {
 }
 
 #[tauri::command]
-fn prepare_for_update(app: tauri::AppHandle) -> UpdateReadiness {
+fn prepare_for_update() -> UpdateReadiness {
     log::info!(
         "version={} phase=update_prepare process=app.exe cause=preflight",
         env!("CARGO_PKG_VERSION")
     );
-    let stopped = stop_voice_server(&app);
-    if !stopped {
-        return UpdateReadiness {
-            ready: false,
-            blocker: Some(runtime_health::UpdateBlocker::VoiceServerRunning),
-        };
-    }
-    let readiness = installed_sidecar_path()
-        .map(|path| runtime_health::update_readiness(&path))
-        .unwrap_or(UpdateReadiness {
-            ready: false,
-            blocker: Some(runtime_health::UpdateBlocker::VoiceServerMissing),
-        });
+    let readiness = runtime_health::update_readiness();
     log::info!(
         "version={} phase=update_preflight_result process=app.exe cause={:?}",
         env!("CARGO_PKG_VERSION"),
@@ -1003,24 +891,7 @@ fn repair_runtime(app: tauri::AppHandle) -> StartupHealth {
         "version={} phase=repair process=app.exe cause=user_requested",
         env!("CARGO_PKG_VERSION")
     );
-    let health = match start_voice_server(&app) {
-        Ok(()) => StartupHealth {
-            ready: true,
-            phase: "ready".into(),
-            process_name: runtime_health::VOICE_PROCESS.into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-            reason: None,
-        },
-        Err(error) => {
-            log::error!(
-                "version={} phase=repair process={} cause=restart_failed technical={}",
-                env!("CARGO_PKG_VERSION"),
-                runtime_health::VOICE_PROCESS,
-                error
-            );
-            StartupHealth::degraded(error)
-        }
-    };
+    let health = StartupHealth::ready();
     if let Ok(mut current) = app.state::<StartupStatus>().0.lock() {
         *current = health.clone();
     }
@@ -2314,6 +2185,56 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
     Ok(snapshot)
 }
 
+#[tauri::command]
+fn get_live_anna_journal_events(locale: Option<String>) -> Result<Vec<Value>, String> {
+    let locale = locale.as_deref().unwrap_or("de");
+    let directory = find_journal_directory(locale)?;
+    let path = newest_journal_file(&directory, locale)?;
+    let file = File::open(&path).map_err(|error| error.to_string())?;
+    let lines = BufReader::new(file).lines().collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    let cursor = ANNA_LIVE_JOURNAL_CURSOR.get_or_init(|| Mutex::new(None));
+    let mut cursor = cursor.lock().map_err(|error| error.to_string())?;
+
+    let Some(previous) = cursor.as_ref() else {
+        *cursor = Some(AnnaLiveJournalCursor { path, line_number: lines.len() });
+        return Ok(Vec::new());
+    };
+    let start = if previous.path == path { previous.line_number.min(lines.len()) } else { 0 };
+    let events = lines[start..]
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter_map(anna_live_event_payload)
+        .collect();
+    *cursor = Some(AnnaLiveJournalCursor { path, line_number: lines.len() });
+    Ok(events)
+}
+
+fn anna_live_event_payload(event: Value) -> Option<Value> {
+    let name = event.get("event")?.as_str()?;
+    if !matches!(name, "Commander" | "LoadGame" | "Location" | "FSDJump" | "Scan" | "FSSBodySignals" | "SAASignalsFound" | "ScanOrganic") {
+        return None;
+    }
+    Some(json!({
+        "event": name,
+        "commander": event.get("Commander").and_then(Value::as_str),
+        "name": event.get("Name").and_then(Value::as_str),
+        "systemAddress": event.get("SystemAddress"),
+        "bodyId": event.get("BodyID").and_then(Value::as_u64),
+        "body": event.get("Body").and_then(Value::as_u64),
+        "bodyName": event.get("BodyName").and_then(Value::as_str),
+        "planetClass": event.get("PlanetClass").and_then(Value::as_str),
+        "atmosphere": event.get("Atmosphere").and_then(Value::as_str).or_else(|| event.get("AtmosphereType").and_then(Value::as_str)),
+        "surfaceTemperature": event.get("SurfaceTemperature").and_then(Value::as_f64),
+        "surfaceGravity": event.get("SurfaceGravity").and_then(Value::as_f64),
+        "surfacePressure": event.get("SurfacePressure").and_then(Value::as_f64),
+        "volcanism": event.get("Volcanism").and_then(Value::as_str),
+        "biologicalSignalCount": event_biological_signal_count(&event),
+        "species": event.get("Species").and_then(Value::as_str),
+        "variant": event.get("Variant").and_then(Value::as_str),
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2332,7 +2253,6 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
@@ -2393,11 +2313,8 @@ pub fn run() {
                 );
             }
 
-            app.manage(VoiceServer {
-                child: Mutex::new(None),
-                stopping: AtomicBool::new(false),
-            });
-            app.manage(StartupStatus(Mutex::new(StartupHealth::starting())));
+            app.manage(LocalSpeechState::default());
+            app.manage(StartupStatus(Mutex::new(StartupHealth::ready())));
             app.manage(FrontendHeartbeat {
                 ready: AtomicBool::new(false),
                 last_seen_ms: std::sync::atomic::AtomicU64::new(unix_time_ms()),
@@ -2423,19 +2340,6 @@ pub fn run() {
                         window.center()?;
                     }
                 }
-            }
-
-            if let Err(error) = maintain_voice_server_recovery(app.handle()) {
-                log::error!("version={} phase=automatic_repair process={} cause=recovery_unavailable technical={}", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS, error);
-            }
-
-            if let Err(error) = start_voice_server(app.handle()) {
-                log::error!("version={} phase=background_service_start process={} cause=start_failed technical={}", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS, error);
-                if let Ok(mut health) = app.state::<StartupStatus>().0.lock() {
-                    *health = StartupHealth::degraded(error);
-                }
-            } else if let Ok(mut health) = app.state::<StartupStatus>().0.lock() {
-                health.phase = "ready".into();
             }
 
             if let Some(window) = app.get_webview_window("main") {
@@ -2554,7 +2458,6 @@ pub fn run() {
                             );
                         }
                         log::error!("version={} phase=frontend_watchdog process=msedgewebview2.exe cause=heartbeat_timeout technical=automatic_restart", env!("CARGO_PKG_VERSION"));
-                        stop_voice_server(&watchdog_app);
                         watchdog_app.restart();
                     }
                 }
@@ -2577,6 +2480,10 @@ pub fn run() {
             repair_runtime,
             open_log_directory,
             open_journal_directory,
+            get_live_anna_journal_events,
+            list_local_voices,
+            speak_local,
+            stop_local_speech,
             log_diagnostic_event
         ])
         .build(tauri::generate_context!())
@@ -2591,7 +2498,6 @@ pub fn run() {
                         );
                     }
                     log::info!("version={} phase=exit_requested process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
-                    stop_voice_server(app);
                 }
                 tauri::RunEvent::Exit => {
                     if let Some(window) = app.get_webview_window("main") {
@@ -2601,7 +2507,6 @@ pub fn run() {
                         );
                     }
                     log::info!("version={} phase=exit process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
-                    stop_voice_server(app);
                 }
                 _ => {}
             }

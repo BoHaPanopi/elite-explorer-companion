@@ -89,7 +89,7 @@ test("alpha notice renders only when showAlphaNotice is true and is conditioned 
   assert.match(appSource, /useState\(\(\) => !alphaTestingNoticeAlreadySeen\(\)\)/);
 });
 
-test("crew layout and voice configuration files are untouched by alpha notice implementation", () => {
+test("crew layout remains intact and voice previews use local Microsoft profiles", () => {
   const crewProfilesSource = readFileSync(
     join(process.cwd(), "src", "features", "crewProfiles.ts"),
     "utf8",
@@ -103,12 +103,9 @@ test("crew layout and voice configuration files are untouched by alpha notice im
     "utf8",
   );
 
-  // Willi voice must remain Florian
-  assert.match(voicePreviewSource, /de-DE-FlorianMultilingualNeural/);
-  // Anna EN must remain Sonia
-  assert.match(voicePreviewSource, /en-GB-SoniaNeural/);
-  // Anna DE/FR/IT/ES must remain Emma
-  assert.match(voicePreviewSource, /en-US-EmmaMultilingualNeural/);
+  assert.match(voicePreviewSource, /getCrewVoiceProfile/);
+  assert.match(voicePreviewSource, /profile\.baseVoiceName/);
+  assert.doesNotMatch(voicePreviewSource, /Neural|en-US/);
   // Circle-hook check element must still exist
   assert.match(crewDialogSource, /crew-variant-button__check/);
   // isCrewLocaleActive must still exist

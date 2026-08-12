@@ -10,7 +10,6 @@ lerna-debug.log*
 node_modules
 dist
 src-tauri/binaries/*.exe
-src/tools/ogg-voice/.build/
 dist-ssr
 *.local
 

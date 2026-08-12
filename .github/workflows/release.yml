@@ -16,18 +16,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
       - run: npm ci
       - name: Test commander-specific activation rules
         run: npm run test:tony
-      - name: Prepare OGG voice server build
-        shell: pwsh
-        run: |
-          python -m venv src/tools/ogg-voice/.venv
-          src/tools/ogg-voice/.venv/Scripts/python.exe -m pip install --disable-pip-version-check edge-tts flask flask-cors pyinstaller
-          cmd /c src\tools\ogg-voice\BUILD_OGG_STIMME.bat
       - name: Test journal recognition
         working-directory: src-tauri
         run: cargo test

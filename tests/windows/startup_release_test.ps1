@@ -19,7 +19,7 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $summary = @()
 
 for ($run = 1; $run -le $Runs; $run++) {
-  Get-Process app,ogg-voice-server -ErrorAction SilentlyContinue |
+  Get-Process app -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -like "$env:LOCALAPPDATA\Old Guy of Grumpy\*" } |
     Stop-Process -Force
   Start-Sleep -Milliseconds 500

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { normalizeVoiceLocale, type SupportedVoiceLocale } from "../voices/crewVoiceProfiles";
 import { OGG_VOICE_CONFIG } from "../voices/voiceConfig";
 
 export type SpeechOptions = {
@@ -13,100 +14,128 @@ export type SpeechOptions = {
   style?: string;
 };
 
-const VOICE_SERVER = "http://127.0.0.1:8765";
+export type LocalVoice = {
+  id: string;
+  displayName: string;
+  locale: string;
+  gender: "male" | "female" | "unknown";
+  api: string;
+  available: boolean;
+};
+
+export type LocalVoiceAvailability = {
+  locale: SupportedVoiceLocale;
+  available: boolean;
+  voice: LocalVoice | null;
+  reason: "available" | "locale_missing" | "voice_missing";
+};
+
+export class LocalVoiceUnavailableError extends Error {
+  readonly locale: SupportedVoiceLocale;
+  readonly reason: LocalVoiceAvailability["reason"];
+
+  constructor(
+    locale: SupportedVoiceLocale,
+    reason: LocalVoiceAvailability["reason"],
+  ) {
+    super(`Local Windows text-to-speech voice is unavailable for ${locale} (${reason}).`);
+    this.name = "LocalVoiceUnavailableError";
+    this.locale = locale;
+    this.reason = reason;
+  }
+}
 
 function errorMessage(error: unknown): string {
-  if (error instanceof DOMException) {
-    return `${error.name}: ${error.message}`;
-  }
-  return error instanceof Error
-    ? `${error.name}: ${error.message}${error.stack ? ` | ${error.stack}` : ""}`
-    : String(error);
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 }
 
 function logAudio(event: string, technical?: string): void {
-  void invoke("log_audio_event", {
-    event,
-    technical: technical ?? null,
-  }).catch(() => undefined);
+  void invoke("log_audio_event", { event, technical: technical ?? null }).catch(() => undefined);
 }
 
 function logDiagnostic(kind: string, payload: Record<string, unknown>): void {
-  void invoke("log_diagnostic_event", {
-    kind,
-    payload,
-  }).catch(() => undefined);
+  void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
 }
 
 class SpeechService {
-  private currentAudio: HTMLAudioElement | null = null;
-  private currentAudioUrl: string | null = null;
   private queueToken = 0;
-  private pendingVoices = 0;
   private voiceSequence = 0;
+  private voiceCache: Promise<LocalVoice[]> | null = null;
+
+  async listLocalVoices(refresh = false): Promise<LocalVoice[]> {
+    if (refresh || !this.voiceCache) {
+      this.voiceCache = invoke<LocalVoice[]>("list_local_voices").catch((error) => {
+        this.voiceCache = null;
+        throw error;
+      });
+    }
+    return this.voiceCache;
+  }
+
+  async getAvailability(
+    localeInput: string,
+    requestedVoice?: string,
+  ): Promise<LocalVoiceAvailability> {
+    const locale = normalizeVoiceLocale(localeInput);
+    if (!locale) {
+      throw new Error(`Unsupported OGG voice locale: ${localeInput}`);
+    }
+    const voices = await this.listLocalVoices();
+    const localeVoices = voices.filter(
+      (voice) => voice.available && voice.locale.toLowerCase() === locale.toLowerCase(),
+    );
+    if (!localeVoices.length) {
+      return { locale, available: false, voice: null, reason: "locale_missing" };
+    }
+    if (!requestedVoice) {
+      return { locale, available: true, voice: localeVoices[0], reason: "available" };
+    }
+    const voice = localeVoices.find(
+      (candidate) => candidate.id === requestedVoice || candidate.displayName === requestedVoice,
+    ) ?? null;
+    return voice
+      ? { locale, available: true, voice, reason: "available" }
+      : { locale, available: false, voice: null, reason: "voice_missing" };
+  }
 
   async isSupported(): Promise<boolean> {
-    return true;
-  }
-
-  logTestButtonClick(): void {
-    logAudio("test_button_clicked");
-  }
-
-  private async serverIsOnline(): Promise<boolean> {
     try {
-      const response = await fetch(`${VOICE_SERVER}/health`, {
-        method: "GET",
-        cache: "no-store",
-      });
-      return response.ok;
+      return (await this.listLocalVoices()).length > 0;
     } catch {
       return false;
     }
   }
 
   async waitUntilReady(timeoutMs = 30_000): Promise<boolean> {
-    const attempts = Math.max(1, Math.ceil(timeoutMs / 250));
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      if (await this.serverIsOnline()) return true;
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+    void timeoutMs;
+    try {
+      const availability = await this.getAvailability(
+        OGG_VOICE_CONFIG.locale,
+        OGG_VOICE_CONFIG.voice,
+      );
+      return availability.available;
+    } catch {
+      return false;
     }
-    return false;
   }
 
-  private release(audio: HTMLAudioElement, audioUrl: string): void {
-    if (this.currentAudio === audio) this.currentAudio = null;
-    if (this.currentAudioUrl === audioUrl) this.currentAudioUrl = null;
-    URL.revokeObjectURL(audioUrl);
+  logTestButtonClick(): void {
+    logAudio("test_button_clicked");
   }
 
   stop(): void {
     this.queueToken += 1;
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio.currentTime = 0;
-      this.currentAudio.removeAttribute("src");
-      this.currentAudio.load();
-      this.currentAudio = null;
-    }
-    if (this.currentAudioUrl) {
-      URL.revokeObjectURL(this.currentAudioUrl);
-      this.currentAudioUrl = null;
-    }
+    void invoke("stop_local_speech").catch((error) =>
+      logAudio("stop_error", errorMessage(error)),
+    );
   }
 
   pause(): void {
-    this.currentAudio?.pause();
+    this.stop();
   }
 
   resume(): void {
-    if (this.currentAudio) {
-      logAudio("play_called", "resume=true");
-      void this.currentAudio.play().then(
-        () => logAudio("play_succeeded", "resume=true"),
-        (error) => logAudio("error", errorMessage(error)),
-      );
-    }
+    logAudio("resume_unavailable", "local Windows speech must be started again");
   }
 
   async playLocalTestTone(): Promise<void> {
@@ -128,232 +157,93 @@ class SpeechService {
 
   private async playSilentPreRoll(durationMs: number): Promise<void> {
     if (durationMs <= 0) return;
-
-    const context = new AudioContext();
-    const frameCount = Math.max(1, Math.round(context.sampleRate * durationMs / 1000));
-    const source = context.createBufferSource();
-    source.buffer = context.createBuffer(1, frameCount, context.sampleRate);
-    source.connect(context.destination);
-    logAudio("silent_pre_roll_started", `durationMs=${durationMs}`);
-    source.start();
-    await new Promise<void>((resolve) => {
-      source.onended = () => resolve();
-    });
-    await context.close();
-    logAudio("silent_pre_roll_ended", `durationMs=${durationMs}`);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, durationMs));
   }
 
   async speak(text: string, options: SpeechOptions = {}): Promise<void> {
     const cleanedText = String(text ?? "").trim();
     const speaker = options.speaker ?? "OGG";
-    const voiceId = `voice-${Date.now()}-${(this.voiceSequence += 1)}`;
+    const id = `voice-${Date.now()}-${(this.voiceSequence += 1)}`;
+    if (!cleanedText) throw new Error("OGG hat keinen Text erhalten.");
 
-    if (!cleanedText) {
-      logDiagnostic("VOICE_SKIPPED", {
-        id: voiceId,
+    const requestedLocale = options.locale
+      ?? options.lang
+      ?? (speaker === "OGG" ? OGG_VOICE_CONFIG.locale : localStorage.getItem("ogg.language"))
+      ?? "de-DE";
+    const locale = normalizeVoiceLocale(requestedLocale);
+    if (!locale) throw new Error(`Unsupported OGG voice locale: ${requestedLocale}`);
+    const requestedVoice = options.voice
+      ?? (speaker === "OGG" ? OGG_VOICE_CONFIG.voice : undefined);
+    const availability = await this.getAvailability(locale, requestedVoice);
+    if (!availability.available || !availability.voice) {
+      logDiagnostic("VOICE_UNAVAILABLE", {
+        id,
         speaker,
-        reason: "empty_text",
+        locale,
+        requestedVoice: requestedVoice ?? null,
+        reason: availability.reason,
+        localProcessing: true,
       });
-      throw new Error("OGG hat keinen Text erhalten.");
+      throw new LocalVoiceUnavailableError(locale, availability.reason);
     }
 
-    if (!(await this.waitUntilReady())) {
-      logDiagnostic("VOICE_ERROR", {
-        id: voiceId,
-        speaker,
-        reason: "voice_server_not_ready",
-      });
-      throw new Error(
-        localStorage.getItem("ogg.language") === "en"
-          ? "The OGG voice server could not be started. Please verify the installation."
-          : "OGG-Sprachserver konnte nicht gestartet werden. Bitte die Installation überprüfen.",
-      );
-    }
-
-    const voice = options.voice ?? OGG_VOICE_CONFIG.voice;
     const rate = options.rate ?? OGG_VOICE_CONFIG.rate;
     const pitch = options.pitch ?? OGG_VOICE_CONFIG.pitch;
-    const volume = options.volume ?? OGG_VOICE_CONFIG.volume;
-    const preRollMs = Math.max(0, options.preRollMs ?? 0);
-    const locale = options.locale ?? options.lang ?? localStorage.getItem("ogg.language") ?? "de";
-
+    const volume = Math.max(0, Math.min(1, options.volume ?? OGG_VOICE_CONFIG.volume));
+    const startedAt = performance.now();
     logDiagnostic("VOICE_CREATED", {
-      id: voiceId,
+      id,
       speaker,
-      voice: voice,
+      voiceId: availability.voice.id,
+      voiceName: availability.voice.displayName,
       locale,
       rate,
       pitch,
       volume,
-      style: options.style ?? null,
+      localProcessing: true,
       text: cleanedText,
       textLength: cleanedText.length,
     });
-
-    this.pendingVoices += 1;
-    const queueLength = this.pendingVoices;
-    const queuedAt = performance.now();
-    let queueSlotReleased = false;
-    let errorAlreadyLogged = false;
     logDiagnostic("VOICE_QUEUED", {
-      id: voiceId,
+      id,
       speaker,
-      queueLength,
-      voice,
       locale,
-      text: cleanedText,
+      localProcessing: true,
     });
 
     try {
-      const url = new URL(`${VOICE_SERVER}/speak`);
-      url.searchParams.set("text", cleanedText);
-      url.searchParams.set("voice", voice);
-      url.searchParams.set("rate", String(rate));
-      url.searchParams.set("pitch", String(pitch));
-      url.searchParams.set("volume", String(volume));
-
-      logAudio("tts_request_started", `textLength=${cleanedText.length}`);
-      const ttsStartedAt = performance.now();
-      const response = await fetch(url.toString(), {
-        method: "POST",
-        cache: "no-store",
-        headers: { Accept: "audio/mpeg" },
+      await this.playSilentPreRoll(Math.max(0, options.preRollMs ?? 0));
+      logAudio("local_tts_started", `locale=${locale} voice=${availability.voice.displayName}`);
+      logDiagnostic("VOICE_START", {
+        id,
+        speaker,
+        locale,
+        localProcessing: true,
       });
-      const contentType = response.headers.get("content-type")?.split(";")[0].trim() || "audio/mpeg";
-      logAudio("http_status", String(response.status));
-      logAudio("mime_type", contentType);
-
-      if (!response.ok) {
-        const message = await response.text();
-        logAudio("error", `HTTP ${response.status}: ${message}`);
-        if (!queueSlotReleased) {
-          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
-          queueSlotReleased = true;
-        }
-        logDiagnostic("VOICE_ERROR", {
-          id: voiceId,
-          speaker,
-          voice,
-          locale,
+      await invoke("speak_local", {
+        request: {
+          voiceId: availability.voice.id,
           text: cleanedText,
-          error: `HTTP ${response.status}: ${message}`,
-        });
-        errorAlreadyLogged = true;
-        throw new Error(`OGG-Spracherzeugung fehlgeschlagen: ${message}`);
-      }
-
-      const bytes = await response.arrayBuffer();
-      const ttsGenerationMs = Math.max(0, Math.round(performance.now() - ttsStartedAt));
-      logAudio("received_bytes", String(bytes.byteLength));
-      if (!bytes.byteLength) throw new Error("Leere Audiodatei erhalten.");
-
-      const audioBlob = new Blob([bytes], { type: contentType });
-      logAudio("blob_created", `bytes=${audioBlob.size} type=${audioBlob.type}`);
-      const audioUrl = URL.createObjectURL(audioBlob);
-      logAudio("object_url_created", `scheme=${audioUrl.split(":", 1)[0]}`);
-
-      const audio = new Audio();
-      audio.preload = "auto";
-      audio.muted = false;
-      audio.volume = Math.max(0.01, Math.min(1, volume));
-      audio.src = audioUrl;
-      this.currentAudio = audio;
-      this.currentAudioUrl = audioUrl;
-      logAudio("audio_object_created", `muted=${audio.muted} volume=${audio.volume}`);
-
-      await new Promise<void>((resolve, reject) => {
-      let settled = false;
-      let playbackStartedAt = 0;
-      const fail = (error: unknown) => {
-        if (settled) return;
-        settled = true;
-        const message = errorMessage(error);
-        logAudio("error", message);
-        if (!queueSlotReleased) {
-          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
-          queueSlotReleased = true;
-        }
-        logDiagnostic("VOICE_ERROR", {
-          id: voiceId,
-          speaker,
-          voice,
-          locale,
-          text: cleanedText,
-          ttsGenerationMs,
-          queueToStartMs: playbackStartedAt > 0 ? Math.max(0, Math.round(playbackStartedAt - queuedAt)) : null,
-          error: message,
-        });
-        errorAlreadyLogged = true;
-        this.release(audio, audioUrl);
-        reject(error instanceof Error ? error : new Error(message));
-      };
-
-      audio.onplaying = () => {
-        playbackStartedAt = performance.now();
-        logAudio("playing");
-        logDiagnostic("VOICE_START", {
-          id: voiceId,
-          speaker,
-          voice,
-          locale,
-          text: cleanedText,
-          queueLength,
-          queueToStartMs: Math.max(0, Math.round(playbackStartedAt - queuedAt)),
-          ttsGenerationMs,
-        });
-      };
-      audio.onended = () => {
-        if (settled) return;
-        settled = true;
-        logAudio("ended");
-        const endedAt = performance.now();
-        if (!queueSlotReleased) {
-          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
-          queueSlotReleased = true;
-        }
-        logDiagnostic("VOICE_END", {
-          id: voiceId,
-          speaker,
-          voice,
-          locale,
-          text: cleanedText,
-          queueLength,
-          queueToStartMs: playbackStartedAt > 0 ? Math.max(0, Math.round(playbackStartedAt - queuedAt)) : null,
-          playbackDurationMs: playbackStartedAt > 0 ? Math.max(0, Math.round(endedAt - playbackStartedAt)) : null,
-        });
-        this.release(audio, audioUrl);
-        resolve();
-      };
-      audio.onerror = () => {
-        const mediaError = audio.error;
-        fail(new Error(`MediaError code=${mediaError?.code ?? "unknown"} message=${mediaError?.message ?? "unknown"}`));
-      };
-
-      audio.load();
-      const startPlayback = async () => {
-        await this.playSilentPreRoll(preRollMs);
-        logAudio("play_called");
-        await audio.play();
-        logAudio("play_succeeded");
-      };
-      void startPlayback().catch(fail);
+          rate,
+          pitch,
+          volume,
+        },
+      });
+      logDiagnostic("VOICE_END", {
+        id,
+        speaker,
+        locale,
+        localProcessing: true,
+        playbackDurationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       });
     } catch (error) {
-      if (!queueSlotReleased) {
-        this.pendingVoices = Math.max(0, this.pendingVoices - 1);
-        queueSlotReleased = true;
-      }
-      if (!errorAlreadyLogged) {
-        const message = errorMessage(error);
-        logDiagnostic("VOICE_ERROR", {
-          id: voiceId,
-          speaker,
-          voice,
-          locale,
-          text: cleanedText,
-          error: message,
-        });
-      }
+      logDiagnostic("VOICE_ERROR", {
+        id,
+        speaker,
+        locale,
+        localProcessing: true,
+        error: errorMessage(error),
+      });
       throw error;
     }
   }

@@ -60,7 +60,7 @@ $backupDirectory = Join-Path $runDirectory "original-profile"
 $testProfileDirectory = Join-Path $runDirectory "tested-profile"
 New-Item -ItemType Directory -Force -Path $backupDirectory, $testProfileDirectory | Out-Null
 
-Get-Process app,ogg-voice-server -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:LOCALAPPDATA\Old Guy of Grumpy\*" } | Stop-Process -Force
+Get-Process app -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:LOCALAPPDATA\Old Guy of Grumpy\*" } | Stop-Process -Force
 Start-Sleep -Milliseconds 500
 
 $localBackup = Join-Path $backupDirectory "local"
@@ -94,7 +94,7 @@ try {
   if (Test-Path $localProfile) { Move-Item -LiteralPath $localProfile -Destination (Join-Path $testProfileDirectory "local") }
   if (Test-Path $roamingProfile) { Move-Item -LiteralPath $roamingProfile -Destination (Join-Path $testProfileDirectory "roaming") }
 } finally {
-  Get-Process app,ogg-voice-server -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:LOCALAPPDATA\Old Guy of Grumpy\*" } | Stop-Process -Force
+  Get-Process app -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$env:LOCALAPPDATA\Old Guy of Grumpy\*" } | Stop-Process -Force
   Start-Sleep -Milliseconds 500
   if (!(Test-Path $localProfile) -and (Test-Path $localBackup)) { Move-Item -LiteralPath $localBackup -Destination $localProfile }
   if (!(Test-Path $roamingProfile) -and (Test-Path $roamingBackup)) { Move-Item -LiteralPath $roamingBackup -Destination $roamingProfile }

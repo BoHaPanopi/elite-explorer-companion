@@ -32,6 +32,8 @@ const baseMessages = {
     startupErrorVersion: "Version {version}", restart: "Erneut starten", repair: "Reparieren", repairing: "Reparatur läuft …", openLog: "Log öffnen", quit: "Beenden",
     updateDownloading: "Update wird heruntergeladen …", updateInstalling: "Update wird beim Beenden installiert …", updateRestarting: "OGG wird neu gestartet …", updateReady: "Update bereit. Es wird beim Beenden von OGG installiert.", updateReadyVersion: "Version {version} wurde vollständig im Hintergrund heruntergeladen.", dismiss: "Ausblenden",
     systemStatusLabel: "OGG-Systemstatus: {status}", eliteJournal: "Elite-Dangerous-Journal", continue: "Weiter", aboutOgg: "Über OGG", openMessage: "Nachricht öffnen", tonyWelcomeMessage: "Tonys Willkommensnachricht", seasonalReminder: "Saisonale Erinnerung",
+    localVoiceVariantNotice: "OGG verwendet ausschließlich lokal auf deinem PC installierte Windows-Stimmen. Da Windows je nach Sprache nur eine begrenzte Auswahl männlicher und weiblicher Stimmen bereitstellt, können einzelne Crew-Stimmen als lokale Varianten derselben Windows-Stimme erzeugt werden. Tonhöhe und Sprechgeschwindigkeit werden ausschließlich lokal angepasst. Es werden keine Sprachtexte an einen Cloud-Dienst gesendet.",
+    localVoiceMissingTitle: "Lokale {language}-Sprachausgabe fehlt.", localVoiceMissingBody: "Für diese Sprache ist keine passende Windows-TTS-Stimme installiert. OGG verwendet ausschließlich lokale Sprachausgabe und sendet deine Texte nicht an einen Cloud-Sprachdienst. Installiere die entsprechende Text-to-Speech-Stimme über Windows, um die Sprachausgabe zu aktivieren.",
   },
   en: {
     commandCenter: "Command Center", navigation: "Navigation", settings: "Settings",
@@ -60,6 +62,8 @@ const baseMessages = {
     startupErrorVersion: "Version {version}", restart: "Restart", repair: "Repair", repairing: "Repairing …", openLog: "Open Log", quit: "Quit",
     updateDownloading: "Update is downloading …", updateInstalling: "The update will be installed when OGG closes …", updateRestarting: "OGG is restarting …", updateReady: "Update ready. It will be installed when OGG closes.", updateReadyVersion: "Version {version} has finished downloading in the background.", dismiss: "Dismiss",
     systemStatusLabel: "OGG system status: {status}", eliteJournal: "Elite Dangerous Journal", continue: "Continue", aboutOgg: "About OGG", openMessage: "Open Message", tonyWelcomeMessage: "Tony's Welcome Message", seasonalReminder: "Seasonal Reminder",
+    localVoiceVariantNotice: "OGG uses only Windows voices installed locally on your PC. Because Windows offers a limited selection of male and female voices for some languages, individual crew voices may be local variants of the same Windows voice. Pitch and speaking rate are adjusted only on your PC. No speech text is sent to a cloud service.",
+    localVoiceMissingTitle: "Local {language} speech is missing.", localVoiceMissingBody: "No suitable Windows TTS voice is installed for this language. OGG uses only local speech and does not send your text to a cloud speech service. Install the corresponding text-to-speech voice through Windows to enable speech output.",
   },
 } as const;
 
@@ -90,6 +94,8 @@ const messages = {
     startupErrorVersion: "Version {version}", restart: "Redémarrer", repair: "Réparer", repairing: "Réparation en cours …", openLog: "Ouvrir le journal", quit: "Quitter",
     updateDownloading: "Téléchargement de la mise à jour …", updateInstalling: "La mise à jour sera installée à la fermeture d’OGG …", updateRestarting: "OGG redémarre …", updateReady: "Mise à jour prête. Elle sera installée à la fermeture d’OGG.", updateReadyVersion: "La version {version} a été entièrement téléchargée en arrière-plan.", dismiss: "Masquer",
     systemStatusLabel: "État du système OGG : {status}", eliteJournal: "Journal d’Elite Dangerous", continue: "Continuer", aboutOgg: "À propos d’OGG", openMessage: "Ouvrir le message", tonyWelcomeMessage: "Message de bienvenue de Tony", seasonalReminder: "Rappel saisonnier",
+    localVoiceVariantNotice: "OGG utilise uniquement les voix Windows installées localement sur votre PC. Windows proposant un choix limité de voix masculines et féminines selon la langue, certaines voix d’équipage peuvent être des variantes locales d’une même voix Windows. La hauteur et le débit sont ajustés uniquement sur votre PC. Aucun texte vocal n’est envoyé à un service cloud.",
+    localVoiceMissingTitle: "La synthèse vocale locale en {language} est absente.", localVoiceMissingBody: "Aucune voix Windows TTS adaptée n’est installée pour cette langue. OGG utilise uniquement la synthèse vocale locale et n’envoie pas vos textes à un service vocal cloud. Installez la voix de synthèse correspondante via Windows pour activer la sortie vocale.",
   },
   it: {
     commandCenter: "Centro di comando", navigation: "Navigazione", settings: "Impostazioni",
@@ -116,6 +122,8 @@ const messages = {
     startupErrorVersion: "Versione {version}", restart: "Riavvia", repair: "Ripara", repairing: "Riparazione in corso …", openLog: "Apri registro", quit: "Esci",
     updateDownloading: "Download dell’aggiornamento …", updateInstalling: "L’aggiornamento verrà installato alla chiusura di OGG …", updateRestarting: "OGG si sta riavviando …", updateReady: "Aggiornamento pronto. Verrà installato alla chiusura di OGG.", updateReadyVersion: "La versione {version} è stata scaricata completamente in background.", dismiss: "Nascondi",
     systemStatusLabel: "Stato del sistema OGG: {status}", eliteJournal: "Diario di Elite Dangerous", continue: "Continua", aboutOgg: "Informazioni su OGG", openMessage: "Apri messaggio", tonyWelcomeMessage: "Messaggio di benvenuto di Tony", seasonalReminder: "Promemoria stagionale",
+    localVoiceVariantNotice: "OGG utilizza esclusivamente le voci Windows installate localmente sul PC. Poiché Windows offre una scelta limitata di voci maschili e femminili per alcune lingue, singole voci dell’equipaggio possono essere varianti locali della stessa voce Windows. Altezza e velocità vengono regolate solo sul PC. Nessun testo vocale viene inviato a un servizio cloud.",
+    localVoiceMissingTitle: "La sintesi vocale locale in {language} non è disponibile.", localVoiceMissingBody: "Per questa lingua non è installata una voce Windows TTS adatta. OGG utilizza esclusivamente la sintesi vocale locale e non invia i tuoi testi a un servizio vocale cloud. Installa la voce di sintesi corrispondente tramite Windows per attivare l’uscita vocale.",
   },
   es: {
     commandCenter: "Centro de mando", navigation: "Navegación", settings: "Ajustes",
@@ -142,6 +150,8 @@ const messages = {
     startupErrorVersion: "Versión {version}", restart: "Reiniciar", repair: "Reparar", repairing: "Reparando …", openLog: "Abrir registro", quit: "Salir",
     updateDownloading: "Descargando actualización …", updateInstalling: "La actualización se instalará al cerrar OGG …", updateRestarting: "OGG se está reiniciando …", updateReady: "Actualización lista. Se instalará al cerrar OGG.", updateReadyVersion: "La versión {version} se ha descargado completamente en segundo plano.", dismiss: "Ocultar",
     systemStatusLabel: "Estado del sistema OGG: {status}", eliteJournal: "Diario de Elite Dangerous", continue: "Continuar", aboutOgg: "Acerca de OGG", openMessage: "Abrir mensaje", tonyWelcomeMessage: "Mensaje de bienvenida de Tony", seasonalReminder: "Recordatorio de temporada",
+    localVoiceVariantNotice: "OGG utiliza exclusivamente las voces de Windows instaladas localmente en tu PC. Como Windows ofrece una selección limitada de voces masculinas y femeninas según el idioma, algunas voces de la tripulación pueden ser variantes locales de una misma voz de Windows. El tono y la velocidad se ajustan únicamente en tu PC. No se envía ningún texto a un servicio de voz en la nube.",
+    localVoiceMissingTitle: "Falta la síntesis de voz local en {language}.", localVoiceMissingBody: "No hay instalada una voz TTS de Windows adecuada para este idioma. OGG utiliza exclusivamente síntesis local y no envía tus textos a un servicio de voz en la nube. Instala la voz de texto a voz correspondiente mediante Windows para activar la salida de voz.",
   },
 } as const;
 

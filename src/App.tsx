@@ -38,6 +38,8 @@ import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./ser
 import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
+import type { AnnaLiveJournalEvent } from "ogg-core";
+import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 
 type Page =
   | "dashboard"
@@ -102,7 +104,7 @@ type EliteSnapshot = {
 
 type UpdateReadiness = {
   ready: boolean;
-  blocker: "voice_server_running" | "voice_server_locked" | "another_ogg_instance" | "installer_running" | "voice_server_missing" | null;
+  blocker: "another_ogg_instance" | "installer_running" | null;
 };
 
 type StartupGreetingState = "idle" | "scheduled" | "playing" | "completed";
@@ -113,6 +115,7 @@ let updateNoticeDismissedForSession = false;
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
+const annaEvidenceService = new AnnaEvidenceService(localStorage);
 
 type DashboardStatusTone = "flight" | "docked" | "landed" | "idle";
 
@@ -249,6 +252,10 @@ function App() {
 
     try {
       const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
+      const annaEvents = await invoke<AnnaLiveJournalEvent[]>("get_live_anna_journal_events", { locale: language });
+      annaEvidenceService.process(result.commander
+        ? [{ event: "Commander", name: result.commander }, ...annaEvents]
+        : annaEvents);
       if (result.commander) {
         localStorage.setItem(LAST_KNOWN_COMMANDER_KEY, result.commander);
         setLastKnownCommander(result.commander);
@@ -668,21 +675,21 @@ function App() {
     let cancelled = false;
 
     void (async () => {
-        const serverReady = await speechService.waitUntilReady(30_000);
+        const localVoiceReady = await speechService.waitUntilReady(30_000);
         if (cancelled) return;
-        if (!serverReady) {
+        if (!localVoiceReady) {
           startupGreetingState.current = "idle";
           void invoke("log_audio_event", {
             event: "startup_greeting_suppressed",
-            technical: "reason=voice_server_not_ready retryMs=1000",
+            technical: "reason=local_windows_voice_not_ready retryMs=1000",
           });
           window.setTimeout(() => setGreetingRetryNonce((value) => value + 1), 1000);
           return;
         }
 
         void invoke("log_audio_event", {
-          event: "startup_voice_server_ready",
-          technical: "health=ok",
+          event: "startup_local_voice_ready",
+          technical: "api=Windows OneCore/WinRT health=ok",
         });
         startupGreetingState.current = "playing";
         void invoke("log_audio_event", {

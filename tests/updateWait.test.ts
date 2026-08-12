@@ -39,7 +39,7 @@ test("installs the downloaded update only when the exit workflow runs", async ()
     async () => {
       prepareCalls += 1;
       return prepareCalls === 1
-        ? { ready: false, blocker: "voice_server_running" }
+        ? { ready: false, blocker: "installer_running" }
         : { ready: true, blocker: null };
     },
     async () => undefined,
@@ -49,7 +49,7 @@ test("installs the downloaded update only when the exit workflow runs", async ()
 
   assert.equal(installed, true);
   assert.equal(prepareCalls, 2);
-  assert.deepEqual(blockers, ["voice_server_running"]);
+  assert.deepEqual(blockers, ["installer_running"]);
   assert.deepEqual(sequence, ["install_started", "install"]);
 });
 

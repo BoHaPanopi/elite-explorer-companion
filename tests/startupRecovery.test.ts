@@ -34,12 +34,9 @@ test("release logging and process launches are configured for persistent hidden 
   assert.match(health, /CREATE_NO_WINDOW/);
   assert.doesNotMatch(health, /hidden_output\("tasklist"/);
   assert.doesNotMatch(health, /hidden_output\("taskkill"/);
-  assert.match(health, /share_mode\(0\)/);
   assert.match(backend, /frontend_watchdog/);
   assert.match(backend, /heartbeat_timeout/);
-  assert.match(health, /VOICE_BUNDLE_BINARY/);
-  assert.match(backend, /bundled_sidecar_path/);
-  assert.match(backend, /runtime_sidecar_restored_from_bundle/);
+  assert.doesNotMatch(backend, /voice.server|sidecar/i);
 });
 
 test("the startup greeting is completed only after audible playback succeeds", () => {
@@ -59,7 +56,7 @@ test("the complete startup greeting lifecycle and suppression reasons are logged
 
   for (const event of [
     "startup_app_started",
-    "startup_voice_server_ready",
+    "startup_local_voice_ready",
     "language_mode_at_startup",
     "language_mode_after_commander_detection",
     "startup_greeting_scheduled",
