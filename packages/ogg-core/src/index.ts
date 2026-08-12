@@ -9,3 +9,4 @@ export * from "./voices/oggReferenceProfile.ts";
 export * from "./types/language.ts";
 export * from "./types/tactical.ts";
 export * from "./quotes.ts";
+export * from "./exobiology/index.ts";

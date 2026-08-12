@@ -18,6 +18,11 @@
     "test:tony": "node --experimental-strip-types --test tests/tonyEdition.test.ts",
     "test:update": "node --experimental-strip-types --test tests/updateWait.test.ts tests/startupRecovery.test.ts",
     "test:star-class": "node --experimental-strip-types --test tests/starClass.test.ts",
+    "test:anna-exobiology": "node --experimental-strip-types --test tests/annaExobiologyPrediction.test.ts",
+    "test:anna-evidence": "node --experimental-strip-types --test tests/annaExobiologyEvidence.test.ts",
+    "test:anna-journal": "node --experimental-strip-types --test tests/annaJournalIntegration.test.ts",
+    "test:anna-live-prediction": "node --experimental-strip-types --test tests/annaLivePrediction.test.ts",
+    "test:anna-persistence": "node --experimental-strip-types --test tests/annaPersistenceGate.test.ts",
     "preview": "vite preview",
     "tauri": "node scripts/run-tauri.mjs",
     "tauri:build:local": "set \"OGG_LOCAL_TEST_BUILD=1\"&& tauri build"
