@@ -6,6 +6,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { exit } from "@tauri-apps/plugin-process";
 
 import "./App.css";
+import AlphaTestingNotice from "./components/AlphaTestingNotice";
 import AssistantPanel from "./components/AssistantPanel";
 import BordcomputerSetup from "./components/BordcomputerSetup";
 import CrewConfigDialog from "./components/CrewConfigDialog";
@@ -21,9 +22,17 @@ import { TonyAbout, TonyMessageDialog } from "./components/TonyEdition";
 import UpdateDialog, { type UpdatePhase } from "./components/UpdateDialog";
 import { useI18n } from "./i18n";
 import {
+  defaultCrewLocaleForUiLanguage,
   readCrewSelections,
   type CrewSelectionMap,
 } from "./features/crewProfiles";
+import { formatCurrentJumpRange, selectDisplayedCurrentJumpRange } from "./features/currentJumpRange";
+import { resolveCrewVoicePreview } from "./features/crewVoicePreview";
+import {
+  alphaTestingNoticeAlreadySeen,
+  markAlphaTestingNoticeSeen,
+} from "./features/alphaTestingNotice";
+import { advanceObservationProcessingState, type ObservationProcessingState } from "./features/exploration/observationProcessingGuard";
 import { speechService } from "./services/SpeechService";
 import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "ogg-core";
@@ -55,6 +64,11 @@ type EliteSnapshot = {
   ship: string | null;
   shipName: string | null;
   docked: boolean | null;
+  shipState: "supercruise" | "normal_space" | "docked" | "landed" | null;
+  stationName: string | null;
+  planetName: string | null;
+  currentJumpRange: number | null;
+  maxJumpRange: number | null;
   eliteConnected: boolean;
   exploration: {
     systemScan: "undiscovered" | "partially_discovered" | "fully_discovered";
@@ -71,6 +85,15 @@ type EliteSnapshot = {
       kind: ExplorationObservationKind;
       bodyId: number | null;
       bodyName: string | null;
+      details?: {
+        biologicalSignalCount?: number | null;
+        confirmedGenera?: string[];
+        compositionSpecies?: string | null;
+        codexEntryName?: string | null;
+        voucherAmount?: number | null;
+        remainingBiologicalBodies?: number | null;
+        probeStage?: 1 | 2 | 3 | null;
+      };
     } | null;
   };
   journalPath: string;
@@ -90,6 +113,53 @@ let updateNoticeDismissedForSession = false;
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
+
+type DashboardStatusTone = "flight" | "docked" | "landed" | "idle";
+
+function resolveShipStatus(snapshot: EliteSnapshot | null, isLoading: boolean, t: (key: "loading" | "eliteDisconnected" | "supercruise" | "normalSpace" | "docked" | "landed" | "unknown") => string) {
+  if (isLoading) {
+    return { label: t("loading"), tone: "idle" as DashboardStatusTone };
+  }
+
+  if (!snapshot?.eliteConnected) {
+    return { label: t("eliteDisconnected"), tone: "idle" as DashboardStatusTone };
+  }
+
+  switch (snapshot.shipState) {
+    case "supercruise":
+      return { label: t("supercruise"), tone: "flight" as DashboardStatusTone };
+    case "normal_space":
+      return { label: t("normalSpace"), tone: "flight" as DashboardStatusTone };
+    case "docked":
+      return { label: t("docked"), tone: "docked" as DashboardStatusTone };
+    case "landed":
+      return { label: t("landed"), tone: "landed" as DashboardStatusTone };
+    default:
+      if (snapshot.docked === true) {
+        return { label: t("docked"), tone: "docked" as DashboardStatusTone };
+      }
+      if (snapshot.docked === false) {
+        return { label: t("normalSpace"), tone: "flight" as DashboardStatusTone };
+      }
+      return { label: t("unknown"), tone: "idle" as DashboardStatusTone };
+  }
+}
+
+function resolveShipContext(snapshot: EliteSnapshot | null, t: (key: "station" | "planet") => string) {
+  if (!snapshot?.eliteConnected) {
+    return null;
+  }
+
+  if ((snapshot.shipState === "docked" || snapshot.docked === true) && snapshot.stationName) {
+    return { label: t("station"), value: snapshot.stationName };
+  }
+
+  if (snapshot.shipState === "landed" && snapshot.planetName) {
+    return { label: t("planet"), value: snapshot.planetName };
+  }
+
+  return null;
+}
 
 function PlaceholderPage({
   title,
@@ -134,6 +204,7 @@ function App() {
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
   const [crewSelections, setCrewSelections] = useState<CrewSelectionMap>(() => readCrewSelections());
   const [showCrewConfig, setShowCrewConfig] = useState(false);
+  const [showAlphaNotice, setShowAlphaNotice] = useState(() => !alphaTestingNoticeAlreadySeen());
   const [showSetup, setShowSetup] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
   const [updatePhase, setUpdatePhase] = useState<UpdatePhase>("downloading");
@@ -152,13 +223,30 @@ function App() {
   const lastLoggedJournalCommander = useRef<string | null>(null);
   const pendingUpdate = useRef<Update | null>(null);
   const updatePhaseRef = useRef<UpdatePhase>("downloading");
-  const explorationBaselineReady = useRef(false);
-  const lastExplorationObservation = useRef<string | null>(null);
+  const observationProcessingState = useRef<ObservationProcessingState>({
+    baselineReady: false,
+    lastProcessedObservationId: null,
+    lastAlreadyProcessedLoggedObservationId: null,
+  });
+  const lastLatestObservation = useRef<string | null>(null);
+  const lastUiDiagnosticState = useRef<string>("");
   const activeCommander = selectCommanderIdentity(snapshot?.commander, lastKnownCommander);
   const oggMode = resolveOggMode(activeCommander, language);
   const { language: oggLanguage, mode: languageMode, tonyProfile } = oggMode;
 
+  const logDiagnostic = useCallback((kind: string, payload: Record<string, unknown>) => {
+    void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
+  }, []);
+
+  const snapshotRequestInFlight = useRef(false);
+
   const loadEliteSnapshot = useCallback(async () => {
+    if (snapshotRequestInFlight.current) {
+      return;
+    }
+
+    snapshotRequestInFlight.current = true;
+
     try {
       const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
       if (result.commander) {
@@ -178,6 +266,7 @@ function App() {
     } catch (error) {
       setJournalError(error instanceof Error ? error.message : String(error));
     } finally {
+      snapshotRequestInFlight.current = false;
       setIsLoading(false);
     }
   }, [language]);
@@ -328,19 +417,163 @@ function App() {
   useEffect(() => {
     if (isLoading) return;
     const observation = snapshot?.exploration.latestObservation ?? null;
+    const observationId = observation?.id ?? null;
+    const annaVoice = resolveCrewVoicePreview("science", defaultCrewLocaleForUiLanguage(oggLanguage));
+    const previousLatestObservation = lastLatestObservation.current;
+    const nextLatestObservation = observationId;
+    const transition = advanceObservationProcessingState(
+      observationProcessingState.current,
+      observationId,
+    );
+    observationProcessingState.current = transition.nextState;
 
-    if (!explorationBaselineReady.current) {
-      explorationBaselineReady.current = true;
-      lastExplorationObservation.current = observation?.id ?? null;
+    if (!previousLatestObservation && nextLatestObservation) {
+      logDiagnostic("BIO_OBSERVATION_CREATED", {
+        eventType: observation?.kind ?? null,
+        observationId: nextLatestObservation,
+        previousLatestObservation,
+        newLatestObservation: nextLatestObservation,
+        ignoreReason: null,
+      });
+    } else if (previousLatestObservation && nextLatestObservation && previousLatestObservation !== nextLatestObservation) {
+      logDiagnostic("BIO_OBSERVATION_REPLACED", {
+        eventType: observation?.kind ?? null,
+        observationId: nextLatestObservation,
+        previousLatestObservation,
+        newLatestObservation: nextLatestObservation,
+        ignoreReason: null,
+      });
+    }
+    lastLatestObservation.current = nextLatestObservation;
+
+    if (transition.decision === "baseline_initialization_skip") {
+      if (observation?.id) {
+        logDiagnostic("BIO_OBSERVATION_IGNORED", {
+          eventType: observation.kind,
+          observationId: observation.id,
+          previousLatestObservation,
+          newLatestObservation: observation.id,
+          ignoreReason: "exploration_baseline_initialization",
+        });
+      }
+      logDiagnostic("BIO_VOICE_SKIPPED", {
+        reason: "exploration_baseline_initialization",
+        speaker: "Anna",
+      });
       return;
     }
 
-    if (!observation || observation.id === lastExplorationObservation.current) return;
-    lastExplorationObservation.current = observation.id;
-    void speechService.speak(createExplorationMessage(observation.kind, oggLanguage)).catch((error) => {
+    if (transition.decision === "no_latest_observation") {
+      logDiagnostic("BIO_OBSERVATION_IGNORED", {
+        eventType: null,
+        observationId: null,
+        previousLatestObservation,
+        newLatestObservation: null,
+        ignoreReason: "no_latest_observation",
+      });
+      logDiagnostic("BIO_VOICE_SKIPPED", {
+        reason: "no_latest_observation",
+        speaker: "Anna",
+      });
+      return;
+    }
+
+    if (transition.decision === "observation_already_processed") {
+      if (!observation) return;
+      logDiagnostic("BIO_OBSERVATION_IGNORED", {
+        eventType: observation.kind,
+        observationId: observation.id,
+        previousLatestObservation,
+        newLatestObservation: observation.id,
+        ignoreReason: "observation_already_processed",
+      });
+      logDiagnostic("BIO_VOICE_SKIPPED", {
+        reason: "observation_already_processed",
+        observationId: observation.id,
+        speaker: "Anna",
+      });
+      return;
+    }
+
+    if (transition.decision === "already_processed_suppressed" || !observation) {
+      return;
+    }
+
+    const message = createExplorationMessage(observation, oggLanguage);
+    const details = observation.details ?? {};
+
+    logDiagnostic("BIO_INPUT", {
+      observationId: observation.id,
+      eventType: observation.kind,
+      bodyId: observation.bodyId,
+      bodyName: observation.bodyName,
+      biologicalSignalCount: details.biologicalSignalCount ?? null,
+      signalTypes: details.biologicalSignalCount ? ["biological"] : [],
+      confirmedGenera: details.confirmedGenera ?? [],
+      compositionSpecies: details.compositionSpecies ?? null,
+      codexEntryName: details.codexEntryName ?? null,
+      voucherAmount: details.voucherAmount ?? null,
+      probeStage: details.probeStage ?? null,
+      speaker: "Anna",
+    });
+
+    logDiagnostic("BIO_DECISION", {
+      decision: "speak",
+      reason: "new_exploration_observation",
+      eventType: observation.kind,
+      biologicalSignalCount: details.biologicalSignalCount ?? null,
+      signalTypes: details.biologicalSignalCount ? ["biological"] : [],
+      confirmedGenera: details.confirmedGenera ?? [],
+      compositionSpecies: details.compositionSpecies ?? null,
+      codexEntryName: details.codexEntryName ?? null,
+      generatedSentence: message,
+      speaker: "Anna",
+      voiceConfig: annaVoice?.options ?? null,
+      locale: oggLanguage,
+    });
+
+    logDiagnostic("BIO_VOICE_CREATED", {
+      observationId: observation.id,
+      eventType: observation.kind,
+      speaker: "Anna",
+      locale: oggLanguage,
+      voiceConfig: annaVoice?.options ?? null,
+      text: message,
+    });
+
+    void speechService.speak(message, {
+      ...(annaVoice?.options ?? {}),
+      speaker: "Anna",
+      locale: oggLanguage,
+    }).catch((error) => {
+      logDiagnostic("BIO_VOICE_SKIPPED", {
+        reason: "speech_service_error",
+        observationId: observation.id,
+        eventType: observation.kind,
+        speaker: "Anna",
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      });
       console.error(oggLanguage === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
     });
-  }, [isLoading, oggLanguage, snapshot?.exploration.latestObservation]);
+  }, [isLoading, logDiagnostic, oggLanguage, snapshot?.exploration.latestObservation?.id]);
+
+  useEffect(() => {
+    const state: Record<string, unknown> = {
+      systemName: snapshot?.system ?? null,
+      shipStatus: snapshot?.shipState ?? null,
+      supercruise: snapshot?.shipState === "supercruise",
+      docked: snapshot?.docked ?? null,
+      station: snapshot?.stationName ?? null,
+      mode: languageMode,
+      knownStarClasses: (snapshot?.navigationProgress.activeRoute ?? [])
+        .map((step) => step.starClass)
+        .filter((value): value is string => Boolean(value)),
+    };
+    const serialized = JSON.stringify(state);
+    if (serialized === lastUiDiagnosticState.current) return;
+    lastUiDiagnosticState.current = serialized;
+    logDiagnostic("UI_STATE_CHANGE", state);
+  }, [languageMode, logDiagnostic, snapshot]);
 
   useEffect(() => {
     if (!tonyProfile || tonyMessage || showSetup || availableUpdate) return;
@@ -383,7 +616,11 @@ function App() {
         const greetingText = `${greeting
           .map((segment) => segment.replace(/[.!?]+$/, ""))
           .join(", ")}.`;
-        await speechService.speak(greetingText, { preRollMs: 650 });
+        await speechService.speak(greetingText, {
+          preRollMs: 650,
+          speaker: "OGG",
+          locale: oggLanguage,
+        });
         localStorage.setItem(
           LAST_COCKPIT_SESSION_KEY,
           String(Date.now()),
@@ -394,7 +631,7 @@ function App() {
         return false;
       }
     },
-    [activeCommander, bordcomputerName, language, tonyProfile],
+    [activeCommander, bordcomputerName, language, oggLanguage, tonyProfile],
   );
 
   useEffect(() => {
@@ -511,6 +748,29 @@ function App() {
     setTonyMessage(null);
   }
 
+  function confirmAlphaNotice() {
+    markAlphaTestingNoticeSeen();
+    setShowAlphaNotice(false);
+  }
+
+  async function testCrewVoicePreview(role: Parameters<typeof resolveCrewVoicePreview>[0], locale: Parameters<typeof resolveCrewVoicePreview>[1]) {
+    const preview = resolveCrewVoicePreview(role, locale);
+    if (!preview) return;
+
+    await speechService.speak(preview.text, {
+      ...preview.options,
+      speaker: role === "science" ? "Anna" : role === "navigation" ? "Willi" : "OGG",
+      locale,
+    });
+  }
+
+  const shipStatus = resolveShipStatus(snapshot, isLoading, t);
+  const shipContext = resolveShipContext(snapshot, t);
+  const profileMeta = formatCurrentJumpRange(
+    selectDisplayedCurrentJumpRange(snapshot),
+    language,
+  );
+
   const dashboard = (
     <>
         <Dashboard
@@ -524,7 +784,11 @@ function App() {
             ? t("loading")
             : snapshot?.system ?? t("unknown")
         }
-        status={isLoading ? t("loading") : !snapshot?.eliteConnected ? t("eliteDisconnected") : snapshot.docked === true ? t("docked") : snapshot.docked === false ? t("inFlight") : t("unknown")}
+        status={shipStatus.label}
+        statusTone={shipStatus.tone}
+        profileMeta={profileMeta}
+        contextLabel={shipContext?.label ?? null}
+        contextValue={shipContext?.value ?? null}
       />
     </>
   );
@@ -579,6 +843,8 @@ function App() {
         setPage={(nextPage) => setPage(nextPage as Page)}
       />
 
+      {showAlphaNotice && <AlphaTestingNotice language={language} onConfirm={confirmAlphaNotice} />}
+
       <main className="content">
         <OggBrand journalState={journalError ? "error" : isLoading ? "initializing" : "normal"} />
         <TopBar
@@ -614,6 +880,7 @@ function App() {
         <CrewConfigDialog
           selections={crewSelections}
           onSelectionsChange={setCrewSelections}
+          onTestVoicePreview={testCrewVoicePreview}
           onClose={() => setShowCrewConfig(false)}
         />
       )}

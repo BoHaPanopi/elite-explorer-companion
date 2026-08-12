@@ -235,6 +235,15 @@ export function resolveCrewSelection(
   );
 }
 
+export function isCrewLocaleActive(
+  role: CrewRole,
+  locale: CrewLocale,
+  language: Language,
+  selections: CrewSelectionMap,
+): boolean {
+  return resolveCrewSelection(role, language, selections).locale === locale;
+}
+
 export function getCrewVariants(role: CrewRole): CrewVariant[] {
   return crewVariantsByRole[role];
 }
