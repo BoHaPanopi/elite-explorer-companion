@@ -1,8 +1,8 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SystemScanState {
     #[default]
@@ -11,7 +11,7 @@ pub enum SystemScanState {
     FullyDiscovered,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum DiscoveryState {
     #[default]
@@ -21,7 +21,7 @@ pub enum DiscoveryState {
     PreviouslyDiscoveredOwnershipUnknown,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MappingState {
     #[default]
@@ -32,7 +32,7 @@ pub enum MappingState {
     PreviouslyMappedOwnershipUnknown,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum BiologyState {
     #[default]
@@ -40,7 +40,7 @@ pub enum BiologyState {
     SignalsPresent,
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum BiologyFindingState {
     #[default]
@@ -50,7 +50,7 @@ pub enum BiologyFindingState {
     New,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExplorationObservationKind {
     FirstDiscoveryByCurrentCommander,
@@ -63,9 +63,11 @@ pub enum ExplorationObservationKind {
     BiologicalSignals,
     KnownBiologicalFinding,
     NewBiologicalFinding,
+    OrganicProbeProgress,
+    OrganicAnalysisComplete,
 }
 
-#[derive(Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BodyExplorationState {
     pub body_id: u64,
@@ -74,18 +76,37 @@ pub struct BodyExplorationState {
     pub mapping: MappingState,
     pub biology: BiologyState,
     pub biology_finding: BiologyFindingState,
+    pub biological_signal_count: Option<u32>,
+    pub confirmed_genera: Vec<String>,
+    pub composition_species: Option<String>,
+    pub codex_entry_name: Option<String>,
+    pub voucher_amount: Option<u64>,
+    pub organic_probe_stage: Option<u8>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplorationObservationDetails {
+    pub biological_signal_count: Option<u32>,
+    pub confirmed_genera: Vec<String>,
+    pub composition_species: Option<String>,
+    pub codex_entry_name: Option<String>,
+    pub voucher_amount: Option<u64>,
+    pub remaining_biological_bodies: Option<u32>,
+    pub probe_stage: Option<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExplorationObservation {
     pub id: String,
     pub kind: ExplorationObservationKind,
     pub body_id: Option<u64>,
     pub body_name: Option<String>,
+    pub details: ExplorationObservationDetails,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ExplorationSnapshot {
     pub system_scan: SystemScanState,
@@ -130,6 +151,7 @@ impl ExplorationTracker {
             "SAAScanComplete" => self.apply_mapping(event),
             "SAASignalsFound" => self.apply_signals(event),
             "CodexEntry" => self.apply_codex_entry(event),
+            "ScanOrganic" => self.apply_scan_organic(event),
             _ => {}
         }
     }
@@ -186,7 +208,7 @@ impl ExplorationTracker {
             }
             DiscoveryState::Undiscovered => return,
         };
-        self.observe(event, kind, Some(body_id), Some(body_name));
+        self.observe(event, kind, Some(body_id), Some(body_name), ExplorationObservationDetails::default());
     }
 
     fn apply_mapping(&mut self, event: &Value) {
@@ -229,7 +251,7 @@ impl ExplorationTracker {
             MappingState::MappedByOtherCommander => ExplorationObservationKind::AlreadyMapped,
             _ => ExplorationObservationKind::MappingOwnershipUnknown,
         };
-        self.observe(event, kind, Some(body_id), Some(body_name));
+        self.observe(event, kind, Some(body_id), Some(body_name), ExplorationObservationDetails::default());
     }
 
     fn apply_signals(&mut self, event: &Value) {
@@ -254,13 +276,38 @@ impl ExplorationTracker {
         }
 
         let body_name = string(event, "BodyName").unwrap_or_default().to_string();
-        self.body(body_id, &body_name).biology = BiologyState::SignalsPresent;
-        self.observe(
-            event,
-            ExplorationObservationKind::BiologicalSignals,
-            Some(body_id),
-            Some(body_name),
-        );
+        let biological_signal_count = event
+            .get("Signals")
+            .and_then(Value::as_array)
+            .map(|signals| {
+                signals.iter().fold(0_u32, |total, signal| {
+                    total + signal
+                        .get("Count")
+                        .and_then(Value::as_u64)
+                        .map(|count| count as u32)
+                        .unwrap_or(1)
+                })
+            });
+        let confirmed_genera = names(event, "Genuses");
+        let details = ExplorationObservationDetails {
+            biological_signal_count,
+            confirmed_genera: confirmed_genera.clone(),
+            ..ExplorationObservationDetails::default()
+        };
+
+        let body = self.body(body_id, &body_name);
+        body.biology = BiologyState::SignalsPresent;
+        body.biological_signal_count = biological_signal_count;
+        if !confirmed_genera.is_empty() {
+            body.confirmed_genera = confirmed_genera.clone();
+        }
+
+        let kind = if confirmed_genera.is_empty() {
+            ExplorationObservationKind::BiologicalSignals
+        } else {
+            ExplorationObservationKind::KnownBiologicalFinding
+        };
+        self.observe(event, kind, Some(body_id), Some(body_name), details);
     }
 
     fn apply_codex_entry(&mut self, event: &Value) {
@@ -272,6 +319,10 @@ impl ExplorationTracker {
             return;
         }
         let body_id = number(event, "BodyID");
+        let codex_entry_name = string(event, "Name_Localised")
+            .or_else(|| string(event, "Category_Localised"))
+            .map(str::to_string);
+        let voucher_amount = event.get("VoucherAmount").and_then(Value::as_u64);
         let finding = if event.get("IsNewEntry").and_then(Value::as_bool) == Some(true)
             || event.get("NewTraitsDiscovered").and_then(Value::as_bool) == Some(true)
         {
@@ -279,23 +330,98 @@ impl ExplorationTracker {
         } else if event.get("IsNewEntry").and_then(Value::as_bool) == Some(false) {
             BiologyFindingState::Known
         } else {
-            BiologyFindingState::Unknown
+            // Codex biology entries can be relevant even without explicit new/known flags.
+            BiologyFindingState::Known
         };
         if let Some(body_id) = body_id {
             let body = self.body(body_id, "");
             body.biology = BiologyState::SignalsPresent;
             body.biology_finding = finding;
+            body.codex_entry_name = codex_entry_name.clone();
+            body.voucher_amount = voucher_amount;
         }
         let kind = match finding {
             BiologyFindingState::New => ExplorationObservationKind::NewBiologicalFinding,
             BiologyFindingState::Known => ExplorationObservationKind::KnownBiologicalFinding,
-            _ => return,
+            _ => ExplorationObservationKind::KnownBiologicalFinding,
         };
         self.observe(
             event,
             kind,
             body_id,
             string(event, "Name_Localised").map(str::to_string),
+            ExplorationObservationDetails {
+                codex_entry_name,
+                voucher_amount,
+                ..ExplorationObservationDetails::default()
+            },
+        );
+    }
+
+    fn apply_scan_organic(&mut self, event: &Value) {
+        let Some(body_id) = number(event, "BodyID").or_else(|| number(event, "Body")) else {
+            return;
+        };
+        let body_name = string(event, "BodyName")
+            .or_else(|| string(event, "Body"))
+            .unwrap_or_default()
+            .to_string();
+        let previous_stage = self
+            .bodies
+            .get(&body_id)
+            .and_then(|body| body.organic_probe_stage)
+            .unwrap_or(0);
+        let was_logged = event.get("WasLogged").and_then(Value::as_bool).unwrap_or(false);
+        let probe_stage = event
+            .get("ScanStage")
+            .and_then(Value::as_u64)
+            .map(|stage| stage.min(3) as u8)
+            .or_else(|| {
+                string(event, "ScanType").and_then(|scan_type| {
+                    match scan_type.to_ascii_lowercase().as_str() {
+                        "log" if was_logged => Some(previous_stage.max(1)),
+                        "log" => Some(previous_stage.saturating_add(1).clamp(1, 3)),
+                        "sample" => Some(3),
+                        _ => None,
+                    }
+                })
+            });
+        let analysis_complete = event
+            .get("AnalysisComplete")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+            || probe_stage == Some(3);
+        let species = string(event, "Species_Localised")
+            .or_else(|| string(event, "Species"))
+            .map(str::to_string);
+        let voucher_amount = event.get("VoucherAmount").and_then(Value::as_u64);
+        let remaining_biological_bodies = event
+            .get("RemainingBiologicalBodies")
+            .and_then(Value::as_u64)
+            .map(|count| count as u32);
+
+        let body = self.body(body_id, &body_name);
+        body.biology = BiologyState::SignalsPresent;
+        body.composition_species = species.clone();
+        body.voucher_amount = voucher_amount.or(body.voucher_amount);
+        body.organic_probe_stage = probe_stage;
+
+        self.observe(
+            event,
+            if analysis_complete {
+                ExplorationObservationKind::OrganicAnalysisComplete
+            } else {
+                ExplorationObservationKind::OrganicProbeProgress
+            },
+            Some(body_id),
+            Some(body_name),
+            ExplorationObservationDetails {
+                composition_species: species,
+                voucher_amount,
+                remaining_biological_bodies,
+                probe_stage,
+                ..ExplorationObservationDetails::default()
+            },
         );
     }
 
@@ -319,17 +445,33 @@ impl ExplorationTracker {
         kind: ExplorationObservationKind,
         body_id: Option<u64>,
         body_name: Option<String>,
+        details: ExplorationObservationDetails,
     ) {
         let timestamp = string(event, "timestamp").unwrap_or("unknown");
         let event_name = string(event, "event").unwrap_or("unknown");
+        let detail_key = format!(
+            "{}:{}:{}:{}",
+            details.probe_stage.map(|value| value.to_string()).unwrap_or_default(),
+            details
+                .codex_entry_name
+                .as_deref()
+                .or(details.composition_species.as_deref())
+                .unwrap_or_default(),
+            details
+                .biological_signal_count
+                .map(|value| value.to_string())
+                .unwrap_or_default(),
+            details.confirmed_genera.join("|")
+        );
         self.latest_observation = Some(ExplorationObservation {
             id: format!(
-                "{timestamp}:{event_name}:{}",
-                body_id.map(|id| id.to_string()).unwrap_or_default()
+                "{timestamp}:{event_name}:{}:{kind:?}:{detail_key}",
+                body_id.map(|id| id.to_string()).unwrap_or_default(),
             ),
             kind,
             body_id,
             body_name,
+            details,
         });
     }
 }
@@ -463,6 +605,131 @@ mod tests {
             snapshot.bodies[1].biology_finding,
             BiologyFindingState::Known
         );
+    }
+
+    #[test]
+    fn captures_biological_signal_counts_genera_and_probe_progress() {
+        let mut tracker = tracker_with_commander();
+        tracker.apply(&json!({"timestamp":"1","event":"SAASignalsFound","BodyID":7,"BodyName":"Seven","Signals":[{"Type":"$SAA_SignalType_Biological;","Count":3}],"Genuses":["Bacterium","Stratum"]}));
+        tracker.apply(&json!({"timestamp":"2","event":"CodexEntry","BodyID":7,"Category":"$Codex_Category_Biology;","Name_Localised":"Bacterium Informem","VoucherAmount":900000,"IsNewEntry":true}));
+        tracker.apply(&json!({"timestamp":"3","event":"ScanOrganic","BodyID":7,"BodyName":"Seven","Species_Localised":"Bacterium Informem","ScanStage":3,"RemainingBiologicalBodies":2}));
+
+        let snapshot = tracker.finish();
+        let body = &snapshot.bodies[0];
+
+        assert_eq!(body.biological_signal_count, Some(3));
+        assert_eq!(body.confirmed_genera, vec!["Bacterium", "Stratum"]);
+        assert_eq!(body.codex_entry_name.as_deref(), Some("Bacterium Informem"));
+        assert_eq!(body.voucher_amount, Some(900000));
+        assert_eq!(body.composition_species.as_deref(), Some("Bacterium Informem"));
+        assert_eq!(body.organic_probe_stage, Some(3));
+        assert_eq!(snapshot.latest_observation.as_ref().map(|observation| &observation.kind), Some(&ExplorationObservationKind::OrganicAnalysisComplete));
+        assert_eq!(snapshot.latest_observation.as_ref().and_then(|observation| observation.details.remaining_biological_bodies), Some(2));
+    }
+
+    #[test]
+    fn promotes_codex_entry_to_latest_observation_after_signal_detection() {
+        let mut tracker = tracker_with_commander();
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:30:38Z",
+            "event":"SAASignalsFound",
+            "BodyID":6,
+            "BodyName":"HIP 49485 B 3",
+            "Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]
+        }));
+        let first = tracker
+            .latest_observation
+            .as_ref()
+            .map(|observation| observation.id.clone())
+            .expect("signals should produce an observation");
+
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:34:49Z",
+            "event":"CodexEntry",
+            "Category":"$Codex_Category_Biology;",
+            "Category_Localised":"Biologisch und geologisch",
+            "BodyID":6,
+            "Name_Localised":"Bacterium Informem - Gold",
+            "VoucherAmount":2500
+        }));
+
+        let latest = tracker
+            .latest_observation
+            .as_ref()
+            .expect("codex entry should replace the latest observation");
+        assert_ne!(latest.id, first);
+        assert_eq!(latest.kind, ExplorationObservationKind::KnownBiologicalFinding);
+        assert_eq!(latest.body_id, Some(6));
+    }
+
+    #[test]
+    fn scan_organic_body_field_and_log_progress_create_incremental_observations() {
+        let mut tracker = tracker_with_commander();
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:36:36Z",
+            "event":"ScanOrganic",
+            "ScanType":"Log",
+            "Body":6,
+            "Species_Localised":"Bacterium Informem",
+            "WasLogged":false
+        }));
+        let first = tracker
+            .latest_observation
+            .as_ref()
+            .expect("probe 1 observation");
+        let first_id = first.id.clone();
+        assert_eq!(first.details.probe_stage, Some(1));
+        assert_eq!(first.kind, ExplorationObservationKind::OrganicProbeProgress);
+
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:37:36Z",
+            "event":"ScanOrganic",
+            "ScanType":"Log",
+            "Body":6,
+            "Species_Localised":"Bacterium Informem",
+            "WasLogged":false
+        }));
+        let second = tracker
+            .latest_observation
+            .as_ref()
+            .expect("probe 2 observation");
+        let second_id = second.id.clone();
+        assert_eq!(second.details.probe_stage, Some(2));
+        assert_eq!(second.kind, ExplorationObservationKind::OrganicProbeProgress);
+        assert_ne!(second_id, first_id);
+
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:38:36Z",
+            "event":"ScanOrganic",
+            "ScanType":"Log",
+            "Body":6,
+            "Species_Localised":"Bacterium Informem",
+            "WasLogged":false
+        }));
+        let third = tracker
+            .latest_observation
+            .as_ref()
+            .expect("probe 3 observation");
+        let third_id = third.id.clone();
+        assert_eq!(third.details.probe_stage, Some(3));
+        assert_eq!(third.kind, ExplorationObservationKind::OrganicAnalysisComplete);
+        assert_ne!(third_id, second_id);
+
+        tracker.apply(&json!({
+            "timestamp":"2026-08-11T15:38:36Z",
+            "event":"ScanOrganic",
+            "ScanType":"Log",
+            "Body":6,
+            "Species_Localised":"Bacterium Informem",
+            "WasLogged":true
+        }));
+        let duplicate = tracker
+            .latest_observation
+            .as_ref()
+            .expect("duplicate log observation");
+        assert_eq!(duplicate.details.probe_stage, Some(3));
+        assert_eq!(duplicate.kind, ExplorationObservationKind::OrganicAnalysisComplete);
+        assert_eq!(duplicate.id, third_id);
     }
 
     #[test]

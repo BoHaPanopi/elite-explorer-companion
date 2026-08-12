@@ -1,10 +1,11 @@
+mod diagnostics;
 mod exploration;
 mod runtime_health;
 
 use exploration::{journal_commander_name, ExplorationSnapshot, ExplorationTracker};
 use runtime_health::{StartupHealth, UpdateReadiness};
-use serde::Serialize;
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::{
     collections::HashMap,
     env,
@@ -22,6 +23,22 @@ use tauri::{LogicalSize, Manager};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Input::KeyboardAndMouse::GetFocus as WinGetFocus;
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::{
+    Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+    UI::{
+        Shell::{DefSubclassProc, SetWindowSubclass},
+        WindowsAndMessaging::{
+            EnumChildWindows, GetClassNameW, GetForegroundWindow, GetParent, GetWindow, GW_OWNER,
+            IsWindowVisible, WM_ACTIVATE, WM_ACTIVATEAPP, WM_KILLFOCUS, WM_SETFOCUS,
+        },
+    },
+};
+
 struct VoiceServer {
     child: Mutex<Option<CommandChild>>,
     stopping: AtomicBool,
@@ -30,10 +47,77 @@ struct StartupStatus(Mutex<StartupHealth>);
 struct FrontendHeartbeat {
     ready: AtomicBool,
     last_seen_ms: std::sync::atomic::AtomicU64,
+    last_logged_ms: std::sync::atomic::AtomicU64,
+    stall_reported: AtomicBool,
 }
 
 static LAST_LOGGED_COMMANDER: OnceLock<Mutex<Option<(PathBuf, Option<String>)>>> = OnceLock::new();
 static KNOWN_STAR_CLASSES: OnceLock<Mutex<HashMap<u64, String>>> = OnceLock::new();
+static JOURNAL_DIAG_CURSOR: OnceLock<Mutex<HashMap<PathBuf, usize>>> = OnceLock::new();
+static JOURNAL_SNAPSHOT_REQUEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static JOURNAL_SNAPSHOT_CACHE: OnceLock<Mutex<Option<JournalSnapshotCacheEntry>>> = OnceLock::new();
+static LAST_WINDOW_STATE: OnceLock<Mutex<HashMap<String, WindowSnapshot>>> = OnceLock::new();
+#[cfg(target_os = "windows")]
+static INSTALLED_WINDOW_SUBCLASSES: OnceLock<Mutex<Vec<isize>>> = OnceLock::new();
+
+#[derive(Clone, Debug)]
+struct JournalCacheState {
+    path: PathBuf,
+    size_bytes: u64,
+    modified_ms: u128,
+}
+
+#[derive(Debug)]
+struct JournalSnapshotCacheEntry {
+    journal_state: JournalCacheState,
+    snapshot_json: String,
+}
+
+fn journal_cache_state(path: &Path) -> Option<JournalCacheState> {
+    let metadata = fs::metadata(path).ok()?;
+    let modified_ms = metadata
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_millis();
+
+    Some(JournalCacheState {
+        path: path.to_path_buf(),
+        size_bytes: metadata.len(),
+        modified_ms,
+    })
+}
+
+fn journal_changed(previous: &JournalCacheState, current: &JournalCacheState) -> bool {
+    previous.path != current.path
+        || previous.size_bytes != current.size_bytes
+        || previous.modified_ms != current.modified_ms
+}
+
+const RELEVANT_JOURNAL_EVENTS: &[&str] = &[
+    "FSDJump",
+    "StartJump",
+    "SupercruiseEntry",
+    "SupercruiseExit",
+    "SupercruiseDestinationDrop",
+    "FSSDiscoveryScan",
+    "FSSBodySignals",
+    "SAASignalsFound",
+    "SAAScanComplete",
+    "Scan",
+    "CodexEntry",
+    "ScanOrganic",
+    "Loadout",
+    "DockingRequested",
+    "DockingGranted",
+    "DockingDenied",
+    "Docked",
+    "Undocked",
+    "Location",
+    "Status",
+    "LoadGame",
+];
 
 fn unix_time_ms() -> u64 {
     SystemTime::now()
@@ -42,7 +126,523 @@ fn unix_time_ms() -> u64 {
         .unwrap_or_default()
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default)]
+struct LandingDiagState {
+    armed: bool,
+    reminded: bool,
+    has_docking_permission: bool,
+    target_station_name: Option<String>,
+    target_market_id: Option<u64>,
+}
+
+fn ship_state_label(value: Option<ShipState>) -> &'static str {
+    match value {
+        Some(ShipState::Supercruise) => "supercruise",
+        Some(ShipState::NormalSpace) => "normal_space",
+        Some(ShipState::Docked) => "docked",
+        Some(ShipState::Landed) => "landed",
+        None => "unknown",
+    }
+}
+
+fn is_relevant_journal_event(event_name: &str) -> bool {
+    RELEVANT_JOURNAL_EVENTS
+        .iter()
+        .any(|candidate| candidate.eq_ignore_ascii_case(event_name))
+}
+
+fn event_as_string(event: &Value, key: &str) -> Option<String> {
+    event.get(key).and_then(Value::as_str).map(str::to_string)
+}
+
+fn event_as_u64(event: &Value, key: &str) -> Option<u64> {
+    event.get(key).and_then(Value::as_u64)
+}
+
+fn event_as_bool(event: &Value, key: &str) -> Option<bool> {
+    event.get(key).and_then(Value::as_bool)
+}
+
+fn event_string_trimmed(event: &Value, key: &str) -> Option<String> {
+    event
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn event_biological_signal_count(event: &Value) -> Option<u64> {
+    event
+        .get("Signals")
+        .and_then(Value::as_array)
+        .map(|signals| {
+            signals.iter().fold(0_u64, |total, signal| {
+                let is_bio = signal
+                    .get("Type")
+                    .and_then(Value::as_str)
+                    .map(|kind| kind.to_ascii_lowercase().contains("biological"))
+                    .unwrap_or(false);
+                if !is_bio {
+                    return total;
+                }
+                total
+                    + signal
+                        .get("Count")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(1)
+            })
+        })
+}
+
+fn event_signal_types(event: &Value) -> Vec<String> {
+    event
+        .get("Signals")
+        .and_then(Value::as_array)
+        .map(|signals| {
+            signals
+                .iter()
+                .filter_map(|signal| signal.get("Type").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn event_genuses(event: &Value) -> Vec<String> {
+    event
+        .get("Genuses")
+        .and_then(Value::as_array)
+        .map(|genuses| {
+            genuses
+                .iter()
+                .filter_map(|genus| {
+                    genus
+                        .as_str()
+                        .or_else(|| genus.get("Genus_Localised").and_then(Value::as_str))
+                        .or_else(|| genus.get("Genus").and_then(Value::as_str))
+                })
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn extract_distance_km(event: &Value) -> Option<f64> {
+    ["DistanceKm", "Distance", "DistanceFromStationKm", "StationDistanceKm"]
+        .iter()
+        .find_map(|key| event.get(*key).and_then(Value::as_f64))
+}
+
+fn journal_event_payload(event: &Value, snapshot: &EliteSnapshot) -> Value {
+    json!({
+        "timestamp": event_as_string(event, "timestamp"),
+        "event": event_as_string(event, "event"),
+        "systemAddress": event_as_u64(event, "SystemAddress"),
+        "starSystem": event_as_string(event, "StarSystem"),
+        "bodyId": event_as_u64(event, "BodyID"),
+        "bodyName": event_as_string(event, "BodyName"),
+        "biologicalSignalCount": event_biological_signal_count(event),
+        "signalTypes": event_signal_types(event),
+        "genuses": event_genuses(event),
+        "wasDiscovered": event_as_bool(event, "WasDiscovered"),
+        "wasMapped": event_as_bool(event, "WasMapped"),
+        "wasFootfalled": event_as_bool(event, "WasFootfalled"),
+        "stationName": event_as_string(event, "StationName"),
+        "docked": event_as_bool(event, "Docked"),
+        "starClass": event_as_string(event, "StarClass").or_else(|| event_as_string(event, "StarType")),
+        "mode": ship_state_label(snapshot.ship_state),
+        "hasWakeScanner": snapshot.has_wake_scanner,
+        "ship": snapshot.ship,
+        "shipName": snapshot.ship_name,
+    })
+}
+
+fn log_diagnostic(kind: &str, payload: Value) {
+    diagnostics::log(kind, payload);
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct WindowSnapshot {
+    focused: Option<bool>,
+    visible: Option<bool>,
+    minimized: Option<bool>,
+    maximized: Option<bool>,
+}
+
+fn window_snapshot(window: &tauri::WebviewWindow) -> WindowSnapshot {
+    WindowSnapshot {
+        focused: window.is_focused().ok(),
+        visible: window.is_visible().ok(),
+        minimized: window.is_minimized().ok(),
+        maximized: window.is_maximized().ok(),
+    }
+}
+
+fn thread_payload() -> Value {
+    json!({
+        "threadName": std::thread::current().name(),
+        "threadId": format!("{:?}", std::thread::current().id()),
+    })
+}
+
+fn window_payload(window: &tauri::WebviewWindow, extra: Value) -> Value {
+    let snapshot = window_snapshot(window);
+    json!({
+        "windowLabel": window.label(),
+        "focused": snapshot.focused,
+        "visible": snapshot.visible,
+        "minimized": snapshot.minimized,
+        "maximized": snapshot.maximized,
+        "extra": extra,
+        "thread": thread_payload(),
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn hwnd_text(hwnd: HWND) -> String {
+    if hwnd.is_null() {
+        "0x0".to_string()
+    } else {
+        format!("0x{:X}", hwnd as usize)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn window_class_name(hwnd: HWND) -> Option<String> {
+    if hwnd.is_null() {
+        return None;
+    }
+
+    let mut buffer = [0_u16; 256];
+    let length = unsafe { GetClassNameW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
+    if length <= 0 {
+        return None;
+    }
+    String::from_utf16(&buffer[..length as usize]).ok()
+}
+
+#[cfg(target_os = "windows")]
+fn hwnd_is_descendant_of(candidate: HWND, ancestor: HWND) -> bool {
+    if candidate.is_null() || ancestor.is_null() {
+        return false;
+    }
+
+    let mut current = candidate;
+    for _ in 0..32 {
+        if current == ancestor {
+            return true;
+        }
+        let parent = unsafe { GetParent(current) };
+        if parent.is_null() || parent == current {
+            return false;
+        }
+        current = parent;
+    }
+
+    false
+}
+
+#[cfg(target_os = "windows")]
+fn wm_name(message: u32) -> &'static str {
+    match message {
+        WM_ACTIVATE => "WM_ACTIVATE",
+        WM_ACTIVATEAPP => "WM_ACTIVATEAPP",
+        WM_SETFOCUS => "WM_SETFOCUS",
+        WM_KILLFOCUS => "WM_KILLFOCUS",
+        _ => "UNKNOWN",
+    }
+}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn enumerate_child_windows(hwnd: HWND, lparam: LPARAM) -> i32 {
+    let Some(children) = (lparam as *mut Vec<Value>).as_mut() else {
+        return 0;
+    };
+
+    children.push(json!({
+        "hwnd": hwnd_text(hwnd),
+        "className": window_class_name(hwnd),
+        "visible": unsafe { IsWindowVisible(hwnd) != 0 },
+    }));
+    1
+}
+
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn main_window_subclass_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id_subclass: usize,
+    _ref_data: usize,
+) -> LRESULT {
+    if matches!(message, WM_ACTIVATE | WM_ACTIVATEAPP | WM_SETFOCUS | WM_KILLFOCUS) {
+        let focus_hwnd = unsafe { WinGetFocus() }.0 as HWND;
+        let focus_parent = if !focus_hwnd.is_null() {
+            unsafe { GetParent(focus_hwnd) }
+        } else {
+            std::ptr::null_mut()
+        };
+        let focus_owner = if !focus_hwnd.is_null() {
+            unsafe { GetWindow(focus_hwnd, GW_OWNER) }
+        } else {
+            std::ptr::null_mut()
+        };
+        let wparam_hwnd = wparam as HWND;
+        let foreground = unsafe { GetForegroundWindow() };
+        log_diagnostic(
+            "WINDOW_WIN32_ACTIVATION_MESSAGE",
+            json!({
+                "message": wm_name(message),
+                "messageId": message,
+                "hwnd": hwnd_text(hwnd),
+                "focusHwnd": hwnd_text(focus_hwnd),
+                "focusClassName": window_class_name(focus_hwnd),
+                "focusParentHwnd": hwnd_text(focus_parent),
+                "focusParentClassName": window_class_name(focus_parent),
+                "focusOwnerHwnd": hwnd_text(focus_owner),
+                "focusOwnerClassName": window_class_name(focus_owner),
+                "focusChildOfMain": hwnd_is_descendant_of(focus_hwnd, hwnd),
+                "wParamHwnd": hwnd_text(wparam_hwnd),
+                "wParamClassName": window_class_name(wparam_hwnd),
+                "wParam": wparam as u64,
+                "lParam": lparam as i64,
+                "foregroundHwnd": hwnd_text(foreground),
+                "isForegroundMain": foreground == hwnd,
+                "mainClassName": window_class_name(hwnd),
+                "foregroundClassName": window_class_name(foreground),
+                "thread": thread_payload(),
+            }),
+        );
+    }
+    unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+}
+
+#[cfg(target_os = "windows")]
+fn log_window_hwnd_identity(main_hwnd: HWND) {
+    let mut children = Vec::<Value>::new();
+    unsafe {
+        EnumChildWindows(
+            main_hwnd,
+            Some(enumerate_child_windows),
+            (&mut children as *mut Vec<Value>) as LPARAM,
+        );
+    }
+
+    let foreground = unsafe { GetForegroundWindow() };
+    log_diagnostic(
+        "WINDOW_HWND_IDENTITY",
+        json!({
+            "mainHwnd": hwnd_text(main_hwnd),
+            "mainClassName": window_class_name(main_hwnd),
+            "foregroundHwnd": hwnd_text(foreground),
+            "foregroundClassName": window_class_name(foreground),
+            "isForegroundMain": foreground == main_hwnd,
+            "childWindows": children,
+            "thread": thread_payload(),
+        }),
+    );
+}
+
+#[cfg(target_os = "windows")]
+fn install_main_window_activation_probe(main_hwnd: HWND) -> Result<(), String> {
+    let key = main_hwnd as isize;
+    let registry = INSTALLED_WINDOW_SUBCLASSES.get_or_init(|| Mutex::new(Vec::new()));
+    if let Ok(mut installed) = registry.lock() {
+        if installed.contains(&key) {
+            return Ok(());
+        }
+        let result = unsafe { SetWindowSubclass(main_hwnd, Some(main_window_subclass_proc), 1, 0) };
+        if result == 0 {
+            return Err("SetWindowSubclass failed for main window".to_string());
+        }
+        installed.push(key);
+        log_diagnostic(
+            "WINDOW_NATIVE_HOOK_INSTALLED",
+            json!({
+                "mainHwnd": hwnd_text(main_hwnd),
+                "mainClassName": window_class_name(main_hwnd),
+                "thread": thread_payload(),
+            }),
+        );
+        Ok(())
+    } else {
+        Err("Failed to acquire window subclass registry lock".to_string())
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn set_process_app_user_model_id(app_id: &str) -> Result<(), String> {
+    let mut id: Vec<u16> = app_id.encode_utf16().collect();
+    id.push(0);
+    let result = unsafe { SetCurrentProcessExplicitAppUserModelID(id.as_ptr()) };
+    if result >= 0 {
+        Ok(())
+    } else {
+        Err(format!("SetCurrentProcessExplicitAppUserModelID failed with HRESULT {result}"))
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_process_app_user_model_id(_app_id: &str) -> Result<(), String> {
+    Ok(())
+}
+
+fn update_landing_state_for_event(
+    state: &mut LandingDiagState,
+    event_name: &str,
+    event: &Value,
+    snapshot: &EliteSnapshot,
+) {
+    match event_name {
+        "SupercruiseDestinationDrop" => {
+            state.target_station_name = event_string_trimmed(event, "Type");
+            state.target_market_id = event_as_u64(event, "MarketID");
+            state.has_docking_permission = false;
+            state.armed = true;
+            state.reminded = false;
+        }
+        "SupercruiseExit" => {
+            let is_station_exit = event
+                .get("BodyType")
+                .and_then(Value::as_str)
+                .is_some_and(|body_type| body_type.eq_ignore_ascii_case("Station"));
+            if is_station_exit {
+                if state.target_station_name.is_none() {
+                    state.target_station_name = event_string_trimmed(event, "Body");
+                }
+                if state.target_market_id.is_none() {
+                    state.target_market_id = event_as_u64(event, "MarketID");
+                }
+            }
+        }
+        _ => {}
+    }
+
+    match event_name {
+        "DockingRequested" | "DockingGranted" => {
+            state.has_docking_permission = true;
+        }
+        "Docked" => {
+            state.has_docking_permission = true;
+            state.target_station_name = None;
+            state.target_market_id = None;
+            state.armed = true;
+            state.reminded = false;
+        }
+        "DockingDenied" | "Undocked" | "FSDJump" | "StartJump" => {
+            state.has_docking_permission = false;
+            if matches!(event_name, "FSDJump" | "StartJump") {
+                state.target_station_name = None;
+                state.target_market_id = None;
+                state.armed = true;
+                state.reminded = false;
+            }
+        }
+        _ => {}
+    }
+
+    if snapshot.has_wake_scanner {
+        state.armed = false;
+        state.reminded = false;
+    }
+}
+
+fn evaluate_landing_reminder_for_event(
+    state: &mut LandingDiagState,
+    event: &Value,
+    snapshot: &EliteSnapshot,
+) -> (bool, &'static str, Option<f64>) {
+    if snapshot.has_wake_scanner {
+        state.armed = false;
+        state.reminded = false;
+        return (false, "wake_scanner_present", extract_distance_km(event));
+    }
+
+    if state.target_station_name.is_none() {
+        return (false, "target_station_unknown", extract_distance_km(event));
+    }
+
+    let Some(distance_km) = extract_distance_km(event) else {
+        return (false, "distance_unknown", None);
+    };
+
+    if distance_km > 7.5 {
+        state.armed = true;
+        state.reminded = false;
+        return (false, "outside_7_5km", Some(distance_km));
+    }
+
+    let within_reminder_band = distance_km <= 4.0 && distance_km >= 3.5;
+    if !within_reminder_band {
+        return (false, "outside_reminder_band", Some(distance_km));
+    }
+
+    if state.has_docking_permission {
+        return (
+            false,
+            "docking_permission_already_requested_or_granted",
+            Some(distance_km),
+        );
+    }
+
+    if !state.armed {
+        return (false, "reminder_not_armed", Some(distance_km));
+    }
+
+    if state.reminded {
+        return (false, "reminder_already_spoken_for_approach", Some(distance_km));
+    }
+
+    state.armed = false;
+    state.reminded = true;
+    (true, "reminder_triggered", Some(distance_km))
+}
+
+fn landing_decision_payload(
+    event_name: &str,
+    event: &Value,
+    snapshot: &EliteSnapshot,
+    state_before: &LandingDiagState,
+    state_after: &LandingDiagState,
+    reminder_triggered: bool,
+    skip_reason: &str,
+    distance_km: Option<f64>,
+) -> Value {
+    let inside_7_5km = distance_km.map(|distance| distance <= 7.5);
+
+    json!({
+        "event": event_name,
+        "stationName": state_after
+            .target_station_name
+            .clone()
+            .or_else(|| event_as_string(event, "StationName"))
+            .or_else(|| snapshot.station_name.clone()),
+        "marketId": state_after.target_market_id,
+        "distanceToStationKm": distance_km,
+        "inside7_5km": inside_7_5km,
+        "stateBefore": {
+            "armed": state_before.armed,
+            "reminded": state_before.reminded,
+            "hasDockingPermission": state_before.has_docking_permission,
+            "targetStationName": state_before.target_station_name,
+            "targetMarketId": state_before.target_market_id,
+        },
+        "stateAfter": {
+            "armed": state_after.armed,
+            "reminded": state_after.reminded,
+            "hasDockingPermission": state_after.has_docking_permission,
+            "targetStationName": state_after.target_station_name,
+            "targetMarketId": state_after.target_market_id,
+        },
+        "hasWakeScanner": snapshot.has_wake_scanner,
+        "reminderTriggered": reminder_triggered,
+        "skipReason": skip_reason,
+    })
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RouteStep {
     system: String,
@@ -50,7 +650,7 @@ struct RouteStep {
     position: Option<[f64; 3]>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NavigationProgress {
     current_system: Option<String>,
@@ -60,7 +660,16 @@ struct NavigationProgress {
     active_route: Vec<RouteStep>,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ShipState {
+    Supercruise,
+    NormalSpace,
+    Docked,
+    Landed,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct EliteSnapshot {
     commander: Option<String>,
@@ -68,6 +677,12 @@ struct EliteSnapshot {
     ship: Option<String>,
     ship_name: Option<String>,
     docked: Option<bool>,
+    ship_state: Option<ShipState>,
+    station_name: Option<String>,
+    planet_name: Option<String>,
+    current_jump_range: Option<f64>,
+    max_jump_range: Option<f64>,
+    has_wake_scanner: bool,
     elite_connected: bool,
     exploration: ExplorationSnapshot,
     journal_path: String,
@@ -87,83 +702,41 @@ fn installed_sidecar_path() -> Option<PathBuf> {
     })
 }
 
-fn bundled_sidecar_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("binaries")
-        .join(runtime_health::VOICE_BUNDLE_BINARY)
-}
-
-fn cache_sidecar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_local_data_dir()
-        .map_err(|error| error.to_string())
-        .map(|directory| {
-            directory
-                .join("repair-cache")
-                .join(env!("CARGO_PKG_VERSION"))
-                .join(runtime_health::VOICE_PROCESS)
-        })
-}
-
-fn replace_with_verified_sidecar(source: &Path, destination: &Path) -> Result<(), String> {
-    if !runtime_health::valid_windows_x64_executable(source) {
-        return Err(format!(
-            "voice-server source is missing or invalid: {}",
-            source.display()
-        ));
-    }
-
-    if let Some(parent) = destination.parent() {
-        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-    }
-
-    let pending = destination.with_extension("pending");
-    fs::copy(source, &pending).map_err(|error| error.to_string())?;
-    if !runtime_health::valid_windows_x64_executable(&pending) {
-        let _ = fs::remove_file(&pending);
-        return Err(format!(
-            "voice-server recovery copy is invalid: {}",
-            pending.display()
-        ));
-    }
-
-    let _ = fs::remove_file(destination);
-    fs::rename(&pending, destination).map_err(|error| error.to_string())
-}
-
 fn maintain_voice_server_recovery(app: &tauri::AppHandle) -> Result<(), String> {
     let installed =
         installed_sidecar_path().ok_or_else(|| "voice-server path is unavailable".to_string())?;
-    let bundled = bundled_sidecar_path();
-    let cached = cache_sidecar_path(app)?;
+    let cache_directory = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("repair-cache");
+    let cached = cache_directory.join(runtime_health::VOICE_PROCESS);
 
     if runtime_health::valid_windows_x64_executable(&installed) {
-        replace_with_verified_sidecar(&installed, &cached)?;
+        fs::create_dir_all(&cache_directory).map_err(|error| error.to_string())?;
+        let pending = cache_directory.join("ogg-voice-server.pending");
+        fs::copy(&installed, &pending).map_err(|error| error.to_string())?;
+        if !runtime_health::valid_windows_x64_executable(&pending) {
+            let _ = fs::remove_file(&pending);
+            return Err("voice-server recovery copy is invalid".into());
+        }
+        let _ = fs::remove_file(&cached);
+        fs::rename(&pending, &cached).map_err(|error| error.to_string())?;
         log::info!(
-            "version={} phase=recovery_cache process={} cause=verified_copy",
+            "version={} phase=recovery_cache process={} cause=verified_copy bundled_sidecar_path={}",
             env!("CARGO_PKG_VERSION"),
-            runtime_health::VOICE_PROCESS
+            runtime_health::VOICE_PROCESS,
+            installed.display()
         );
         return Ok(());
     }
 
     if runtime_health::valid_windows_x64_executable(&cached) {
-        replace_with_verified_sidecar(&cached, &installed)?;
+        fs::copy(&cached, &installed).map_err(|error| error.to_string())?;
         if runtime_health::valid_windows_x64_executable(&installed) {
-            log::warn!("version={} phase=automatic_repair process={} cause=installed_sidecar_missing_or_invalid", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS);
+            log::warn!("version={} phase=automatic_repair process={} cause=installed_sidecar_missing_or_invalid runtime_sidecar_restored_from_bundle bundled_sidecar_path={}", env!("CARGO_PKG_VERSION"), runtime_health::VOICE_PROCESS, installed.display());
             return Ok(());
         }
-    }
-
-    if runtime_health::valid_windows_x64_executable(&bundled) {
-        replace_with_verified_sidecar(&bundled, &installed)?;
-        replace_with_verified_sidecar(&installed, &cached)?;
-        log::warn!(
-            "version={} phase=automatic_repair process={} cause=runtime_sidecar_restored_from_bundle",
-            env!("CARGO_PKG_VERSION"),
-            runtime_health::VOICE_PROCESS
-        );
-        return Ok(());
     }
 
     Err("voice-server executable is missing or invalid and no recovery copy is available".into())
@@ -255,11 +828,57 @@ fn get_startup_health(app: tauri::AppHandle) -> StartupHealth {
 }
 
 fn show_main_window(app: &tauri::AppHandle, phase: &str) -> Result<(), String> {
+    let task_started = std::time::Instant::now();
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window is unavailable".to_string())?;
+    log_diagnostic(
+        "WINDOW_MAIN_THREAD_TASK_START",
+        window_payload(&window, json!({ "task": "show_main_window", "phase": phase })),
+    );
+    log_diagnostic(
+        "WINDOW_SHOW_REQUESTED",
+        window_payload(&window, json!({ "phase": phase })),
+    );
+    let show_started = std::time::Instant::now();
     window.show().map_err(|error| error.to_string())?;
+    log_diagnostic(
+        "WINDOW_SHOW_COMPLETED",
+        window_payload(
+            &window,
+            json!({
+                "phase": phase,
+                "durationMs": show_started.elapsed().as_millis() as u64,
+            }),
+        ),
+    );
+    log_diagnostic(
+        "WINDOW_FOCUS_REQUESTED",
+        window_payload(&window, json!({ "phase": phase })),
+    );
+    let focus_started = std::time::Instant::now();
     window.set_focus().map_err(|error| error.to_string())?;
+    log_diagnostic(
+        "WINDOW_FOCUS_COMPLETED",
+        window_payload(
+            &window,
+            json!({
+                "phase": phase,
+                "durationMs": focus_started.elapsed().as_millis() as u64,
+            }),
+        ),
+    );
+    log_diagnostic(
+        "WINDOW_MAIN_THREAD_TASK_END",
+        window_payload(
+            &window,
+            json!({
+                "task": "show_main_window",
+                "phase": phase,
+                "durationMs": task_started.elapsed().as_millis() as u64,
+            }),
+        ),
+    );
     log::info!(
         "version={} phase={} process=app.exe cause=single_ready_show url={}",
         env!("CARGO_PKG_VERSION"),
@@ -293,9 +912,21 @@ fn mark_frontend_ready(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn frontend_heartbeat(app: tauri::AppHandle) {
-    app.state::<FrontendHeartbeat>()
-        .last_seen_ms
-        .store(unix_time_ms(), Ordering::Relaxed);
+    let heartbeat = app.state::<FrontendHeartbeat>();
+    let now = unix_time_ms();
+    heartbeat.last_seen_ms.store(now, Ordering::Relaxed);
+    heartbeat.stall_reported.store(false, Ordering::Relaxed);
+
+    let last_logged = heartbeat.last_logged_ms.load(Ordering::Relaxed);
+    if now.saturating_sub(last_logged) >= 4_000 {
+        heartbeat.last_logged_ms.store(now, Ordering::Relaxed);
+        log_diagnostic("FRONTEND_HEARTBEAT", json!({ "lastSeenMs": now }));
+    }
+}
+
+#[tauri::command]
+fn log_diagnostic_event(kind: String, payload: Option<Value>) {
+    log_diagnostic(&kind, payload.unwrap_or_else(|| json!({})));
 }
 
 #[tauri::command]
@@ -725,91 +1356,131 @@ fn read_latest_snapshot(
         journal_path: journal_path.display().to_string(),
         ..EliteSnapshot::default()
     };
+    let mut line_number = 0_usize;
+    let cursor_store = JOURNAL_DIAG_CURSOR.get_or_init(|| Mutex::new(HashMap::new()));
+    let previously_logged_line = cursor_store
+        .lock()
+        .ok()
+        .and_then(|cursor| cursor.get(journal_path).copied())
+        .unwrap_or(0);
+    let mut landing_state = LandingDiagState {
+        armed: true,
+        reminded: false,
+        has_docking_permission: false,
+        target_station_name: None,
+        target_market_id: None,
+    };
 
     for line in reader.lines() {
         let line = match line {
             Ok(line) => line,
             Err(_) => continue,
         };
+        line_number = line_number.saturating_add(1);
 
         let event: Value = match serde_json::from_str(&line) {
             Ok(event) => event,
             Err(_) => continue,
         };
 
-        exploration.apply(&event);
-
-        if let Some((address, star_class)) = primary_star_class(&event) {
-            if let Ok(mut classes) = KNOWN_STAR_CLASSES
-                .get_or_init(|| Mutex::new(HashMap::new()))
-                .lock()
-            {
-                classes.insert(address, star_class.clone());
-            }
-            if current_system_address == Some(address) {
-                current_star_class = Some(star_class);
-            }
-        }
-
         let event_name = event
             .get("event")
             .and_then(Value::as_str)
             .unwrap_or_default();
+        let should_log_event =
+            line_number > previously_logged_line && is_relevant_journal_event(event_name);
 
-        match event_name {
-            "Commander" | "LoadGame" => {
-                if let Some(name) = journal_commander_name(&event) {
-                    snapshot.commander = Some(name.to_string());
-                }
-
-                if let Some(ship) = event.get("Ship").and_then(Value::as_str) {
-                    snapshot.ship = Some(ship.to_string());
-                }
-
-                if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
-                    snapshot.ship_name = Some(ship_name.to_string());
-                }
-            }
-
-            "Loadout" => {
-                if let Some(ship) = event.get("Ship").and_then(Value::as_str) {
-                    snapshot.ship = Some(ship.to_string());
-                }
-
-                if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
-                    snapshot.ship_name = Some(ship_name.to_string());
-                }
-            }
-
-            "Location" | "FSDJump" | "CarrierJump" => {
-                current_system_address = event.get("SystemAddress").and_then(Value::as_u64);
-                current_star_class = current_system_address.and_then(|address| {
-                    KNOWN_STAR_CLASSES
-                        .get_or_init(|| Mutex::new(HashMap::new()))
-                        .lock()
-                        .ok()
-                        .and_then(|classes| classes.get(&address).cloned())
-                });
-                if let Some(system) = event.get("StarSystem").and_then(Value::as_str) {
-                    snapshot.system = Some(system.to_string());
-                    if journal_systems
-                        .last()
-                        .is_none_or(|previous: &String| !previous.eq_ignore_ascii_case(system))
-                    {
-                        journal_systems.push(system.to_string());
-                    }
-                }
-
-                if let Some(docked) = event.get("Docked").and_then(Value::as_bool) {
-                    snapshot.docked = Some(docked);
-                }
-            }
-
-            "Docked" => snapshot.docked = Some(true),
-            "Undocked" => snapshot.docked = Some(false),
-
-            _ => {}
+        if should_log_event {
+            log_diagnostic("EVENT_RECEIVED", journal_event_payload(&event, &snapshot));
         }
+
+        let processing_started = std::time::Instant::now();
+
+        exploration.apply(&event);
+        apply_snapshot_event(
+            &mut snapshot,
+            &event,
+            &mut journal_systems,
+            &mut current_system_address,
+            &mut current_star_class,
+        );
+
+        let state_before = landing_state.clone();
+        update_landing_state_for_event(&mut landing_state, event_name, &event, &snapshot);
+        let (reminder_triggered, skip_reason, decision_distance_km) =
+            evaluate_landing_reminder_for_event(&mut landing_state, &event, &snapshot);
+
+        if should_log_event {
+            log_diagnostic(
+                "EVENT_PROCESSED",
+                json!({
+                    "event": event_name,
+                    "durationMs": processing_started.elapsed().as_millis() as u64,
+                    "mode": ship_state_label(snapshot.ship_state),
+                    "docked": snapshot.docked,
+                    "stationName": snapshot.station_name,
+                    "landingTargetStation": landing_state.target_station_name,
+                    "landingTargetMarketId": landing_state.target_market_id,
+                    "hasWakeScanner": snapshot.has_wake_scanner,
+                }),
+            );
+        }
+
+        if should_log_event && event_name == "SupercruiseDestinationDrop" {
+            log_diagnostic(
+                "LANDING_TARGET_SET",
+                json!({
+                    "stationName": landing_state.target_station_name,
+                    "marketId": landing_state.target_market_id,
+                    "source": "SupercruiseDestinationDrop",
+                }),
+            );
+        }
+
+        if should_log_event
+            && matches!(
+                event_name,
+                "SupercruiseDestinationDrop"
+                    | "SupercruiseExit"
+                    | "Status"
+                    | "DockingRequested"
+                    | "DockingGranted"
+                    | "DockingDenied"
+                    | "Docked"
+                    | "Undocked"
+            )
+        {
+            log_diagnostic(
+                "LANDING_STATE",
+                json!({
+                    "event": event_name,
+                    "armed": landing_state.armed,
+                    "reminded": landing_state.reminded,
+                    "hasDockingPermission": landing_state.has_docking_permission,
+                    "hasWakeScanner": snapshot.has_wake_scanner,
+                    "stationName": snapshot.station_name,
+                    "targetStationName": landing_state.target_station_name,
+                    "targetMarketId": landing_state.target_market_id,
+                }),
+            );
+            log_diagnostic(
+                "LANDING_DECISION",
+                landing_decision_payload(
+                    event_name,
+                    &event,
+                    &snapshot,
+                    &state_before,
+                    &landing_state,
+                    reminder_triggered,
+                    skip_reason,
+                    decision_distance_km,
+                ),
+            );
+        }
+    }
+
+    if let Ok(mut cursor) = cursor_store.lock() {
+        cursor.insert(journal_path.to_path_buf(), line_number);
     }
 
     if current_star_class.is_none() {
@@ -826,6 +1497,239 @@ fn read_latest_snapshot(
     snapshot.exploration = exploration.finish();
 
     Ok(snapshot)
+}
+
+fn apply_snapshot_event(
+    snapshot: &mut EliteSnapshot,
+    event: &Value,
+    journal_systems: &mut Vec<String>,
+    current_system_address: &mut Option<u64>,
+    current_star_class: &mut Option<String>,
+) {
+    if let Some((address, star_class)) = primary_star_class(event) {
+        if let Ok(mut classes) = KNOWN_STAR_CLASSES
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+        {
+            classes.insert(address, star_class.clone());
+        }
+        if *current_system_address == Some(address) {
+            *current_star_class = Some(star_class);
+        }
+    }
+
+    let event_name = event
+        .get("event")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match event_name {
+        "Commander" | "LoadGame" => {
+            if let Some(name) = journal_commander_name(event) {
+                snapshot.commander = Some(name.to_string());
+            }
+
+            if let Some(ship) = event.get("Ship").and_then(Value::as_str) {
+                snapshot.ship = Some(ship.to_string());
+            }
+
+            if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
+                snapshot.ship_name = Some(ship_name.to_string());
+            }
+        }
+
+        "Loadout" => {
+            if let Some(ship) = event.get("Ship").and_then(Value::as_str) {
+                snapshot.ship = Some(ship.to_string());
+            }
+
+            if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
+                snapshot.ship_name = Some(ship_name.to_string());
+            }
+
+            if let Some(max_jump_range) = event.get("MaxJumpRange").and_then(Value::as_f64) {
+                snapshot.max_jump_range = Some(max_jump_range);
+            }
+
+            snapshot.has_wake_scanner = loadout_has_wake_scanner(event);
+        }
+
+        "Location" | "FSDJump" | "CarrierJump" => {
+            *current_system_address = event.get("SystemAddress").and_then(Value::as_u64);
+            *current_star_class = current_system_address.as_ref().and_then(|address| {
+                KNOWN_STAR_CLASSES
+                    .get_or_init(|| Mutex::new(HashMap::new()))
+                    .lock()
+                    .ok()
+                    .and_then(|classes| classes.get(address).cloned())
+            });
+            if let Some(system) = event.get("StarSystem").and_then(Value::as_str) {
+                snapshot.system = Some(system.to_string());
+                if journal_systems
+                    .last()
+                    .is_none_or(|previous: &String| !previous.eq_ignore_ascii_case(system))
+                {
+                    journal_systems.push(system.to_string());
+                }
+            }
+
+            apply_location_state(snapshot, event_name, event);
+        }
+
+        "Docked" => {
+            snapshot.docked = Some(true);
+            snapshot.ship_state = Some(ShipState::Docked);
+            snapshot.station_name = station_name_from_event(event)
+                .or_else(|| snapshot.station_name.clone());
+            snapshot.planet_name = None;
+        }
+        "Undocked" => {
+            snapshot.docked = Some(false);
+            snapshot.ship_state = Some(ShipState::NormalSpace);
+            snapshot.station_name = None;
+            snapshot.planet_name = None;
+        }
+        "SupercruiseEntry" => {
+            snapshot.docked = Some(false);
+            snapshot.ship_state = Some(ShipState::Supercruise);
+            snapshot.station_name = None;
+            snapshot.planet_name = None;
+        }
+        "SupercruiseExit" => {
+            snapshot.docked = Some(false);
+            snapshot.ship_state = Some(ShipState::NormalSpace);
+            snapshot.station_name = None;
+            snapshot.planet_name = None;
+        }
+        "Touchdown" => {
+            snapshot.docked = Some(false);
+            snapshot.ship_state = Some(ShipState::Landed);
+            snapshot.station_name = None;
+            if let Some(planet_name) = planet_name_from_event(event) {
+                snapshot.planet_name = Some(planet_name);
+            }
+        }
+        "Liftoff" => {
+            snapshot.docked = Some(false);
+            snapshot.ship_state = Some(ShipState::NormalSpace);
+            snapshot.planet_name = None;
+        }
+
+        _ => {}
+    }
+}
+
+fn apply_location_state(snapshot: &mut EliteSnapshot, event_name: &str, event: &Value) {
+    if matches!(event_name, "FSDJump" | "CarrierJump") {
+        snapshot.docked = Some(false);
+        snapshot.ship_state = Some(ShipState::NormalSpace);
+        snapshot.station_name = None;
+        snapshot.planet_name = None;
+        return;
+    }
+
+    let Some(docked) = event.get("Docked").and_then(Value::as_bool) else {
+        return;
+    };
+
+    snapshot.docked = Some(docked);
+
+    if docked {
+        snapshot.ship_state = Some(ShipState::Docked);
+        snapshot.station_name = station_name_from_event(event)
+            .or_else(|| snapshot.station_name.clone());
+        snapshot.planet_name = None;
+        return;
+    }
+
+    snapshot.station_name = None;
+
+    if snapshot.ship_state == Some(ShipState::Landed) {
+        if let Some(planet_name) = planet_name_from_event(event) {
+            snapshot.planet_name = Some(planet_name);
+        }
+        return;
+    }
+
+    snapshot.ship_state = Some(ShipState::NormalSpace);
+    snapshot.planet_name = None;
+}
+
+fn station_name_from_event(event: &Value) -> Option<String> {
+    event
+        .get("StationName")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn loadout_has_wake_scanner(event: &Value) -> bool {
+    event
+        .get("Modules")
+        .and_then(Value::as_array)
+        .is_some_and(|modules| {
+            modules.iter().any(|module| {
+                let item = module
+                    .get("Item")
+                    .and_then(Value::as_str)
+                    .or_else(|| module.get("Name").and_then(Value::as_str))
+                    .or_else(|| module.get("ModuleName").and_then(Value::as_str))
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                item.contains("wake") && item.contains("scanner")
+            })
+        })
+}
+
+fn planet_name_from_event(event: &Value) -> Option<String> {
+    ["BodyName", "Body"]
+        .into_iter()
+        .find_map(|key| {
+            event
+                .get(key)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+}
+
+#[cfg(test)]
+mod snapshot_cache_tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_journal_is_not_marked_as_changed() {
+        let previous = JournalCacheState {
+            path: PathBuf::from("C:/Games/Journal.00001.log"),
+            size_bytes: 1200,
+            modified_ms: 999,
+        };
+        let current = JournalCacheState {
+            path: PathBuf::from("C:/Games/Journal.00001.log"),
+            size_bytes: 1200,
+            modified_ms: 999,
+        };
+
+        assert!(!journal_changed(&previous, &current));
+    }
+
+    #[test]
+    fn changed_journal_is_marked_as_changed() {
+        let previous = JournalCacheState {
+            path: PathBuf::from("C:/Games/Journal.00001.log"),
+            size_bytes: 1200,
+            modified_ms: 999,
+        };
+        let current = JournalCacheState {
+            path: PathBuf::from("C:/Games/Journal.00001.log"),
+            size_bytes: 1500,
+            modified_ms: 1000,
+        };
+
+        assert!(journal_changed(&previous, &current));
+    }
 }
 
 #[cfg(test)]
@@ -990,13 +1894,388 @@ mod navigation_tests {
         });
         assert_eq!(primary_star_class(&event), None);
     }
+
+    fn apply_events(events: &[Value]) -> EliteSnapshot {
+        let mut snapshot = EliteSnapshot::default();
+        let mut journal_systems = Vec::new();
+        let mut current_system_address = None;
+        let mut current_star_class = None;
+
+        for event in events {
+            apply_snapshot_event(
+                &mut snapshot,
+                event,
+                &mut journal_systems,
+                &mut current_system_address,
+                &mut current_star_class,
+            );
+        }
+
+        snapshot
+    }
+
+    #[test]
+    fn marks_supercruise_from_the_journal() {
+        let snapshot = apply_events(&[serde_json::json!({ "event": "SupercruiseEntry" })]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::Supercruise));
+        assert_eq!(snapshot.docked, Some(false));
+    }
+
+    #[test]
+    fn returns_to_normal_space_after_supercruise_exit() {
+        let snapshot = apply_events(&[
+            serde_json::json!({ "event": "SupercruiseEntry" }),
+            serde_json::json!({ "event": "SupercruiseExit" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
+        assert_eq!(snapshot.docked, Some(false));
+    }
+
+    #[test]
+    fn location_recovers_docked_state_and_station_name() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "Location",
+            "Docked": true,
+            "StationName": "Panopi City",
+            "StationType": "Dodec",
+            "StarSystem": "Antliae Sector MR-W b1-6"
+        })]);
+
+        assert_eq!(snapshot.system.as_deref(), Some("Antliae Sector MR-W b1-6"));
+        assert_eq!(snapshot.ship_state, Some(ShipState::Docked));
+        assert_eq!(snapshot.station_name.as_deref(), Some("Panopi City"));
+    }
+
+    #[test]
+    fn startup_rebuild_keeps_the_last_confirmed_station_name_when_later_docked_events_omit_it() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "Location",
+                "Docked": true,
+                "StationName": "Panopi City",
+                "StarSystem": "Antliae Sector MR-W b1-6"
+            }),
+            serde_json::json!({
+                "event": "Docked",
+                "StationType": "Dodec"
+            }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::Docked));
+        assert_eq!(snapshot.station_name.as_deref(), Some("Panopi City"));
+    }
+
+    #[test]
+    fn location_without_docking_defaults_to_normal_space() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "Location",
+            "Docked": false,
+            "StarSystem": "Antliae Sector MR-W b1-6"
+        })]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
+        assert_eq!(snapshot.station_name, None);
+        assert_eq!(snapshot.planet_name, None);
+    }
+
+    #[test]
+    fn undocking_clears_the_previous_station_context() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "Docked",
+                "StationName": "Panopi City"
+            }),
+            serde_json::json!({ "event": "Undocked" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
+        assert_eq!(snapshot.docked, Some(false));
+        assert_eq!(snapshot.station_name, None);
+    }
+
+    #[test]
+    fn touchdown_marks_the_ship_as_landed_with_planet_context() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "Touchdown",
+            "Body": "Antliae Sector MR-W b1-6 3"
+        })]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::Landed));
+        assert_eq!(snapshot.planet_name.as_deref(), Some("Antliae Sector MR-W b1-6 3"));
+    }
+
+    #[test]
+    fn liftoff_clears_the_landed_state_and_planet_context() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "Touchdown",
+                "Body": "Antliae Sector MR-W b1-6 3"
+            }),
+            serde_json::json!({ "event": "Liftoff" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
+        assert_eq!(snapshot.docked, Some(false));
+        assert_eq!(snapshot.planet_name, None);
+    }
+
+    #[test]
+    fn stale_station_and_planet_context_do_not_survive_state_changes() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "Docked",
+                "StationName": "Panopi City"
+            }),
+            serde_json::json!({ "event": "Undocked" }),
+            serde_json::json!({
+                "event": "Touchdown",
+                "Body": "Antliae Sector MR-W b1-6 3"
+            }),
+            serde_json::json!({ "event": "SupercruiseEntry" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::Supercruise));
+        assert_eq!(snapshot.station_name, None);
+        assert_eq!(snapshot.planet_name, None);
+    }
+
+    #[test]
+    fn loadout_max_jump_range_is_recorded_without_becoming_the_current_range() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "Loadout",
+            "Ship": "KraitMkII",
+            "ShipName": "Panopi Runner",
+            "MaxJumpRange": 72.80,
+            "UnladenMass": 412.5,
+            "FuelCapacity": { "Main": 32.0, "Reserve": 1.0 },
+            "CargoCapacity": 16
+        })]);
+
+        assert_eq!(snapshot.max_jump_range, Some(72.80));
+        assert_eq!(snapshot.current_jump_range, None);
+    }
+
+    #[test]
+    fn loadout_detects_a_wake_scanner_from_modules() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "Loadout",
+            "Modules": [
+                { "Item": "Int_WakeScanner_Size0" },
+                { "Item": "Int_DetailedSurfaceScanner_Size1" }
+            ]
+        })]);
+
+        assert!(snapshot.has_wake_scanner);
+    }
+
+    fn apply_landing_events(events: &[Value], has_wake_scanner: bool) -> LandingDiagState {
+        let mut snapshot = EliteSnapshot {
+            has_wake_scanner,
+            ..EliteSnapshot::default()
+        };
+        let mut landing_state = LandingDiagState {
+            armed: true,
+            reminded: false,
+            has_docking_permission: false,
+            target_station_name: None,
+            target_market_id: None,
+        };
+        let mut journal_systems = Vec::new();
+        let mut current_system_address = None;
+        let mut current_star_class = None;
+
+        for event in events {
+            let event_name = event
+                .get("event")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+
+            apply_snapshot_event(
+                &mut snapshot,
+                event,
+                &mut journal_systems,
+                &mut current_system_address,
+                &mut current_star_class,
+            );
+            update_landing_state_for_event(&mut landing_state, event_name, event, &snapshot);
+            let _ = evaluate_landing_reminder_for_event(&mut landing_state, event, &snapshot);
+        }
+
+        landing_state
+    }
+
+    #[test]
+    fn supercruise_destination_drop_sets_landing_target_and_market_id() {
+        let landing_state = apply_landing_events(&[serde_json::json!({
+            "event": "SupercruiseDestinationDrop",
+            "Type": "Celsius Reach",
+            "MarketID": 4239284739u64,
+        })], false);
+
+        assert_eq!(landing_state.target_station_name.as_deref(), Some("Celsius Reach"));
+        assert_eq!(landing_state.target_market_id, Some(4239284739u64));
+        assert!(landing_state.armed);
+        assert!(!landing_state.reminded);
+    }
+
+    #[test]
+    fn reminder_does_not_trigger_on_drop_event_itself() {
+        let mut snapshot = EliteSnapshot::default();
+        let mut landing_state = LandingDiagState {
+            armed: true,
+            reminded: false,
+            has_docking_permission: false,
+            target_station_name: None,
+            target_market_id: None,
+        };
+        let drop_event = serde_json::json!({
+            "event": "SupercruiseDestinationDrop",
+            "Type": "Celsius Reach",
+            "MarketID": 4239284739u64,
+        });
+        apply_snapshot_event(
+            &mut snapshot,
+            &drop_event,
+            &mut Vec::new(),
+            &mut None,
+            &mut None,
+        );
+        update_landing_state_for_event(
+            &mut landing_state,
+            "SupercruiseDestinationDrop",
+            &drop_event,
+            &snapshot,
+        );
+
+        let (triggered, reason, _) =
+            evaluate_landing_reminder_for_event(&mut landing_state, &drop_event, &snapshot);
+        assert!(!triggered);
+        assert_eq!(reason, "distance_unknown");
+    }
+
+    #[test]
+    fn reminder_works_with_and_without_supercruise_exit_confirmation() {
+        let without_exit = apply_landing_events(
+            &[
+                serde_json::json!({
+                    "event": "SupercruiseDestinationDrop",
+                    "Type": "Celsius Reach",
+                    "MarketID": 4239284739u64,
+                }),
+                serde_json::json!({
+                    "event": "Status",
+                    "DistanceKm": 3.8,
+                }),
+            ],
+            false,
+        );
+
+        let with_exit = apply_landing_events(
+            &[
+                serde_json::json!({
+                    "event": "SupercruiseDestinationDrop",
+                    "Type": "Celsius Reach",
+                    "MarketID": 4239284739u64,
+                }),
+                serde_json::json!({
+                    "event": "SupercruiseExit",
+                    "BodyType": "Station",
+                    "Body": "Celsius Reach",
+                }),
+                serde_json::json!({
+                    "event": "Status",
+                    "DistanceKm": 3.8,
+                }),
+            ],
+            false,
+        );
+
+        assert!(without_exit.reminded);
+        assert!(with_exit.reminded);
+    }
+
+    #[test]
+    fn docking_requested_or_granted_suppresses_reminder() {
+        let after_requested = apply_landing_events(
+            &[
+                serde_json::json!({
+                    "event": "SupercruiseDestinationDrop",
+                    "Type": "Celsius Reach",
+                    "MarketID": 4239284739u64,
+                }),
+                serde_json::json!({ "event": "DockingRequested" }),
+                serde_json::json!({ "event": "Status", "DistanceKm": 3.8 }),
+            ],
+            false,
+        );
+
+        let after_granted = apply_landing_events(
+            &[
+                serde_json::json!({
+                    "event": "SupercruiseDestinationDrop",
+                    "Type": "Celsius Reach",
+                    "MarketID": 4239284739u64,
+                }),
+                serde_json::json!({ "event": "DockingGranted" }),
+                serde_json::json!({ "event": "Status", "DistanceKm": 3.8 }),
+            ],
+            false,
+        );
+
+        assert!(!after_requested.reminded);
+        assert!(after_requested.has_docking_permission);
+        assert!(!after_granted.reminded);
+        assert!(after_granted.has_docking_permission);
+    }
+
+    #[test]
+    fn reminder_is_spoken_at_most_once_per_station_approach() {
+        let landing_state = apply_landing_events(
+            &[
+                serde_json::json!({
+                    "event": "SupercruiseDestinationDrop",
+                    "Type": "Celsius Reach",
+                    "MarketID": 4239284739u64,
+                }),
+                serde_json::json!({ "event": "Status", "DistanceKm": 3.8 }),
+                serde_json::json!({ "event": "Status", "DistanceKm": 3.7 }),
+            ],
+            false,
+        );
+
+        assert!(landing_state.reminded);
+        assert!(!landing_state.armed);
+    }
 }
 
 #[tauri::command]
 fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
+    let _in_flight = JOURNAL_SNAPSHOT_REQUEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|error| format!("snapshot request lock poisoned: {error}"))?;
+
     let locale = locale.as_deref().unwrap_or("de");
     let journal_directory = find_journal_directory(locale)?;
     let journal_path = newest_journal_file(&journal_directory, locale)?;
+    let journal_state = journal_cache_state(&journal_path).unwrap_or_else(|| JournalCacheState {
+        path: journal_path.clone(),
+        size_bytes: 0,
+        modified_ms: 0,
+    });
+
+    let cache = JOURNAL_SNAPSHOT_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(cache_lock) = cache.lock() {
+        if let Some(cached) = cache_lock.as_ref() {
+            if !journal_changed(&cached.journal_state, &journal_state) {
+                let snapshot: EliteSnapshot = serde_json::from_str(&cached.snapshot_json)
+                    .map_err(|error| format!("snapshot cache is invalid: {error}"))?;
+                return Ok(snapshot);
+            }
+        }
+    }
 
     let mut snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
     let commander_key = (journal_path.clone(), snapshot.commander.clone());
@@ -1017,6 +2296,19 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
 
     if !snapshot.elite_connected {
         snapshot.docked = None;
+        snapshot.ship_state = None;
+        snapshot.station_name = None;
+        snapshot.planet_name = None;
+    }
+
+    let snapshot_json = serde_json::to_string(&snapshot)
+        .map_err(|error| format!("snapshot serialization failed: {error}"))?;
+
+    if let Ok(mut cache_lock) = cache.lock() {
+        *cache_lock = Some(JournalSnapshotCacheEntry {
+            journal_state: journal_state.clone(),
+            snapshot_json,
+        });
     }
 
     Ok(snapshot)
@@ -1044,6 +2336,63 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            let app_id_task_started = std::time::Instant::now();
+            let app_id = app.config().identifier.clone();
+            log_diagnostic(
+                "WINDOW_MAIN_THREAD_TASK_START",
+                json!({
+                    "task": "set_process_app_user_model_id",
+                    "appUserModelId": app_id,
+                    "thread": thread_payload(),
+                }),
+            );
+            if let Err(error) = set_process_app_user_model_id(&app_id) {
+                log_diagnostic(
+                    "WINDOW_MAIN_THREAD_TASK_END",
+                    json!({
+                        "task": "set_process_app_user_model_id",
+                        "durationMs": app_id_task_started.elapsed().as_millis() as u64,
+                        "error": error,
+                        "thread": thread_payload(),
+                    }),
+                );
+                log::error!(
+                    "version={} phase=window_identity process=app.exe cause=app_user_model_id_failed technical={}",
+                    env!("CARGO_PKG_VERSION"),
+                    error
+                );
+            } else {
+                log_diagnostic(
+                    "WINDOW_MAIN_THREAD_TASK_END",
+                    json!({
+                        "task": "set_process_app_user_model_id",
+                        "durationMs": app_id_task_started.elapsed().as_millis() as u64,
+                        "thread": thread_payload(),
+                    }),
+                );
+            }
+
+            let diagnostics_directory = app.path().app_local_data_dir()?.join("diagnostics");
+            if let Ok(logger) = diagnostics::DiagnosticLogger::initialize(
+                diagnostics::DiagnosticConfig::default_in(diagnostics_directory.clone()),
+            ) {
+                let session = logger.session().to_string();
+                logger.install_global();
+                log_diagnostic(
+                    "DIAGNOSTICS_SESSION_STARTED",
+                    json!({
+                        "session": session,
+                        "directory": diagnostics_directory,
+                        "version": env!("CARGO_PKG_VERSION"),
+                    }),
+                );
+            } else {
+                log::error!(
+                    "version={} phase=diagnostics_init process=app.exe cause=failed",
+                    env!("CARGO_PKG_VERSION")
+                );
+            }
+
             app.manage(VoiceServer {
                 child: Mutex::new(None),
                 stopping: AtomicBool::new(false),
@@ -1052,6 +2401,8 @@ pub fn run() {
             app.manage(FrontendHeartbeat {
                 ready: AtomicBool::new(false),
                 last_seen_ms: std::sync::atomic::AtomicU64::new(unix_time_ms()),
+                last_logged_ms: std::sync::atomic::AtomicU64::new(0),
+                stall_reported: AtomicBool::new(false),
             });
             log::info!("version={} phase=start process=app.exe cause=application_launch", env!("CARGO_PKG_VERSION"));
 
@@ -1088,8 +2439,97 @@ pub fn run() {
             }
 
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "windows")]
+                {
+                    match window.hwnd() {
+                        Ok(hwnd) => {
+                            let main_hwnd = hwnd.0 as HWND;
+                            log_window_hwnd_identity(main_hwnd);
+                            if let Err(error) = install_main_window_activation_probe(main_hwnd) {
+                                log_diagnostic(
+                                    "WINDOW_NATIVE_HOOK_INSTALL_FAILED",
+                                    json!({
+                                        "error": error,
+                                        "thread": thread_payload(),
+                                    }),
+                                );
+                            }
+                        }
+                        Err(error) => {
+                            log_diagnostic(
+                                "WINDOW_HWND_IDENTITY_UNAVAILABLE",
+                                json!({
+                                    "error": error.to_string(),
+                                    "thread": thread_payload(),
+                                }),
+                            );
+                        }
+                    }
+                }
+
+                let tracked_window = window.clone();
                 window.on_window_event(move |event| {
+                    let event_name = match event {
+                        tauri::WindowEvent::CloseRequested { .. } => "CloseRequested",
+                        tauri::WindowEvent::Destroyed => "Destroyed",
+                        tauri::WindowEvent::Focused(_) => "Focused",
+                        tauri::WindowEvent::Moved(_) => "Moved",
+                        tauri::WindowEvent::Resized(_) => "Resized",
+                        tauri::WindowEvent::ScaleFactorChanged { .. } => "ScaleFactorChanged",
+                        tauri::WindowEvent::ThemeChanged(_) => "ThemeChanged",
+                        _ => "Other",
+                    };
+
+                    log_diagnostic(
+                        "WINDOW_EVENT_RECEIVED",
+                        window_payload(&tracked_window, json!({ "event": event_name })),
+                    );
+
+                    if let tauri::WindowEvent::Focused(focused) = event {
+                        log_diagnostic(
+                            "WINDOW_FOCUS_CHANGED",
+                            window_payload(
+                                &tracked_window,
+                                json!({
+                                    "event": event_name,
+                                    "focused": focused,
+                                }),
+                            ),
+                        );
+                    }
+
+                    let current = window_snapshot(&tracked_window);
+                    let tracker = LAST_WINDOW_STATE.get_or_init(|| Mutex::new(HashMap::new()));
+                    if let Ok(mut state) = tracker.lock() {
+                        let label = tracked_window.label().to_string();
+                        let previous = state.get(&label).copied().unwrap_or_default();
+                        if previous.visible != current.visible
+                            || previous.minimized != current.minimized
+                            || previous.maximized != current.maximized
+                        {
+                            log_diagnostic(
+                                "WINDOW_VISIBILITY_CHANGED",
+                                window_payload(
+                                    &tracked_window,
+                                    json!({
+                                        "event": event_name,
+                                        "previous": {
+                                            "visible": previous.visible,
+                                            "minimized": previous.minimized,
+                                            "maximized": previous.maximized,
+                                        },
+                                    }),
+                                ),
+                            );
+                        }
+                        state.insert(label, current);
+                    }
+
                     if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        log_diagnostic(
+                            "WINDOW_CLOSE_REQUESTED",
+                            window_payload(&tracked_window, json!({ "event": event_name })),
+                        );
                         log::info!("version={} phase=window_close process=app.exe cause=user_requested", env!("CARGO_PKG_VERSION"));
                     }
                 });
@@ -1103,6 +2543,16 @@ pub fn run() {
                     if heartbeat.ready.load(Ordering::Relaxed)
                         && unix_time_ms().saturating_sub(heartbeat.last_seen_ms.load(Ordering::Relaxed)) > 12_000
                     {
+                        if !heartbeat.stall_reported.swap(true, Ordering::Relaxed) {
+                            log_diagnostic(
+                                "FRONTEND_STALL_DETECTED",
+                                json!({
+                                    "lastSeenMs": heartbeat.last_seen_ms.load(Ordering::Relaxed),
+                                    "nowMs": unix_time_ms(),
+                                    "timeoutMs": 12_000,
+                                }),
+                            );
+                        }
                         log::error!("version={} phase=frontend_watchdog process=msedgewebview2.exe cause=heartbeat_timeout technical=automatic_restart", env!("CARGO_PKG_VERSION"));
                         stop_voice_server(&watchdog_app);
                         watchdog_app.restart();
@@ -1126,17 +2576,30 @@ pub fn run() {
             prepare_for_update,
             repair_runtime,
             open_log_directory,
-            open_journal_directory
+            open_journal_directory,
+            log_diagnostic_event
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
             match event {
                 tauri::RunEvent::ExitRequested { .. } => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        log_diagnostic(
+                            "WINDOW_CLOSE_COMPLETED",
+                            window_payload(&window, json!({ "event": "ExitRequested" })),
+                        );
+                    }
                     log::info!("version={} phase=exit_requested process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
                     stop_voice_server(app);
                 }
                 tauri::RunEvent::Exit => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        log_diagnostic(
+                            "WINDOW_CLOSE_COMPLETED",
+                            window_payload(&window, json!({ "event": "Exit" })),
+                        );
+                    }
                     log::info!("version={} phase=exit process=app.exe cause=application_exit", env!("CARGO_PKG_VERSION"));
                     stop_voice_server(app);
                 }

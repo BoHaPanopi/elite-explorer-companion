@@ -12,6 +12,8 @@ const explorationKinds: ExplorationObservationKind[] = [
   "biological_signals",
   "known_biological_finding",
   "new_biological_finding",
+  "organic_probe_progress",
+  "organic_analysis_complete",
 ];
 
 const quotes: readonly string[] = [

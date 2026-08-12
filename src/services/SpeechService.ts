@@ -8,6 +8,9 @@ export type SpeechOptions = {
   lang?: string;
   voice?: string;
   preRollMs?: number;
+  speaker?: string;
+  locale?: string;
+  style?: string;
 };
 
 const VOICE_SERVER = "http://127.0.0.1:8765";
@@ -28,10 +31,19 @@ function logAudio(event: string, technical?: string): void {
   }).catch(() => undefined);
 }
 
+function logDiagnostic(kind: string, payload: Record<string, unknown>): void {
+  void invoke("log_diagnostic_event", {
+    kind,
+    payload,
+  }).catch(() => undefined);
+}
+
 class SpeechService {
   private currentAudio: HTMLAudioElement | null = null;
   private currentAudioUrl: string | null = null;
   private queueToken = 0;
+  private pendingVoices = 0;
+  private voiceSequence = 0;
 
   async isSupported(): Promise<boolean> {
     return true;
@@ -133,9 +145,24 @@ class SpeechService {
 
   async speak(text: string, options: SpeechOptions = {}): Promise<void> {
     const cleanedText = String(text ?? "").trim();
-    if (!cleanedText) throw new Error("OGG hat keinen Text erhalten.");
+    const speaker = options.speaker ?? "OGG";
+    const voiceId = `voice-${Date.now()}-${(this.voiceSequence += 1)}`;
+
+    if (!cleanedText) {
+      logDiagnostic("VOICE_SKIPPED", {
+        id: voiceId,
+        speaker,
+        reason: "empty_text",
+      });
+      throw new Error("OGG hat keinen Text erhalten.");
+    }
 
     if (!(await this.waitUntilReady())) {
+      logDiagnostic("VOICE_ERROR", {
+        id: voiceId,
+        speaker,
+        reason: "voice_server_not_ready",
+      });
       throw new Error(
         localStorage.getItem("ogg.language") === "en"
           ? "The OGG voice server could not be started. Please verify the installation."
@@ -148,63 +175,152 @@ class SpeechService {
     const pitch = options.pitch ?? OGG_VOICE_CONFIG.pitch;
     const volume = options.volume ?? OGG_VOICE_CONFIG.volume;
     const preRollMs = Math.max(0, options.preRollMs ?? 0);
-    const url = new URL(`${VOICE_SERVER}/speak`);
-    url.searchParams.set("text", cleanedText);
-    url.searchParams.set("voice", voice);
-    url.searchParams.set("rate", String(rate));
-    url.searchParams.set("pitch", String(pitch));
-    url.searchParams.set("volume", String(volume));
+    const locale = options.locale ?? options.lang ?? localStorage.getItem("ogg.language") ?? "de";
 
-    logAudio("tts_request_started", `textLength=${cleanedText.length}`);
-    const response = await fetch(url.toString(), {
-      method: "POST",
-      cache: "no-store",
-      headers: { Accept: "audio/mpeg" },
+    logDiagnostic("VOICE_CREATED", {
+      id: voiceId,
+      speaker,
+      voice: voice,
+      locale,
+      rate,
+      pitch,
+      volume,
+      style: options.style ?? null,
+      text: cleanedText,
+      textLength: cleanedText.length,
     });
-    const contentType = response.headers.get("content-type")?.split(";")[0].trim() || "audio/mpeg";
-    logAudio("http_status", String(response.status));
-    logAudio("mime_type", contentType);
 
-    if (!response.ok) {
-      const message = await response.text();
-      logAudio("error", `HTTP ${response.status}: ${message}`);
-      throw new Error(`OGG-Spracherzeugung fehlgeschlagen: ${message}`);
-    }
+    this.pendingVoices += 1;
+    const queueLength = this.pendingVoices;
+    const queuedAt = performance.now();
+    let queueSlotReleased = false;
+    let errorAlreadyLogged = false;
+    logDiagnostic("VOICE_QUEUED", {
+      id: voiceId,
+      speaker,
+      queueLength,
+      voice,
+      locale,
+      text: cleanedText,
+    });
 
-    const bytes = await response.arrayBuffer();
-    logAudio("received_bytes", String(bytes.byteLength));
-    if (!bytes.byteLength) throw new Error("Leere Audiodatei erhalten.");
+    try {
+      const url = new URL(`${VOICE_SERVER}/speak`);
+      url.searchParams.set("text", cleanedText);
+      url.searchParams.set("voice", voice);
+      url.searchParams.set("rate", String(rate));
+      url.searchParams.set("pitch", String(pitch));
+      url.searchParams.set("volume", String(volume));
 
-    const audioBlob = new Blob([bytes], { type: contentType });
-    logAudio("blob_created", `bytes=${audioBlob.size} type=${audioBlob.type}`);
-    const audioUrl = URL.createObjectURL(audioBlob);
-    logAudio("object_url_created", `scheme=${audioUrl.split(":", 1)[0]}`);
+      logAudio("tts_request_started", `textLength=${cleanedText.length}`);
+      const ttsStartedAt = performance.now();
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        cache: "no-store",
+        headers: { Accept: "audio/mpeg" },
+      });
+      const contentType = response.headers.get("content-type")?.split(";")[0].trim() || "audio/mpeg";
+      logAudio("http_status", String(response.status));
+      logAudio("mime_type", contentType);
 
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.muted = false;
-    audio.volume = Math.max(0.01, Math.min(1, volume));
-    audio.src = audioUrl;
-    this.currentAudio = audio;
-    this.currentAudioUrl = audioUrl;
-    logAudio("audio_object_created", `muted=${audio.muted} volume=${audio.volume}`);
+      if (!response.ok) {
+        const message = await response.text();
+        logAudio("error", `HTTP ${response.status}: ${message}`);
+        if (!queueSlotReleased) {
+          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
+          queueSlotReleased = true;
+        }
+        logDiagnostic("VOICE_ERROR", {
+          id: voiceId,
+          speaker,
+          voice,
+          locale,
+          text: cleanedText,
+          error: `HTTP ${response.status}: ${message}`,
+        });
+        errorAlreadyLogged = true;
+        throw new Error(`OGG-Spracherzeugung fehlgeschlagen: ${message}`);
+      }
 
-    await new Promise<void>((resolve, reject) => {
+      const bytes = await response.arrayBuffer();
+      const ttsGenerationMs = Math.max(0, Math.round(performance.now() - ttsStartedAt));
+      logAudio("received_bytes", String(bytes.byteLength));
+      if (!bytes.byteLength) throw new Error("Leere Audiodatei erhalten.");
+
+      const audioBlob = new Blob([bytes], { type: contentType });
+      logAudio("blob_created", `bytes=${audioBlob.size} type=${audioBlob.type}`);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      logAudio("object_url_created", `scheme=${audioUrl.split(":", 1)[0]}`);
+
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.muted = false;
+      audio.volume = Math.max(0.01, Math.min(1, volume));
+      audio.src = audioUrl;
+      this.currentAudio = audio;
+      this.currentAudioUrl = audioUrl;
+      logAudio("audio_object_created", `muted=${audio.muted} volume=${audio.volume}`);
+
+      await new Promise<void>((resolve, reject) => {
       let settled = false;
+      let playbackStartedAt = 0;
       const fail = (error: unknown) => {
         if (settled) return;
         settled = true;
         const message = errorMessage(error);
         logAudio("error", message);
+        if (!queueSlotReleased) {
+          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
+          queueSlotReleased = true;
+        }
+        logDiagnostic("VOICE_ERROR", {
+          id: voiceId,
+          speaker,
+          voice,
+          locale,
+          text: cleanedText,
+          ttsGenerationMs,
+          queueToStartMs: playbackStartedAt > 0 ? Math.max(0, Math.round(playbackStartedAt - queuedAt)) : null,
+          error: message,
+        });
+        errorAlreadyLogged = true;
         this.release(audio, audioUrl);
         reject(error instanceof Error ? error : new Error(message));
       };
 
-      audio.onplaying = () => logAudio("playing");
+      audio.onplaying = () => {
+        playbackStartedAt = performance.now();
+        logAudio("playing");
+        logDiagnostic("VOICE_START", {
+          id: voiceId,
+          speaker,
+          voice,
+          locale,
+          text: cleanedText,
+          queueLength,
+          queueToStartMs: Math.max(0, Math.round(playbackStartedAt - queuedAt)),
+          ttsGenerationMs,
+        });
+      };
       audio.onended = () => {
         if (settled) return;
         settled = true;
         logAudio("ended");
+        const endedAt = performance.now();
+        if (!queueSlotReleased) {
+          this.pendingVoices = Math.max(0, this.pendingVoices - 1);
+          queueSlotReleased = true;
+        }
+        logDiagnostic("VOICE_END", {
+          id: voiceId,
+          speaker,
+          voice,
+          locale,
+          text: cleanedText,
+          queueLength,
+          queueToStartMs: playbackStartedAt > 0 ? Math.max(0, Math.round(playbackStartedAt - queuedAt)) : null,
+          playbackDurationMs: playbackStartedAt > 0 ? Math.max(0, Math.round(endedAt - playbackStartedAt)) : null,
+        });
         this.release(audio, audioUrl);
         resolve();
       };
@@ -221,7 +337,25 @@ class SpeechService {
         logAudio("play_succeeded");
       };
       void startPlayback().catch(fail);
-    });
+      });
+    } catch (error) {
+      if (!queueSlotReleased) {
+        this.pendingVoices = Math.max(0, this.pendingVoices - 1);
+        queueSlotReleased = true;
+      }
+      if (!errorAlreadyLogged) {
+        const message = errorMessage(error);
+        logDiagnostic("VOICE_ERROR", {
+          id: voiceId,
+          speaker,
+          voice,
+          locale,
+          text: cleanedText,
+          error: message,
+        });
+      }
+      throw error;
+    }
   }
 
   async speakSequence(messages: string[], pauseMs = 0, options: SpeechOptions = {}): Promise<void> {

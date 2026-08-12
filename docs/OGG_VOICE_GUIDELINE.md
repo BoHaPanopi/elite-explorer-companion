@@ -165,6 +165,83 @@ Future languages must preserve meaning and character rather than performing lite
 
 Future voice systems must reproduce the same calm, precise delivery.
 
+### OGG Voice Reference Profile
+
+The current OGG voice reference profile is binding for all future OGG voice work.
+
+The three human reference recordings used to define this profile remain private source material and must not be copied into the repository.
+
+#### Highest Quality Rule
+
+OGG must never sound artificial.
+
+Naturalness and character fidelity always outrank technical convenience.
+
+#### Core Principle
+
+OGG does not perform a dialect.
+
+OGG sounds this way because he simply does not speak any other way.
+
+#### Character
+
+- calm
+- grounded
+- relaxed
+- natural
+- dry
+- no exaggerated dialect performance
+- no artificial comic Bavarian
+- no announcer effect
+
+#### Speech Flow
+
+- somewhat unhurried, but never sluggish
+- one connected thought rather than neatly isolated words
+- natural Oberland carry-over and slurring must survive
+- short lines may still have breathing room
+- no nervous acceleration on short status lines
+
+#### Melody And Emphasis
+
+- relatively calm and low
+- no exaggerated high/low jumps
+- important moments may naturally receive more space
+- line endings should tend to settle downward
+- no artificial punchline emphasis
+
+#### Pauses
+
+- avoid hard artificial pauses
+- prefer rhythm through natural transitions, delay, and carry-over
+
+#### Quality Priority For Future OGG Voice Work
+
+1. Timbre
+2. Speech flow
+3. Sentence melody
+4. Dialect pronunciation
+5. Fine tuning of pitch and tempo
+
+#### Technical Strategy
+
+1. Search for the most suitable TTS voice first.
+2. Optimize against the OGG voice reference profile.
+3. Judge the result against the human reference recordings.
+4. Never bend OGG to fit a technical limitation.
+
+#### Fallback Rule
+
+If TTS cannot reproduce OGG credibly and naturally enough, no artificial-sounding compromise is acceptable.
+
+In that case, OGG lines may be produced long-term as real human recordings.
+
+#### Reference Sentences
+
+- `Mid Geduid und Spugge werd des scho.`
+- `Schau ma moi, wos uns do erwartet.`
+- `Mia werggeln dro.`
+
 Future AI functions must serve OGG's existing personality — they must not replace or override it.
 
 Future clients must integrate `ogg-core` before they may present any OGG personality to the user.
