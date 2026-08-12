@@ -219,8 +219,8 @@ Verbindliches Rollenprinzip:
 - Lokale, verifizierbare Spieldaten haben Vorrang vor externen Annahmen.
 - Eine fachliche Information besitzt eine zentrale Quelle; UI und Audio leiten sich daraus ab.
 - Unsicherheit wird im Datenmodell erhalten und nicht durch Schätzungen verdeckt.
-- Frontend, Rust-Backend und Voice-Sidecar haben klar getrennte Verantwortlichkeiten.
-- Start, Beenden, Updates und Sidecar-Lebenszyklus müssen fehlertolerant und nachvollziehbar sein.
+- Frontend und Rust-Backend haben klar getrennte Verantwortlichkeiten; lokale Sprachausgabe läuft nativ über Windows OneCore/WinRT.
+- Start, Beenden, Updates und der lokale TTS-Lebenszyklus müssen fehlertolerant und nachvollziehbar sein.
 - Kernfunktionen sollen ohne dauerhafte Cloud-Abhängigkeit arbeiten.
 - Datenschutz folgt dem Prinzip der Datensparsamkeit; lokale Daten bleiben soweit möglich lokal.
 - Lokalisierung bedeutet natürliche, profilspezifische Formulierung und nicht bloßen Zeichenkettenaustausch.
@@ -246,7 +246,7 @@ Details und oeffentliche Trust-Boundaries stehen in [`docs/SECURITY_MODEL.md`](.
 - Abgeschlossene Arbeitspakete aktualisieren `OGG_Project_Log.md`; Zukunftspläne werden ausschließlich in `OGG_ROADMAP.md` gepflegt.
 - Versionsangaben und Release-Artefakte bleiben synchron und reproduzierbar.
 - Ein Feature ist erst fertig, wenn Text, Audio, UI, Fehlerfall und Profilverhalten zusammenpassen.
-- Nach jeder erfolgreichen Änderung werden Frontend, Rust-Release und Python-Sidecar gebaut, NSIS und MSI erzeugt, der NSIS-Build lokal installiert und die installierte Version per Sichtprüfung gestartet. Anschließend werden alle OGG-Prozesse sauber beendet; die lokale Installation entspricht damit stets dem aktuellen Entwicklungsstand.
+- Nach jeder erfolgreichen Änderung werden Frontend und Rust-Release gebaut, NSIS und MSI erzeugt, der NSIS-Build lokal installiert und die installierte Version per Sichtprüfung gestartet. Anschließend werden alle OGG-Prozesse sauber beendet; die lokale Installation entspricht damit stets dem aktuellen Entwicklungsstand.
 - Lokal installierte Entwicklungs- und Codex-Test-Builds werden eindeutig als lokale Builds gekennzeichnet und führen keine automatische GitHub-Updateprüfung für reguläre Benutzer-Releases aus.
 
 ## Langfristige Vision

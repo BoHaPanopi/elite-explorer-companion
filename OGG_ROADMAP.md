@@ -38,7 +38,7 @@ Schwerpunkt: Zuverlässigkeit der vorhandenen Kernfunktionen und konsistente Nav
 - Tankbarkeit und unbekannte Sternklassen eindeutig unterscheiden.
 - Update im Hintergrund laden und kontrolliert beim Beenden installieren.
 - Datei- und Prozesssperren vor Updates verständlich behandeln.
-- Startdiagnose, Recovery und Voice-Sidecar-Lebenszyklus weiter absichern.
+- Startdiagnose, Recovery und lokalen Windows-TTS-Lebenszyklus weiter absichern.
 - Navigation, Update und Commander-Profile mit automatisierten Tests stabilisieren.
 - Debug- und Release-Dokumentation bereinigen.
 
@@ -61,7 +61,7 @@ Verbindliche Crew-Namensspezifikation: [`docs/OGG_CREW_SPEC_0_15.md`](./docs/OGG
 - Zentrale Bordcomputer-Einstellungen als verbindliche Basis bereitstellen.
 - Lokalen Status als Grundlage späterer Module festlegen.
 - Audio- und Meldungssystem vereinheitlichen, inklusive Prioritäts- und Unterbrechungsregeln.
-- Voice-Sidecar stabilisieren.
+- Lokale Windows-Sprachausgabe stabilisieren.
 - Lokale Verarbeitung und Datenschutz beibehalten.
 - Sicherheitsgrundsaetze fuer least privilege, lokale Verarbeitung, klare Integrationsgrenzen und fail-closed-Verhalten verbindlich dokumentieren.
 

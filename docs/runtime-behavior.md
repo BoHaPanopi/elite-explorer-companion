@@ -1,29 +1,16 @@
 # OGG runtime behavior
 
-Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the Elite Explorer Companion project.
+Old Guy of Grumpy (OGG) uses the Windows OneCore/WinRT speech synthesizer directly from the
+Tauri backend. Speech text and synthesized audio remain on the local Windows computer.
 
-## PyInstaller onefile voice server: two processes (by design)
+## Local speech runtime
 
-Status: **Accepted — by design**
+- The frontend requests installed voices through `list_local_voices`.
+- `speak_local` selects an exact installed voice ID and applies local rate, pitch, and volume.
+- `stop_local_speech` stops the active Windows media player.
+- No speech HTTP endpoint, Python runtime, background speech service, or separate executable is
+  started.
+- Missing locales and voices are reported explicitly. There is no cross-locale or cloud fallback.
 
-The bundled `ogg-voice-server.exe` uses PyInstaller's `onefile` mode. On Windows, one logical server instance therefore appears as two processes with the same executable name:
-
-1. The onefile bootloader parent extracts the bundled runtime, starts the child, waits for it, and cleans up the temporary files.
-2. The child process initializes Python and runs the OGG voice server.
-
-This is PyInstaller's documented process model, not a second OGG voice-server instance. OGG passes its main-process ID to the server, terminates all matching server processes during orderly shutdown and update preparation, and the server independently exits when the OGG parent process ends.
-
-Validated scenarios:
-
-- orderly OGG shutdown: no voice-server process remains;
-- forced OGG termination: no voice-server process remains;
-- Windows restart followed by OGG start and shutdown: no voice-server process remains;
-- update preparation: both onefile processes are stopped before file-lock validation;
-- aborted installer: a damaged sidecar is restored from the verified recovery cache.
-
-The bootloader parent adds only the expected onefile extraction/waiting overhead. No stability or update disadvantage was observed. Changing to `onedir` would remove the parent process but would introduce multiple runtime files into the installation and update surface without a demonstrated operational benefit.
-
-References:
-
-- https://pyinstaller.org/en/stable/advanced-topics.html
-- https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html
+The signed update check remains technically separate from speech output. Update preparation only
+checks normal application and installer process conflicts; speech does not create update locks.

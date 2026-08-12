@@ -23,16 +23,16 @@ OGG ist eine Windows-Desktop-Begleitanwendung für **Elite Dangerous**. Sie lies
 - **Datenquelle:** Das Rust-Backend erkennt Elite Dangerous, liest die Journaldateien des Spiels und erzeugt einen zentralen Snapshot für Commander-, Schiff-, System-, Navigations- und Explorationsdaten.
 - **Navigation:** Route, aktuelles System, nächstes Ziel, verbleibende Sprünge und Distanz werden aus einer gemeinsamen aktiven Route abgeleitet. Der Fortschritt wird aus Journalereignissen rekonstruiert.
 - **Exploration:** Rust wertet Scan-, Mapping-, Signal- und Codex-Ereignisse aus. Die UI erzeugt daraus lokalisierte Hinweise.
-- **Sprache:** `SpeechService` steuert die Sprachausgabe. Ein lokaler, mit PyInstaller gebauter Python/Flask-Sidecar (`ogg-voice-server`) stellt die OGG-Stimme bereit.
-- **Laufzeitüberwachung:** Das Backend überwacht Frontend-Start und Heartbeat, verwaltet den Voice-Sidecar, protokolliert Fehler und bietet eine Reparaturfunktion für einen degradierten Startzustand.
-- **Updates:** Der Tauri-Updater lädt signierte Artefakte aus dem neuesten GitHub-Release. Vor der Installation werden Sidecar-Prozesse beendet und Datei-/Prozesssperren geprüft.
-- **Build und Release:** GitHub Actions baut bei Tags `v*` auf Windows, führt Node- und Rust-Tests aus, erzeugt den Voice-Sidecar und veröffentlicht die signierten Tauri-Artefakte.
+- **Sprache:** `SpeechService` steuert die Sprachausgabe über native lokale Windows-OneCore/WinRT-Befehle im Rust/Tauri-Backend.
+- **Laufzeitüberwachung:** Das Backend überwacht Frontend-Start und Heartbeat, protokolliert Fehler und bietet eine Reparaturfunktion für einen degradierten Startzustand.
+- **Updates:** Der Tauri-Updater lädt signierte Artefakte aus dem neuesten GitHub-Release. Vor der Installation werden normale Datei-/Prozesskonflikte geprüft; die Sprachausgabe benötigt keinen separaten Prozess.
+- **Build und Release:** GitHub Actions baut bei Tags `v*` auf Windows, führt Node- und Rust-Tests aus und veröffentlicht die signierten Tauri-Artefakte.
 
 ## Bekannte Besonderheiten
 
 - Zielplattform und Release-Pipeline sind derzeit auf Windows ausgerichtet.
-- Der mit PyInstaller im `onefile`-Modus gebaute Voice-Server erscheint unter Windows absichtlich als **zwei Prozesse**. Bootloader-Elternprozess und Python-Kindprozess bilden gemeinsam genau eine Serverinstanz.
-- Beim regulären Beenden, erzwungenen Abbruch und vor Updates werden passende Voice-Server-Prozesse bereinigt. Ein verifizierter Recovery-Cache kann einen beschädigten Sidecar wiederherstellen.
+- Die Sprachausgabe verwendet keinen separaten Prozess. Stimme, Tonhöhe, Geschwindigkeit und Lautstärke werden lokal über Windows OneCore/WinRT verarbeitet.
+- Beim regulären Beenden und vor Updates sind deshalb keine speziellen TTS-Prozesse oder TTS-Dateisperren zu bereinigen.
 - Die Tauri-App startet ihr Hauptfenster zunächst unsichtbar und zeigt es erst über die kontrollierte Boot-/Frontend-Ready-Sequenz.
 - Die Anwendung arbeitet zweisprachig (Deutsch/Englisch); einzelne Sprach- und saisonale Inhalte sind Commander-spezifisch.
 - Release-Versionen müssen synchron in `package.json`, `src-tauri/Cargo.toml` und `src-tauri/tauri.conf.json` gepflegt werden.
@@ -64,7 +64,7 @@ OGG ist eine Windows-Desktop-Begleitanwendung für **Elite Dangerous**. Sie lies
 
 ### Tauri statt reiner Webanwendung
 
-OGG benötigt lokalen Zugriff auf Elite-Dangerous-Journale, Windows-Prozesse, den Voice-Sidecar und signierte Desktop-Updates. Diese Aufgaben liegen im Rust/Tauri-Backend; React bleibt für Darstellung und Interaktion zuständig.
+OGG benötigt lokalen Zugriff auf Elite-Dangerous-Journale, Windows-Prozesse, lokale Windows-Stimmen und signierte Desktop-Updates. Diese Aufgaben liegen im Rust/Tauri-Backend; React bleibt für Darstellung und Interaktion zuständig.
 
 ### Journaldateien als zentrale Spieldatenquelle
 
@@ -74,13 +74,13 @@ Die lokale Journalhistorie liefert nachvollziehbare Ereignisse für Position, Ro
 
 Aktuelle Position, nächstes Ziel, Restdistanz und verbleibende Sprünge stammen aus derselben Route. Dadurch bleiben Werte nach Sprüngen, Routenänderungen, Neustarts und manueller Aktualisierung konsistent.
 
-### Voice-Server als gebündelter Sidecar
+### Lokale Windows-TTS statt separater Sprachruntime
 
-Die Python-basierte Sprachausgabe wird als eigenständige ausführbare Datei gebündelt. So bleibt die Sprachlogik vom Tauri-Prozess getrennt, während Installation, Start, Überwachung, Beenden und Wiederherstellung von OGG kontrolliert werden.
+Die Sprachausgabe läuft direkt im Rust/Tauri-Backend über Windows OneCore/WinRT. Es gibt keine separate Sprachruntime, keinen lokalen HTTP-Port und keinen externen TTS-Dienst. Die fachliche Sprachlogik bleibt im Frontend und in `ogg-core` getrennt von der nativen Synthese.
 
-### PyInstaller `onefile` beibehalten
+### Frühere PyInstaller-Laufzeit abgelöst
 
-Das Zwei-Prozess-Modell unter Windows ist erwartetes PyInstaller-Verhalten. `onefile` hält die Installations- und Update-Oberfläche klein; ein Wechsel zu `onedir` würde mehrere Laufzeitdateien hinzufügen, ohne bislang einen belegten Stabilitätsvorteil zu bringen.
+Der frühere Python-/PyInstaller-Sprachprozess wurde vollständig durch den nativen Windows-Pfad ersetzt. Dadurch entfallen zusätzliche Laufzeitdateien, Prozessüberwachung, Recovery-Cache und TTS-bedingte Update-Sperren.
 
 ### Hauptfenster erst nach erfolgreichem Start anzeigen
 
