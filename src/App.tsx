@@ -29,6 +29,14 @@ import {
 import { formatCurrentJumpRange, selectDisplayedCurrentJumpRange } from "./features/currentJumpRange";
 import { resolveCrewVoicePreview } from "./features/crewVoicePreview";
 import {
+  hasCurrentTelemetry,
+  persistLastKnownTelemetry,
+  readLastKnownTelemetry,
+  sameLastKnownTelemetry,
+  updateLastKnownTelemetry,
+  type LastKnownTelemetry,
+} from "./features/lastKnownTelemetry";
+import {
   alphaTestingNoticeAlreadySeen,
   markAlphaTestingNoticeSeen,
 } from "./features/alphaTestingNotice";
@@ -164,6 +172,23 @@ function resolveShipContext(snapshot: EliteSnapshot | null, t: (key: "station" |
   return null;
 }
 
+function resolveLastKnownShipStatus(
+  telemetry: LastKnownTelemetry | null,
+  t: (key: "lastDocked" | "lastLanded" | "lastInFlight" | "unknown") => string,
+) {
+  if (!telemetry) return { label: t("unknown"), tone: "idle" as DashboardStatusTone, context: null, contextLabel: null };
+  if (telemetry.shipState === "docked" || telemetry.docked === true) {
+    return { label: t("lastDocked"), tone: "docked" as DashboardStatusTone, context: telemetry.stationName, contextLabel: "station" as const };
+  }
+  if (telemetry.shipState === "landed") {
+    return { label: t("lastLanded"), tone: "landed" as DashboardStatusTone, context: telemetry.planetName, contextLabel: "planet" as const };
+  }
+  if (telemetry.shipState === "supercruise" || telemetry.shipState === "normal_space" || telemetry.docked === false) {
+    return { label: t("lastInFlight"), tone: "flight" as DashboardStatusTone, context: null, contextLabel: null };
+  }
+  return { label: t("unknown"), tone: "idle" as DashboardStatusTone, context: null, contextLabel: null };
+}
+
 function PlaceholderPage({
   title,
 }: {
@@ -202,6 +227,7 @@ function App() {
   const { language, t } = useI18n();
   const [page, setPage] = useState<Page>("dashboard");
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
+  const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
@@ -269,6 +295,14 @@ function App() {
         }
       }
       setSnapshot(result);
+      if (hasCurrentTelemetry(result)) {
+        setLastKnownTelemetry((previous) => {
+          const next = updateLastKnownTelemetry(previous, result);
+          if (!next || sameLastKnownTelemetry(previous, next)) return previous;
+          persistLastKnownTelemetry(localStorage, next);
+          return next;
+        });
+      }
       setJournalError(null);
     } catch (error) {
       setJournalError(error instanceof Error ? error.message : String(error));
@@ -771,8 +805,15 @@ function App() {
     });
   }
 
-  const shipStatus = resolveShipStatus(snapshot, isLoading, t);
-  const shipContext = resolveShipContext(snapshot, t);
+  const telemetryIsCurrent = hasCurrentTelemetry(snapshot);
+  const currentShipStatus = resolveShipStatus(snapshot, isLoading, t);
+  const lastShipStatus = resolveLastKnownShipStatus(lastKnownTelemetry, t);
+  const shipStatus = telemetryIsCurrent ? currentShipStatus : lastShipStatus;
+  const shipContext = telemetryIsCurrent
+    ? resolveShipContext(snapshot, t)
+    : lastShipStatus.context && lastShipStatus.contextLabel
+      ? { label: t(lastShipStatus.contextLabel), value: lastShipStatus.context }
+      : null;
   const profileMeta = formatCurrentJumpRange(
     selectDisplayedCurrentJumpRange(snapshot),
     language,
@@ -787,11 +828,13 @@ function App() {
             : activeCommander ?? t("unknown")
         }
         system={
-          isLoading
+          isLoading && !lastKnownTelemetry?.system
             ? t("loading")
-            : snapshot?.system ?? t("unknown")
+            : telemetryIsCurrent ? snapshot?.system ?? t("unknown") : lastKnownTelemetry?.system ?? t("unknown")
         }
+        systemLabel={telemetryIsCurrent ? t("currentSystem") : t("lastKnownPosition")}
         status={shipStatus.label}
+        statusLabel={telemetryIsCurrent ? t("shipStatus") : t("lastShipStatus")}
         statusTone={shipStatus.tone}
         profileMeta={profileMeta}
         contextLabel={shipContext?.label ?? null}
