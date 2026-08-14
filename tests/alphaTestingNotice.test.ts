@@ -14,25 +14,25 @@ const noticeSource = readFileSync(noticeTsPath, "utf8");
 const noticeTsxSource = readFileSync(noticeTsxPath, "utf8");
 const appSource = readFileSync(appPath, "utf8");
 
-test("notice version constant is 0.14.15", () => {
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.15");
+test("notice version constant is 0.14.16", () => {
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.16");
 });
 
-test("storage key is version-scoped to 0.14.15", () => {
+test("storage key is version-scoped to 0.14.16", () => {
   // Key is built from the version constant, not hardcoded – check both parts
   assert.match(noticeSource, /ogg\.alphaTesterNotice/);
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.15");
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.16");
 });
 
 test("DE title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.15 – Testhinweise/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.16 – Testhinweise/);
   assert.match(noticeTsxSource, /neue Command Center/);
   assert.match(noticeTsxSource, /lokale Navigation und letzte Reise/);
   assert.match(noticeTsxSource, /Alle Journal- und Telemetriedaten bleiben lokal/);
 });
 
 test("EN title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.15 – Testing Notes/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.16 – Testing Notes/);
   assert.match(noticeTsxSource, /new Command Center/);
   assert.match(noticeTsxSource, /local navigation and last journey/);
   assert.match(noticeTsxSource, /All journal and telemetry data remains local/);

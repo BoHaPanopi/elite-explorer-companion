@@ -12,10 +12,10 @@ type AlphaTestingNoticeProps = {
   onConfirm: () => void;
 };
 
-const DE_TITLE = "Alpha 0.14.15 – Testhinweise";
-const EN_TITLE = "Alpha 0.14.15 – Testing Notes";
+const DE_TITLE = "Alpha 0.14.16 – Testhinweise";
+const EN_TITLE = "Alpha 0.14.16 – Testing Notes";
 
-const DE_BODY = `Bitte testet in Alpha 0.14.15 besonders:
+const DE_BODY = `Bitte testet in Alpha 0.14.16 besonders:
 
 • das neue Command Center und die profilabhängigen Ränge
 • das aktuelle Schiff mit Name, Kennung und Darstellung
@@ -27,7 +27,7 @@ const DE_BODY = `Bitte testet in Alpha 0.14.15 besonders:
 Hinweis:
 Alle Journal- und Telemetriedaten bleiben lokal.`;
 
-const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.15:
+const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.16:
 
 • the new Command Center and profile-dependent ranks
 • the current ship with name, identifier, and display
