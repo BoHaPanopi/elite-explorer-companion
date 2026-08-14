@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Old Guy of Grumpy",
-  "version": "0.14.13.3",
+  "version": "0.14.14",
   "identifier": "de.panopi.eliteexplorercompanion",
   "build": {
     "frontendDist": "../dist",
