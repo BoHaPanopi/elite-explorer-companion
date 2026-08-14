@@ -40,4 +40,4 @@ jobs:
             - Hintergrundindex und inkrementelle Verarbeitung beschleunigen lokale Journal- und Telemetrieauswertung deutlich.
             - Updates werden beim Beenden installiert und starten OGG nicht automatisch neu.
           releaseDraft: false
-          prerelease: true
+          prerelease: false
