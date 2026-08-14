@@ -14,32 +14,28 @@ const noticeSource = readFileSync(noticeTsPath, "utf8");
 const noticeTsxSource = readFileSync(noticeTsxPath, "utf8");
 const appSource = readFileSync(appPath, "utf8");
 
-test("notice version constant is 0.14.14", () => {
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.14");
+test("notice version constant is 0.14.15", () => {
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.15");
 });
 
-test("storage key is version-scoped to 0.14.14", () => {
+test("storage key is version-scoped to 0.14.15", () => {
   // Key is built from the version constant, not hardcoded – check both parts
   assert.match(noticeSource, /ogg\.alphaTesterNotice/);
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.14");
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.15");
 });
 
 test("DE title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.14 – Testhinweise/);
-  assert.match(noticeTsxSource, /neues Crew-Konfigurationslayout/);
-  assert.match(noticeTsxSource, /Auswahl \+ Kreis-Haken/);
-  assert.match(noticeTsxSource, /Willi in allen fünf Sprachen/);
-  assert.match(noticeTsxSource, /Anna in allen fünf Sprachen/);
-  assert.match(noticeTsxSource, /Susanne und Bastian sind noch nicht Bestandteil dieses Voice-Tests/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.15 – Testhinweise/);
+  assert.match(noticeTsxSource, /neue Command Center/);
+  assert.match(noticeTsxSource, /lokale Navigation und letzte Reise/);
+  assert.match(noticeTsxSource, /Alle Journal- und Telemetriedaten bleiben lokal/);
 });
 
 test("EN title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.14 – Testing Notes/);
-  assert.match(noticeTsxSource, /new crew configuration layout/);
-  assert.match(noticeTsxSource, /selection \+ circle confirmation check/);
-  assert.match(noticeTsxSource, /Willi in all five languages/);
-  assert.match(noticeTsxSource, /Anna in all five languages/);
-  assert.match(noticeTsxSource, /Susanne and Bastian are not yet part of this voice test/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.15 – Testing Notes/);
+  assert.match(noticeTsxSource, /new Command Center/);
+  assert.match(noticeTsxSource, /local navigation and last journey/);
+  assert.match(noticeTsxSource, /All journal and telemetry data remains local/);
 });
 
 test("DE button label is correct", () => {

@@ -28,14 +28,16 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: Old Guy of Grumpy v__VERSION__
+          tagName: v0.14.15
+          releaseName: Old Guy of Grumpy v0.14.15
           releaseBody: |
-            Old Guy of Grumpy v0.14.11
+            Old Guy of Grumpy v0.14.15
 
-            - Fixed application close permissions on Windows.
-            - Restored closing via the window close button and taskbar.
-            - Improved exit-path regression coverage.
-            - Preserved deferred updater behavior.
+            - Neues Command Center mit profilabhängigen Rängen für Exploration, Exobiologie, Handel und Kampf.
+            - Aktuelles Schiff mit Schiffsname, Kennung und Frontier-Schiffsdarstellung.
+            - Willi ergänzt lokale Reise- und Navigationshistorie.
+            - Permanenter Datenflussstatus trennt lokale Crew-Verarbeitung klar von externen Freigaben.
+            - Hintergrundindex und inkrementelle Verarbeitung beschleunigen lokale Journal- und Telemetrieauswertung deutlich.
+            - Updates werden beim Beenden installiert und starten OGG nicht automatisch neu.
           releaseDraft: false
-          prerelease: false
+          prerelease: true

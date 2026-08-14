@@ -12,34 +12,32 @@ type AlphaTestingNoticeProps = {
   onConfirm: () => void;
 };
 
-const DE_TITLE = "Alpha 0.14.14 – Testhinweise";
-const EN_TITLE = "Alpha 0.14.14 – Testing Notes";
+const DE_TITLE = "Alpha 0.14.15 – Testhinweise";
+const EN_TITLE = "Alpha 0.14.15 – Testing Notes";
 
-const DE_BODY = `Bitte testet in Alpha 0.14.14 besonders:
+const DE_BODY = `Bitte testet in Alpha 0.14.15 besonders:
 
-• neues Crew-Konfigurationslayout
-• Auswahl + Kreis-Haken
-• Willi in allen fünf Sprachen
-• Anna in allen fünf Sprachen
-• Stimmen im echten Elite-Betrieb
-• Lautstärke, Verständlichkeit und Timing während des Spiels
+• das neue Command Center und die profilabhängigen Ränge
+• das aktuelle Schiff mit Name, Kennung und Darstellung
+• Willi: lokale Navigation und letzte Reise
+• den permanenten Datenflussstatus
+• schnelle Telemetrie auch bei vielen lokalen Journalen
 • Auffälligkeiten/Fehler im normalen Betrieb
 
 Hinweis:
-Susanne und Bastian sind noch nicht Bestandteil dieses Voice-Tests.`;
+Alle Journal- und Telemetriedaten bleiben lokal.`;
 
-const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.14:
+const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.15:
 
-• new crew configuration layout
-• selection + circle confirmation check
-• Willi in all five languages
-• Anna in all five languages
-• voices during actual Elite gameplay
-• volume, clarity, and timing during gameplay
+• the new Command Center and profile-dependent ranks
+• the current ship with name, identifier, and display
+• Willi: local navigation and last journey
+• the permanent data-flow status
+• fast telemetry with many local journals
 • anomalies/errors during normal operation
 
 Note:
-Susanne and Bastian are not yet part of this voice test.`;
+All journal and telemetry data remains local.`;
 
 const DE_BUTTON = "Verstanden – Alpha testen";
 const EN_BUTTON = "Understood – Start Alpha Test";
