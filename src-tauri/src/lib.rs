@@ -4,6 +4,7 @@ mod local_speech;
 mod runtime_health;
 
 use exploration::{journal_commander_name, ExplorationSnapshot, ExplorationTracker};
+use chrono::DateTime;
 use local_speech::{LocalSpeechState, LocalVoice, SpeakLocalRequest};
 use runtime_health::{StartupHealth, UpdateReadiness};
 use serde::{Deserialize, Serialize};
@@ -12,13 +13,13 @@ use std::{
     collections::HashMap,
     env,
     fs::{self, File},
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Seek, SeekFrom},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Mutex, OnceLock,
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::{LogicalSize, Manager};
 
@@ -53,6 +54,7 @@ static JOURNAL_DIAG_CURSOR: OnceLock<Mutex<HashMap<PathBuf, usize>>> = OnceLock:
 static JOURNAL_SNAPSHOT_REQUEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static JOURNAL_SNAPSHOT_CACHE: OnceLock<Mutex<Option<JournalSnapshotCacheEntry>>> = OnceLock::new();
 static ANNA_LIVE_JOURNAL_CURSOR: OnceLock<Mutex<Option<AnnaLiveJournalCursor>>> = OnceLock::new();
+static JOURNEY_HISTORY_CACHE: OnceLock<Mutex<JourneyHistoryCache>> = OnceLock::new();
 
 #[derive(Clone, Debug)]
 struct AnnaLiveJournalCursor {
@@ -74,6 +76,35 @@ struct JournalCacheState {
 struct JournalSnapshotCacheEntry {
     journal_state: JournalCacheState,
     snapshot_json: String,
+}
+
+#[derive(Debug, Default)]
+struct JourneyHistoryCache {
+    running: bool,
+    index: Option<JourneyHistoryIndex>,
+    observed_latest_path: Option<PathBuf>,
+    observed_latest_size: u64,
+}
+
+#[derive(Clone, Debug, Default)]
+struct JourneyHistoryIndex {
+    files: Vec<JourneyFileCursor>,
+    parser: JourneyParser,
+}
+
+#[derive(Clone, Debug)]
+struct JourneyFileCursor {
+    path: PathBuf,
+    complete_bytes: u64,
+    observed_size: u64,
+}
+
+#[derive(Clone, Debug, Default)]
+struct JourneyParser {
+    current_system: Option<String>,
+    pending_jump: Option<(String, Option<String>, String)>,
+    last_journey: Option<LastJourney>,
+    star_classes: HashMap<u64, String>,
 }
 
 fn journal_cache_state(path: &Path) -> Option<JournalCacheState> {
@@ -676,6 +707,32 @@ struct NavigationProgress {
     active_route: Vec<RouteStep>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CareerRank {
+    level: u64,
+    progress: Option<u64>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CommanderRanks {
+    explore: Option<CareerRank>,
+    exobiologist: Option<CareerRank>,
+    trade: Option<CareerRank>,
+    combat: Option<CareerRank>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LastJourney {
+    start_system: String,
+    destination_system: String,
+    started_at: String,
+    arrived_at: String,
+    duration_seconds: u64,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum ShipState {
@@ -689,9 +746,11 @@ enum ShipState {
 #[serde(rename_all = "camelCase")]
 struct EliteSnapshot {
     commander: Option<String>,
+    ranks: CommanderRanks,
     system: Option<String>,
     ship: Option<String>,
     ship_name: Option<String>,
+    ship_ident: Option<String>,
     docked: Option<bool>,
     ship_state: Option<ShipState>,
     station_name: Option<String>,
@@ -704,6 +763,7 @@ struct EliteSnapshot {
     exploration: ExplorationSnapshot,
     journal_path: String,
     navigation_progress: NavigationProgress,
+    last_journey: Option<LastJourney>,
 }
 
 #[tauri::command]
@@ -971,6 +1031,34 @@ fn find_journal_directory(locale: &str) -> Result<PathBuf, String> {
         })
 }
 
+fn journal_files(directory: &Path) -> Vec<PathBuf> {
+    let mut journals = fs::read_dir(directory)
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("Journal.") && name.ends_with(".log"))
+        })
+        .collect::<Vec<_>>();
+
+    journals.sort_by_key(|path| journal_sort_key(path));
+    journals
+}
+
+fn journal_sort_key(path: &Path) -> String {
+    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    let timestamp = name.strip_prefix("Journal.").and_then(|value| value.split('.').next()).unwrap_or_default();
+    let digits = timestamp.chars().filter(char::is_ascii_digit).collect::<String>();
+    match digits.len() {
+        12 => format!("20{digits}"),
+        14 => digits,
+        _ => format!("9999{name}"),
+    }
+}
+
 fn newest_journal_file(directory: &Path, locale: &str) -> Result<PathBuf, String> {
     let mut journals = fs::read_dir(directory)
         .map_err(|error| {
@@ -1005,6 +1093,150 @@ fn newest_journal_file(directory: &Path, locale: &str) -> Result<PathBuf, String
             "No journal file was found.",
         )
     })
+}
+
+impl JourneyParser {
+    fn apply_line(&mut self, line: &[u8]) {
+        let Ok(event) = serde_json::from_slice::<Value>(line) else { return };
+        if let Some((address, star_class)) = primary_star_class(&event) {
+            self.star_classes.insert(address, star_class);
+        }
+        match event.get("event").and_then(Value::as_str).unwrap_or_default() {
+            "Location" => {
+                self.current_system = event.get("StarSystem").and_then(Value::as_str).map(str::to_string);
+                self.pending_jump = None;
+            }
+            "StartJump" if event.get("JumpType").and_then(Value::as_str) == Some("Hyperspace") => {
+                let (Some(origin), Some(started_at)) = (
+                    self.current_system.clone(),
+                    event.get("timestamp").and_then(Value::as_str),
+                ) else {
+                    self.pending_jump = None;
+                    return;
+                };
+                self.pending_jump = Some((
+                    origin,
+                    event.get("StarSystem").and_then(Value::as_str).map(str::to_string),
+                    started_at.to_string(),
+                ));
+            }
+            "FSDJump" | "CarrierJump" => {
+                let destination = event.get("StarSystem").and_then(Value::as_str).map(str::to_string);
+                let arrived_at = event.get("timestamp").and_then(Value::as_str).map(str::to_string);
+                if let (Some((origin, expected, started_at)), Some(destination), Some(arrived_at)) =
+                    (self.pending_jump.take(), destination.clone(), arrived_at)
+                {
+                    let matches = expected.as_deref().is_none_or(|value| value.eq_ignore_ascii_case(&destination));
+                    let duration_seconds = DateTime::parse_from_rfc3339(&started_at)
+                        .ok()
+                        .zip(DateTime::parse_from_rfc3339(&arrived_at).ok())
+                        .and_then(|(start, end)| (end >= start).then(|| (end - start).num_seconds() as u64));
+                    if matches && !origin.eq_ignore_ascii_case(&destination) {
+                        if let Some(duration_seconds) = duration_seconds {
+                            self.last_journey = Some(LastJourney {
+                                start_system: origin,
+                                destination_system: destination.clone(),
+                                started_at,
+                                arrived_at,
+                                duration_seconds,
+                            });
+                        }
+                    }
+                }
+                self.current_system = destination;
+            }
+            "Shutdown" => self.pending_jump = None,
+            _ => {}
+        }
+    }
+}
+
+fn read_complete_journey_lines(path: &Path, offset: u64, parser: &mut JourneyParser) -> Result<u64, String> {
+    let mut file = File::open(path).map_err(|error| error.to_string())?;
+    file.seek(SeekFrom::Start(offset)).map_err(|error| error.to_string())?;
+    let mut reader = BufReader::new(file);
+    let mut complete_bytes = offset;
+    loop {
+        let mut line = Vec::new();
+        let bytes = reader.read_until(b'\n', &mut line).map_err(|error| error.to_string())?;
+        if bytes == 0 || !line.ends_with(b"\n") {
+            break;
+        }
+        complete_bytes = complete_bytes.saturating_add(bytes as u64);
+        parser.apply_line(&line);
+    }
+    Ok(complete_bytes)
+}
+
+fn build_journey_index(directory: &Path, previous: Option<&JourneyHistoryIndex>) -> JourneyHistoryIndex {
+    let files = journal_files(directory);
+    let incremental = previous.filter(|index| {
+        index.files.len() <= files.len()
+            && index.files.iter().zip(&files).all(|(old, path)| {
+                old.path == *path && fs::metadata(path).is_ok_and(|metadata| metadata.len() >= old.observed_size)
+            })
+    });
+    let mut index = incremental.cloned().unwrap_or_default();
+    if incremental.is_none() {
+        index.files.clear();
+        index.parser = JourneyParser::default();
+    }
+
+    for (position, path) in files.into_iter().enumerate() {
+        let observed_size = fs::metadata(&path).map(|metadata| metadata.len()).unwrap_or(0);
+        if index.files.get(position).is_some_and(|file| file.observed_size == observed_size) {
+            continue;
+        }
+        let offset = index.files.get(position).map(|file| file.complete_bytes).unwrap_or(0);
+        let complete_bytes = read_complete_journey_lines(&path, offset, &mut index.parser).unwrap_or(offset);
+        let cursor = JourneyFileCursor { path, complete_bytes, observed_size };
+        if position < index.files.len() { index.files[position] = cursor } else { index.files.push(cursor) }
+    }
+    index
+}
+
+#[cfg(test)]
+fn reconstruct_last_journey(directory: &Path) -> Option<LastJourney> {
+    build_journey_index(directory, None).parser.last_journey
+}
+
+fn cached_last_journey(journal_directory: &Path, journal_path: &Path, journal_size: u64) -> Option<LastJourney> {
+    let cache = JOURNEY_HISTORY_CACHE.get_or_init(|| Mutex::new(JourneyHistoryCache::default()));
+    let (journey, previous, should_start) = match cache.lock() {
+        Ok(mut cache) => {
+            let journey = cache.index.as_ref().and_then(|index| index.parser.last_journey.clone());
+            let previous = cache.index.clone();
+            let needs_refresh = cache.index.is_none()
+                || cache.observed_latest_path.as_deref() != Some(journal_path)
+                || cache.observed_latest_size != journal_size;
+            let should_start = !cache.running && needs_refresh;
+            if should_start {
+                cache.running = true;
+                cache.observed_latest_path = Some(journal_path.to_path_buf());
+                cache.observed_latest_size = journal_size;
+            }
+            (journey, previous, should_start)
+        }
+        Err(_) => return None,
+    };
+    if should_start {
+        let directory = journal_directory.to_path_buf();
+        std::thread::spawn(move || {
+            let started = Instant::now();
+            log_diagnostic("WILLI_JOURNEY_ANALYSIS_START", json!({ "mode": if previous.is_some() { "incremental" } else { "initial" } }));
+            let index = build_journey_index(&directory, previous.as_ref());
+            let file_count = index.files.len();
+            if let Ok(mut classes) = KNOWN_STAR_CLASSES.get_or_init(|| Mutex::new(HashMap::new())).lock() {
+                classes.extend(index.parser.star_classes.clone());
+            }
+            if let Ok(mut cache) = JOURNEY_HISTORY_CACHE.get().expect("journey cache initialized").lock() {
+                cache.index = Some(index);
+                cache.running = false;
+            }
+            log_diagnostic("WILLI_JOURNEY_ANALYSIS_END", json!({ "durationMs": started.elapsed().as_millis() as u64, "journalFileCount": file_count }));
+        });
+    }
+    journey
 }
 
 fn read_navigation_route(directory: &Path) -> Vec<RouteStep> {
@@ -1074,45 +1306,9 @@ fn primary_star_class(event: &Value) -> Option<(u64, String)> {
 }
 
 fn known_star_class(journal_directory: &Path, system_address: u64) -> Option<String> {
+    let _ = journal_directory;
     let cache = KNOWN_STAR_CLASSES.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(classes) = cache.lock() {
-        if let Some(star_class) = classes.get(&system_address) {
-            return Some(star_class.clone());
-        }
-    }
-
-    let mut journals = fs::read_dir(journal_directory)
-        .ok()?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("Journal.") && name.ends_with(".log"))
-        })
-        .collect::<Vec<_>>();
-    journals.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
-
-    for path in journals {
-        let Ok(file) = File::open(path) else { continue };
-        let mut found = None;
-        for line in BufReader::new(file).lines().map_while(Result::ok) {
-            let Ok(event) = serde_json::from_str::<Value>(&line) else { continue };
-            if let Some((address, star_class)) = primary_star_class(&event) {
-                if let Ok(mut classes) = cache.lock() {
-                    classes.insert(address, star_class.clone());
-                }
-                if address == system_address {
-                    found = Some(star_class);
-                }
-            }
-        }
-        if found.is_some() {
-            return found;
-        }
-    }
-
-    None
+    cache.lock().ok().and_then(|classes| classes.get(&system_address).cloned())
 }
 
 fn active_navigation_route(
@@ -1379,6 +1575,14 @@ fn read_latest_snapshot(
         current_star_class.as_deref(),
         &journal_systems,
     );
+    let history_started = Instant::now();
+    log_diagnostic("HISTORY_ANALYSIS_START", json!({ "cachedSnapshot": false }));
+    let journal_size = fs::metadata(journal_path).map(|metadata| metadata.len()).unwrap_or(0);
+    snapshot.last_journey = cached_last_journey(journal_directory, journal_path, journal_size);
+    log_diagnostic("HISTORY_ANALYSIS_END", json!({
+        "durationMs": history_started.elapsed().as_millis() as u64,
+        "available": snapshot.last_journey.is_some(),
+    }));
     snapshot.exploration = exploration.finish();
 
     Ok(snapshot)
@@ -1422,6 +1626,30 @@ fn apply_snapshot_event(
             if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
                 snapshot.ship_name = Some(ship_name.to_string());
             }
+
+            if let Some(ship_ident) = event.get("ShipIdent").and_then(Value::as_str) {
+                snapshot.ship_ident = (!ship_ident.trim().is_empty()).then(|| ship_ident.to_string());
+            }
+        }
+
+        "Rank" => {
+            snapshot.ranks.explore = event.get("Explore").and_then(Value::as_u64).map(|level| CareerRank { level, progress: None });
+            snapshot.ranks.exobiologist = event.get("Exobiologist").and_then(Value::as_u64).map(|level| CareerRank { level, progress: None });
+            snapshot.ranks.trade = event.get("Trade").and_then(Value::as_u64).map(|level| CareerRank { level, progress: None });
+            snapshot.ranks.combat = event.get("Combat").and_then(Value::as_u64).map(|level| CareerRank { level, progress: None });
+        }
+
+        "Progress" => {
+            for (rank, field) in [
+                (&mut snapshot.ranks.explore, "Explore"),
+                (&mut snapshot.ranks.exobiologist, "Exobiologist"),
+                (&mut snapshot.ranks.trade, "Trade"),
+                (&mut snapshot.ranks.combat, "Combat"),
+            ] {
+                if let (Some(rank), Some(progress)) = (rank.as_mut(), event.get(field).and_then(Value::as_u64)) {
+                    rank.progress = Some(progress.min(100));
+                }
+            }
         }
 
         "Loadout" => {
@@ -1431,6 +1659,10 @@ fn apply_snapshot_event(
 
             if let Some(ship_name) = event.get("ShipName").and_then(Value::as_str) {
                 snapshot.ship_name = Some(ship_name.to_string());
+            }
+
+            if let Some(ship_ident) = event.get("ShipIdent").and_then(Value::as_str) {
+                snapshot.ship_ident = (!ship_ident.trim().is_empty()).then(|| ship_ident.to_string());
             }
 
             if let Some(max_jump_range) = event.get("MaxJumpRange").and_then(Value::as_f64) {
@@ -1645,6 +1877,7 @@ mod snapshot_cache_tests {
 #[cfg(test)]
 mod navigation_tests {
     use super::*;
+    use std::io::Write as _;
 
     fn route(systems: &[&str]) -> Vec<RouteStep> {
         systems
@@ -1844,6 +2077,177 @@ mod navigation_tests {
         assert_eq!(snapshot.commander.as_deref(), Some("helitony2"));
         assert_eq!(snapshot.ship_state, None);
         assert!(!snapshot.current_telemetry_confirmed);
+    }
+
+    #[test]
+    fn reads_exploration_rank_progress_and_visible_ship_ident() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "LoadGame",
+                "Commander": "Panopi",
+                "Ship": "Krait_MkII",
+                "ShipName": "Fesches Schiff",
+                "ShipIdent": "OGG-42",
+                "ShipID": 123,
+            }),
+            serde_json::json!({ "event": "Rank", "Explore": 7, "Exobiologist": 5, "Trade": 4, "Combat": 3 }),
+            serde_json::json!({ "event": "Progress", "Explore": 64, "Exobiologist": 27, "Trade": 81, "Combat": 12 }),
+        ]);
+
+        assert_eq!(snapshot.commander.as_deref(), Some("Panopi"));
+        assert_eq!(snapshot.ship.as_deref(), Some("Krait_MkII"));
+        assert_eq!(snapshot.ship_name.as_deref(), Some("Fesches Schiff"));
+        assert_eq!(snapshot.ship_ident.as_deref(), Some("OGG-42"));
+        assert_eq!(
+            snapshot.ranks.explore,
+            Some(CareerRank { level: 7, progress: Some(64) }),
+        );
+        assert_eq!(snapshot.ranks.exobiologist, Some(CareerRank { level: 5, progress: Some(27) }));
+        assert_eq!(snapshot.ranks.trade, Some(CareerRank { level: 4, progress: Some(81) }));
+        assert_eq!(snapshot.ranks.combat, Some(CareerRank { level: 3, progress: Some(12) }));
+    }
+
+    #[test]
+    fn reconstructs_the_latest_complete_journey_across_journal_files() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-journey-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("Journal.2026-08-13T120000.01.log"),
+            concat!(
+                "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n",
+                "{\"timestamp\":\"2026-08-13T12:01:00Z\",\"event\":\"StartJump\",\"JumpType\":\"Hyperspace\",\"StarSystem\":\"Barnard's Star\"}\n",
+            ),
+        ).unwrap();
+        fs::write(
+            directory.join("Journal.2026-08-13T120100.02.log"),
+            "{\"timestamp\":\"2026-08-13T12:01:17Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Barnard's Star\"}\n",
+        ).unwrap();
+
+        let journey = reconstruct_last_journey(&directory).unwrap();
+        assert_eq!(journey.start_system, "Sol");
+        assert_eq!(journey.destination_system, "Barnard's Star");
+        assert_eq!(journey.duration_seconds, 17);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn does_not_invent_a_journey_from_an_unpaired_jump() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-incomplete-journey-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(
+            directory.join("Journal.2026-08-13T120000.01.log"),
+            concat!(
+                "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n",
+                "{\"timestamp\":\"2026-08-13T12:01:17Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Barnard's Star\"}\n",
+            ),
+        ).unwrap();
+
+        assert_eq!(reconstruct_last_journey(&directory), None);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn ignores_an_incomplete_last_journal_line_until_it_is_completed() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-growing-journey-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("Journal.2026-08-13T120000.01.log");
+        fs::write(&path, concat!(
+            "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:01:00Z\",\"event\":\"StartJump\",\"JumpType\":\"Hyperspace\",\"StarSystem\":\"Achenar\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:01:12Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Achenar\"}"
+        )).unwrap();
+
+        let first = build_journey_index(&directory, None);
+        assert_eq!(first.parser.last_journey, None);
+        fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(b"\n").unwrap();
+        let second = build_journey_index(&directory, Some(&first));
+        assert_eq!(second.parser.last_journey.unwrap().destination_system, "Achenar");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn incrementally_reads_only_appended_bytes_from_an_active_journal() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-active-journey-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("Journal.2026-08-13T120000.01.log");
+        fs::write(&path, concat!(
+            "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:01:00Z\",\"event\":\"StartJump\",\"JumpType\":\"Hyperspace\",\"StarSystem\":\"Achenar\"}\n"
+        )).unwrap();
+        let first = build_journey_index(&directory, None);
+        let first_cursor = first.files[0].complete_bytes;
+        fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(
+            b"{\"timestamp\":\"2026-08-13T12:01:12Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Achenar\"}\n"
+        ).unwrap();
+        let second = build_journey_index(&directory, Some(&first));
+        assert!(second.files[0].complete_bytes > first_cursor);
+        assert_eq!(second.parser.last_journey.unwrap().duration_seconds, 12);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn handles_many_files_a_large_file_and_multiple_jumps() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-many-journeys-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let filler = "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Music\"}\n".repeat(2_000);
+        for number in 0..120 {
+            fs::write(directory.join(format!("Journal.2026-08-12T12{number:04}.01.log")), &filler).unwrap();
+        }
+        fs::write(directory.join("Journal.2026-08-13T120000.01.log"), concat!(
+            "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:01:00Z\",\"event\":\"StartJump\",\"JumpType\":\"Hyperspace\",\"StarSystem\":\"Achenar\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:01:12Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Achenar\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:02:00Z\",\"event\":\"StartJump\",\"JumpType\":\"Hyperspace\",\"StarSystem\":\"Alioth\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:02:19Z\",\"event\":\"FSDJump\",\"StarSystem\":\"Alioth\"}\n"
+        )).unwrap();
+        let started = Instant::now();
+        let journey = reconstruct_last_journey(&directory).unwrap();
+        assert_eq!(journey.start_system, "Achenar");
+        assert_eq!(journey.destination_system, "Alioth");
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn snapshot_returns_current_data_without_waiting_for_history() {
+        let directory = std::env::temp_dir().join(format!(
+            "ogg-fail-soft-snapshot-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let filler = "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"Music\"}\n".repeat(10_000);
+        for number in 0..80 {
+            fs::write(directory.join(format!("Journal.2026-08-12T12{number:04}.01.log")), &filler).unwrap();
+        }
+        let latest = directory.join("Journal.2026-08-13T120000.01.log");
+        fs::write(&latest, concat!(
+            "{\"timestamp\":\"2026-08-13T12:00:00Z\",\"event\":\"LoadGame\",\"Commander\":\"Test\",\"Ship\":\"Krait_MkII\",\"ShipName\":\"Test Ship\"}\n",
+            "{\"timestamp\":\"2026-08-13T12:00:01Z\",\"event\":\"Rank\",\"Explore\":7}\n",
+            "{\"timestamp\":\"2026-08-13T12:00:02Z\",\"event\":\"Location\",\"StarSystem\":\"Sol\"}\n"
+        )).unwrap();
+        let started = Instant::now();
+        let snapshot = read_latest_snapshot(&latest, &directory, "de").unwrap();
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        assert_eq!(snapshot.commander.as_deref(), Some("Test"));
+        assert_eq!(snapshot.ship.as_deref(), Some("Krait_MkII"));
+        assert_eq!(snapshot.ranks.explore.as_ref().map(|rank| rank.level), Some(7));
+        assert_eq!(snapshot.system.as_deref(), Some("Sol"));
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -2223,6 +2627,8 @@ mod navigation_tests {
 
 #[tauri::command]
 fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
+    let request_started = Instant::now();
+    log_diagnostic("GET_SNAPSHOT_ENTER", json!({}));
     let _in_flight = JOURNAL_SNAPSHOT_REQUEST_LOCK
         .get_or_init(|| Mutex::new(()))
         .lock()
@@ -2230,7 +2636,14 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
 
     let locale = locale.as_deref().unwrap_or("de");
     let journal_directory = find_journal_directory(locale)?;
+    let search_started = Instant::now();
+    log_diagnostic("JOURNAL_FILE_SEARCH_START", json!({}));
+    let journal_file_count = journal_files(&journal_directory).len();
     let journal_path = newest_journal_file(&journal_directory, locale)?;
+    log_diagnostic("JOURNAL_FILE_SEARCH_END", json!({
+        "durationMs": search_started.elapsed().as_millis() as u64,
+        "journalFileCount": journal_file_count,
+    }));
     let journal_state = journal_cache_state(&journal_path).unwrap_or_else(|| JournalCacheState {
         path: journal_path.clone(),
         size_bytes: 0,
@@ -2241,17 +2654,38 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
     if let Ok(cache_lock) = cache.lock() {
         if let Some(cached) = cache_lock.as_ref() {
             if !journal_changed(&cached.journal_state, &journal_state) {
-                let snapshot: EliteSnapshot = serde_json::from_str(&cached.snapshot_json)
+                let mut snapshot: EliteSnapshot = serde_json::from_str(&cached.snapshot_json)
                     .map_err(|error| format!("snapshot cache is invalid: {error}"))?;
-                return Ok(with_elite_connection_state(
+                let history_started = Instant::now();
+                log_diagnostic("HISTORY_ANALYSIS_START", json!({ "cachedSnapshot": true }));
+                snapshot.last_journey = cached_last_journey(
+                    &journal_directory,
+                    &journal_path,
+                    journal_state.size_bytes,
+                );
+                log_diagnostic("HISTORY_ANALYSIS_END", json!({
+                    "durationMs": history_started.elapsed().as_millis() as u64,
+                    "available": snapshot.last_journey.is_some(),
+                }));
+                let snapshot = with_elite_connection_state(
                     snapshot,
                     is_elite_dangerous_running(),
-                ));
+                );
+                log_diagnostic("SNAPSHOT_FINALIZED", json!({ "cachedSnapshot": true }));
+                log_diagnostic("GET_SNAPSHOT_RETURN", json!({
+                    "durationMs": request_started.elapsed().as_millis() as u64,
+                }));
+                return Ok(snapshot);
             }
         }
     }
 
+    let current_started = Instant::now();
+    log_diagnostic("RANK_SHIP_ANALYSIS_START", json!({}));
     let snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
+    log_diagnostic("RANK_SHIP_ANALYSIS_END", json!({
+        "durationMs": current_started.elapsed().as_millis() as u64,
+    }));
     let commander_key = (journal_path.clone(), snapshot.commander.clone());
     let last_logged = LAST_LOGGED_COMMANDER.get_or_init(|| Mutex::new(None));
     if let Ok(mut previous) = last_logged.lock() {
@@ -2276,10 +2710,15 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
         });
     }
 
-    Ok(with_elite_connection_state(
+    let snapshot = with_elite_connection_state(
         snapshot,
         is_elite_dangerous_running(),
-    ))
+    );
+    log_diagnostic("SNAPSHOT_FINALIZED", json!({ "cachedSnapshot": false }));
+    log_diagnostic("GET_SNAPSHOT_RETURN", json!({
+        "durationMs": request_started.elapsed().as_millis() as u64,
+    }));
+    Ok(snapshot)
 }
 
 #[tauri::command]

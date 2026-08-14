@@ -78,3 +78,12 @@ test("the normal close path exits explicitly when no update is pending", () => {
   assert.match(appSource, /if \(updatePhaseRef\.current === "installing"\) \{/);
   assert.doesNotMatch(appSource, /if \(!update\) return;/);
 });
+
+test("a successfully installed update exits without automatically relaunching the app", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const deferredUpdateSource = readFileSync(new URL("../src/services/DeferredUpdateService.ts", import.meta.url), "utf8");
+
+  assert.match(appSource, /await installDownloadedUpdateOnExit\([\s\S]*pendingUpdate\.current = null;\s*await exit\(0\);/);
+  assert.doesNotMatch(appSource, /\brelaunch\s*\(/);
+  assert.doesNotMatch(deferredUpdateSource, /\brelaunch\s*\(/);
+});

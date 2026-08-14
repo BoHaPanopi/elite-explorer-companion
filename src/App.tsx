@@ -11,6 +11,7 @@ import AssistantPanel from "./components/AssistantPanel";
 import BordcomputerSetup from "./components/BordcomputerSetup";
 import CrewConfigDialog from "./components/CrewConfigDialog";
 import Dashboard from "./components/Dashboard";
+import DataFlowStatus from "./components/DataFlowStatus";
 import JournalPanel from "./components/JournalPanel";
 import LanguageSettings from "./components/LanguageSettings";
 import Navigation from "./components/Navigation";
@@ -41,6 +42,9 @@ import {
   markAlphaTestingNoticeSeen,
 } from "./features/alphaTestingNotice";
 import { advanceObservationProcessingState, type ObservationProcessingState } from "./features/exploration/observationProcessingGuard";
+import { createLocalDataFlowStatus } from "./features/dataFlowStatus";
+import { persistMissionProfile, readMissionProfile, type MissionProfile, type RankCategory } from "./features/missionProfile";
+import { MISSION_PROFILE_LABELS } from "./content/commandCenter";
 import { speechService } from "./services/SpeechService";
 import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "ogg-core";
@@ -71,9 +75,11 @@ type NavigationProgress = {
 
 type EliteSnapshot = {
   commander: string | null;
+  ranks: Record<RankCategory, { level: number; progress: number | null } | null>;
   system: string | null;
   ship: string | null;
   shipName: string | null;
+  shipIdent: string | null;
   docked: boolean | null;
   shipState: "supercruise" | "normal_space" | "docked" | "landed" | null;
   stationName: string | null;
@@ -110,6 +116,13 @@ type EliteSnapshot = {
   };
   journalPath: string;
   navigationProgress: NavigationProgress;
+  lastJourney: {
+    startSystem: string;
+    destinationSystem: string;
+    startedAt: string;
+    arrivedAt: string;
+    durationSeconds: number;
+  } | null;
 };
 
 type UpdateReadiness = {
@@ -199,18 +212,15 @@ function resolveLastKnownShipStatus(
 
 function PlaceholderPage({
   title,
+  activeProfile,
+  onProfileChange,
 }: {
   title: string;
+  activeProfile: MissionProfile;
+  onProfileChange: (profile: MissionProfile) => void;
 }) {
-  const { t } = useI18n();
-
-  const profileLabels = [
-    t("automatic"),
-    t("explorationProfile"),
-    t("miningProfile"),
-    t("combatProfile"),
-    t("tradeProfile"),
-  ];
+  const { language, t } = useI18n();
+  const profiles: MissionProfile[] = ["exploration", "trade", "combat"];
 
   return (
     <section className="panel module-settings-panel">
@@ -218,13 +228,16 @@ function PlaceholderPage({
       <h2>{title}</h2>
       <p className="muted">{t("moduleProfileHint")}</p>
       <div className="module-profile-options" aria-label={t("activeProfile")}>
-        {profileLabels.map((label, index) => (
-          <span
-            className={index === 0 ? "module-profile-options__chip module-profile-options__chip--active" : "module-profile-options__chip"}
-            key={label}
+        {profiles.map((profile) => (
+          <button
+            type="button"
+            className={profile === activeProfile ? "module-profile-options__chip module-profile-options__chip--active" : "module-profile-options__chip"}
+            key={profile}
+            onClick={() => onProfileChange(profile)}
+            aria-pressed={profile === activeProfile}
           >
-            {label}
-          </span>
+            {MISSION_PROFILE_LABELS[language][profile]}
+          </button>
         ))}
       </div>
     </section>
@@ -234,6 +247,7 @@ function PlaceholderPage({
 function App() {
   const { language, t } = useI18n();
   const [page, setPage] = useState<Page>("dashboard");
+  const [missionProfile, setMissionProfile] = useState<MissionProfile>(() => readMissionProfile(localStorage));
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
   const [annaPredictionRevision, setAnnaPredictionRevision] = useState(0);
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
@@ -294,13 +308,11 @@ function App() {
       logDiagnostic("TELEMETRY_POLL_START", { pollId });
       const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
       const telemetryDurationMs = Math.round(performance.now() - telemetryStartedAt);
-      if (telemetryDurationMs > 250) {
-        logDiagnostic("TELEMETRY_POLL_END", {
-          pollId,
-          durationMs: telemetryDurationMs,
-          bodyCount: result.exploration.bodies.length,
-        });
-      }
+      logDiagnostic("TELEMETRY_POLL_END", {
+        pollId,
+        durationMs: telemetryDurationMs,
+        bodyCount: result.exploration.bodies.length,
+      });
       const annaStartedAt = performance.now();
       logDiagnostic("ANNA_POLL_START", { pollId });
       const annaEvents = await invoke<AnnaLiveJournalEvent[]>("get_live_anna_journal_events", { locale: language });
@@ -865,6 +877,11 @@ function App() {
     setShowAlphaNotice(false);
   }
 
+  function selectMissionProfile(profile: MissionProfile) {
+    persistMissionProfile(localStorage, profile);
+    setMissionProfile(profile);
+  }
+
   async function testCrewVoicePreview(role: Parameters<typeof resolveCrewVoicePreview>[0], locale: Parameters<typeof resolveCrewVoicePreview>[1]) {
     const preview = resolveCrewVoicePreview(role, locale);
     if (!preview) return;
@@ -898,6 +915,12 @@ function App() {
             ? t("loading")
             : activeCommander ?? t("unknown")
         }
+        ranks={snapshot?.ranks ?? { explore: null, exobiologist: null, trade: null, combat: null }}
+        activeProfile={missionProfile}
+        ship={snapshot?.ship ?? null}
+        shipName={snapshot?.shipName ?? null}
+        shipIdent={snapshot?.shipIdent ?? null}
+        journey={snapshot?.lastJourney ?? null}
         system={
           isLoading && !lastKnownTelemetry?.system
             ? t("loading")
@@ -927,7 +950,7 @@ function App() {
         return (
           <section className="settings-layout">
             <div className="settings-module">
-              <PlaceholderPage title={t("moduleSettings")} />
+              <PlaceholderPage title={t("moduleSettings")} activeProfile={missionProfile} onProfileChange={selectMissionProfile} />
             </div>
             <div className="settings-computer">
               <AssistantPanel
@@ -984,6 +1007,7 @@ function App() {
           {t("footer")}
         </footer>
       </main>
+      <DataFlowStatus status={createLocalDataFlowStatus(Boolean(snapshot?.journalPath && !journalError))} />
       {appVersion && <span className="app-version">v{appVersion}</span>}
 
       {showSetup && (

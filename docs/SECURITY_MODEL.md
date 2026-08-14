@@ -74,18 +74,19 @@ Binding rules:
 - Integrations must not become a generic remote-control layer for the user's computer.
 - Local grants and permissions should be understandable, reviewable, and revocable.
 
-### Anna and Journal Data
+### Onboard Computer, Crew, and Journal Data
 
-Anna's internal processing is distinct from external integrations.
+The onboard computer and crew's internal processing is distinct from external integrations.
 
-- Anna may read and use Elite Dangerous journal data internally when the Commander has allowed journal access.
+- The onboard computer and its crew may read and use Elite Dangerous journal data internally when the Commander has allowed local journal access.
 - This processing takes place within Elite Explorer Companion and is therefore not an external data transfer.
-- The Commander must be able to understand which journal data Anna uses internally and for what purpose.
-- The future data-flow detail view must provide a dedicated area or tab for Anna's journal access and internal processing.
+- Each crew member may use only the locally available journal data needed for their assigned task: Anna for exobiology, local analysis, and predictions; Willi for navigation and journey history; Susanne for ship condition; and Sebastian for weapons and equipment.
+- The Commander must be able to understand which journal data the onboard computer and crew use internally and for what purpose.
+- The data-flow detail view must provide a dedicated internal area for the onboard computer and crew, separate from every external grant.
 
 ### External Services and Data Grants
 
-Discord, Twitch, and every future external integration are separate from Anna's internal processing. For each external integration:
+Discord, Twitch, and every future external integration are separate from the onboard computer and crew's internal processing. For each external integration:
 
 - The Commander must explicitly approve the integration.
 - Approval is specific to that service and must show which data may be transferred, where it goes, and for what purpose.
@@ -146,9 +147,9 @@ data source -> internal use -> storage/processing -> approved external destinati
 
 The view must clearly separate:
 
-### Anna / Internal
+### Onboard Computer and Crew / Internal
 
-Journal access and internal processing within Elite Explorer Companion, including which journal data Anna uses and for what purpose.
+Journal access and internal processing within Elite Explorer Companion, including the task-specific purposes assigned to Anna, Willi, Susanne, and Sebastian. Local permission does not imply an external grant.
 
 ### External Grants
 

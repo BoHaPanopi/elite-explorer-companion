@@ -83,7 +83,15 @@ The following files or embedded symbols are not project-owned visual assets and 
 
 They must later be handled under their applicable upstream license, attribution, and trademark conditions. This document does not state or replace those conditions.
 
-## 4. Visual Assets Whose Provenance or Terms Remain Unresolved
+## 4. Frontier / Elite Dangerous Assets
+
+The 48 ship images under `src/assets/frontier/elite-dangerous/ships/` were retrieved on 2026-08-14 from Frontier Developments plc's official Elite Dangerous Gamestore starship database and image service. Their individual stable filenames and reproducible official source pages are recorded in `src/assets/frontier/elite-dangerous/SOURCES.md`.
+
+These are third-party Frontier / Elite Dangerous materials with status **Frontier Asset – permission requested**. They are not project-created assets, GPL code, CC BY documentation, or OGG Creative Content. The project claims no ownership, permission, or license from Frontier. They are referenced only through `src/features/frontierAssets.ts` and can be removed completely without changing rank, profile, ship, journey, or data-flow logic; the Command Center then uses its existing text fallback.
+
+No rank badge image is currently included. The Journal scale requires levels 0–13 for Explorer, Exobiologist, Trade, and Combat, but no official downloadable badge series with sufficiently traceable file-level origin was found. The rank resolver therefore remains intentionally empty pending Frontier's response and an approved source.
+
+## 5. Visual Assets Whose Provenance or Terms Remain Unresolved
 
 `public/icons.svg` also contains the following symbols:
 

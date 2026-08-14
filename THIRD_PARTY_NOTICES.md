@@ -25,7 +25,7 @@ Before distribution, exact transitive versions and license texts must be regener
 The direct Rust dependencies declared in `src-tauri/Cargo.toml` are:
 
 - Tauri, `tauri-build`, and the Tauri log, process, updater, and window-state plugins — Apache-2.0 OR MIT;
-- `serde`, `serde_json`, and `log` — MIT OR Apache-2.0;
+- `serde`, `serde_json`, `chrono`, and `log` — MIT OR Apache-2.0;
 - `windows` and `windows-sys` — MIT OR Apache-2.0; and
 - `cpal` — Apache-2.0.
 
@@ -62,6 +62,8 @@ The final release process should generate an inventory from:
 That generated inventory should include package name, exact version, license expression, upstream copyright notice, source URL, required license text, and whether the component is shipped or build-only.
 
 ## 4. Visual and Trademark Assets
+
+Official Elite Dangerous ship images are isolated under `src/assets/frontier/elite-dangerous/ships/` and referenced only by `src/features/frontierAssets.ts`. They were retrieved from Frontier Developments plc's official Gamestore starship database on 2026-08-14; the per-file inventory and reproducible source pages are recorded in `src/assets/frontier/elite-dangerous/SOURCES.md`. Their status is **Frontier Asset – permission requested**. They remain subject to Frontier Developments' applicable terms and outside the project's GPL, CC BY, and OGG Creative Content classifications. The project claims no rights in Elite Dangerous or Frontier assets. No rank badge file is included because no sufficiently traceable official downloadable series was found.
 
 | Repository item | Finding | Required treatment |
 | --- | --- | --- |

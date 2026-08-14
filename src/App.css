@@ -456,7 +456,7 @@ h1 {
 
 .content {
   width: 100%;
-  padding: 22px clamp(16px, 2.4vw, 34px) 28px;
+  padding: 22px clamp(16px, 2.4vw, 34px) 104px;
 }
 
 .topbar {
@@ -736,7 +736,10 @@ h1 {
   background: rgba(255, 255, 255, 0.02);
   color: #93a3b0;
   font-size: 0.74rem;
+  cursor: pointer;
 }
+
+.module-profile-options .module-profile-options__chip { margin-top: 0; }
 
 .module-profile-options__chip--active {
   border-color: rgba(32, 200, 255, 0.45);
@@ -1172,6 +1175,240 @@ footer {
   font-size: 0.72rem;
 }
 
+.command-card-grid {
+  display: grid;
+  grid-template-areas:
+    "commander journey"
+    "ship ship";
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.command-card--commander { grid-area: commander; }
+.command-card--journey { grid-area: journey; }
+.command-card--ship { grid-area: ship; }
+
+.commander-ranks {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.commander-ranks--dual {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.commander-rank {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(0, 153, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(0, 153, 255, 0.025);
+}
+
+.commander-rank > div { min-width: 0; text-align: center; }
+.commander-rank span { display: block; color: #718799; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+.commander-rank strong { display: block; margin-top: 5px; color: #dcecf2; font-size: 0.82rem; overflow-wrap: anywhere; }
+.commander-rank small { display: block; margin-top: 3px; color: #dcecf2; font-size: 0.82rem; }
+.commander-rank progress { margin-top: 9px; }
+
+.command-card {
+  min-width: 0;
+  border-color: rgba(0, 153, 255, 0.2);
+}
+
+.command-card > header {
+  display: flex;
+  min-height: 62px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.command-card h3 {
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.command-card dl,
+.data-flow-dialog dl {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+}
+
+.command-card dl > div,
+.data-flow-dialog dl > div {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.command-card dt,
+.data-flow-dialog dt {
+  color: #718799;
+  font-size: 0.72rem;
+}
+
+.command-card dd,
+.data-flow-dialog dd {
+  margin: 0;
+  color: #dcecf2;
+  font-size: 0.82rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.command-card progress {
+  width: 100%;
+  height: 6px;
+  margin-top: 16px;
+  accent-color: #0099FF;
+}
+
+.command-card__asset,
+.command-card__asset-fallback {
+  display: grid;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid rgba(0, 153, 255, 0.32);
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.command-card__asset-fallback {
+  color: #0099FF;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.command-card--ship > header {
+  min-height: 0;
+}
+
+.command-card__ship-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: stretch;
+  margin-top: 18px;
+}
+
+.command-card__ship-asset {
+  display: block;
+  width: 100%;
+  height: clamp(220px, 25vw, 380px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  object-fit: contain;
+}
+
+.command-card__asset-fallback.command-card__ship-asset {
+  display: grid;
+  place-items: center;
+}
+
+.command-card__ship-details {
+  align-content: center;
+  gap: 28px;
+  margin: 0;
+  text-align: center;
+}
+
+.command-card dl.command-card__ship-details > div {
+  display: grid;
+  gap: 5px;
+  justify-content: center;
+}
+
+.command-card__ship-details dd {
+  text-align: center;
+}
+
+.data-flow-status {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  z-index: 6;
+  display: inline-flex;
+  max-width: calc(100vw - 190px);
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(0, 153, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(5, 14, 21, 0.96);
+  color: #b9d7e7;
+  font-size: 0.78rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+}
+
+.data-flow-status i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #5ee09a;
+  box-shadow: 0 0 10px rgba(94, 224, 154, 0.65);
+}
+
+.data-flow-status--external i {
+  background: #ffbf5c;
+}
+
+.data-flow-dialog {
+  width: min(680px, 100%);
+}
+
+.data-flow-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.data-flow-dialog__section {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(0, 153, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(0, 153, 255, 0.035);
+}
+
+.data-flow-dialog__section > strong,
+.data-flow-dialog__section > span {
+  display: block;
+}
+
+.data-flow-dialog__section > span {
+  margin-top: 5px;
+  color: #718799;
+  font-size: 0.76rem;
+}
+
+.data-flow-dialog__section ul {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: #afc0ca;
+  line-height: 1.65;
+}
+
+@media (max-width: 1000px) {
+  .command-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 1000px) {
   .dashboard-hero {
     grid-template-columns: 1fr;
@@ -1279,6 +1516,22 @@ footer {
   .bordcomputer-actions {
     justify-content: flex-end;
   }
+
+  .content { padding-bottom: 132px; }
+  .command-card-grid {
+    grid-template-areas:
+      "commander"
+      "journey"
+      "ship";
+    grid-template-columns: 1fr;
+  }
+  .command-card__ship-layout { grid-template-columns: 1fr; }
+  .data-flow-status { right: 12px; bottom: 12px; left: 12px; max-width: none; justify-content: center; transform: none; border-radius: 12px; text-align: center; }
+  .app-version { bottom: 62px; }
+}
+
+@media (max-width: 560px) {
+  .commander-ranks--dual { grid-template-columns: 1fr; }
 }
 
 /* Tony's Edition: rendered only for the two journal-verified Tony profiles. */

@@ -39,6 +39,8 @@ Third-party code, dependency metadata, assets, and marks remain under their actu
 | --- | --- |
 | `src/assets/react.svg` and `src/assets/vite.svg` | React and Vite upstream asset and mark terms |
 | `public/icons.svg` | Recognizable Discord, Bluesky, GitHub, and X marks plus generic social and documentation symbols. Exact copied-file provenance and license are not sufficiently evidenced; applicable platform trademark rules remain controlling. |
+| `src/assets/frontier/elite-dangerous/ships/` | Official Frontier / Elite Dangerous ship imagery; permission requested. File provenance is recorded in the adjacent `SOURCES.md`. The removable central resolver does not reclassify the images as project assets. |
+| Future `src/assets/frontier/elite-dangerous/ranks/` badges | Frontier third-party material; no badge files currently included because a sufficiently traceable official downloadable series was not found. Permission requested. |
 | npm and Cargo dependencies, lockfile entries, and referenced build actions | Their own upstream licenses and notices; inclusion in dependency or workflow metadata does not make them project code |
 
 No ownership or relicensing claim is made for third-party or trademark material.
