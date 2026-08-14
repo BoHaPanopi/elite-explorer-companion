@@ -4,7 +4,7 @@ import {
   DISCORD_WELCOME_CHANNEL_ID,
 } from "./env.js";
 
-export const OGG_COLOR = "#0099FF";
+export { OGG_COLOR } from "../content/brand.js";
 export const ACCEPT_RULES_CUSTOM_ID = "ogg:onboarding:accept-rules";
 
 export {

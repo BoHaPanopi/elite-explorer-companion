@@ -7,16 +7,19 @@ export type TelemetrySnapshot = {
   stationName: string | null;
   planetName: string | null;
   eliteConnected: boolean;
+  currentTelemetryConfirmed: boolean;
 };
 
-export type LastKnownTelemetry = Omit<TelemetrySnapshot, "eliteConnected">;
+export type LastKnownTelemetry = Omit<TelemetrySnapshot, "eliteConnected" | "currentTelemetryConfirmed">;
 
 export const LAST_KNOWN_TELEMETRY_KEY = "eec.lastKnownTelemetry";
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 export function hasCurrentTelemetry(snapshot: TelemetrySnapshot | null): boolean {
-  return snapshot?.eliteConnected === true && Boolean(snapshot.system);
+  return snapshot?.eliteConnected === true
+    && snapshot.currentTelemetryConfirmed === true
+    && Boolean(snapshot.system);
 }
 
 export function updateLastKnownTelemetry(previous: LastKnownTelemetry | null, snapshot: TelemetrySnapshot | null): LastKnownTelemetry | null {

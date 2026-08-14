@@ -1,4 +1,14 @@
 import type { Guild, GuildEmoji, Message } from "discord.js";
+import {
+  animatedFacepalmPatterns,
+  eyebrowPatterns,
+  eyeRollPatterns,
+  grinPatterns,
+  grimPatterns,
+  helpRequestPatterns,
+  OGG_EMOJI_DEFINITIONS,
+  staticFacepalmPatterns,
+} from "../content/oggEmojiContent.ts";
 
 export type OggEmojiKey =
   | "eyebrow"
@@ -10,7 +20,7 @@ export type OggEmojiKey =
 
 export type OggReactionKey = OggEmojiKey;
 
-type OggEmojiDefinition = {
+export type OggEmojiDefinition = {
   key: OggEmojiKey;
   name: string;
   animated: boolean;
@@ -49,59 +59,12 @@ type ReactionContext = {
   joinedTimestamp: number | null;
 };
 
-const OGG_EMOJI_DEFINITIONS: readonly OggEmojiDefinition[] = [
-  { key: "eyebrow", name: "Augenbraue_OGG", animated: false },
-  { key: "grim", name: "Grimmiger_OGG_Masterformat", animated: false },
-  { key: "eyeRoll", name: "OGG_Augenrollen", animated: false },
-  { key: "grin", name: "OGG_Grinsen2", animated: false },
-  { key: "facepalmStatic", name: "OGG_Facepalm_5_Finger", animated: false },
-  { key: "facepalmAnimated", name: "OGG_Facepalm", animated: true },
-] as const;
-
 const EMOJI_CACHE_TTL_MS = 5 * 60 * 1000;
 const NEW_MEMBER_FACEPALM_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const RARE_FACEPALM_BUCKET = 17;
 const RARE_FACEPALM_MODULO = 29;
 
 const emojiCache = new Map<string, { expiresAt: number; resolution: OggEmojiResolution }>();
-
-const eyebrowPatterns = [
-  /\b(angeblich|allegedly|trust me|sure thing|ganz sicher|totally)\b/i,
-  /\b(source\?|beleg\?|wirklich\?)\b/i,
-  /\b(works on my machine)\b/i,
-];
-
-const grimPatterns = [
-  /\b(rm -rf|drop(?:ped)? (?:the )?(?:prod|production|database|table)|force ?push(?:ed)? main|deleted production)\b/i,
-  /\b(geheimnis|secret|token|credential|apikey|api key).{0,24}\b(leak|geleakt|public|committed|push(?:ed)?)\b/i,
-  /\b(prod(?:uction)?).{0,24}\b(broke|kaputt|down|dead)\b/i,
-];
-
-const eyeRollPatterns = [
-  /\b(not again|again\b|schon wieder|wieder mal|same issue|same bug|as usual|wie immer)\b/i,
-  /\b(still broken|immer noch kaputt|nochmal passiert)\b/i,
-];
-
-const grinPatterns = [
-  /\b(called it|told you|wie gesagt|hab ich doch gesagt|fixed it|läuft wieder|works now|na also)\b/i,
-  /\b(mission accomplished|problem solved|issue closed|case closed)\b/i,
-];
-
-const staticFacepalmPatterns = [
-  /\b(oops|ups|peinlich|embarrassing|wrong branch|falscher branch|accidentally|versehentlich)\b/i,
-  /\b(sent|posted|deployed|merged).{0,24}\b(wrong|falsch|prod|production|main)\b/i,
-  /\b(unnötiges chaos|needless chaos|chaos)\b/i,
-];
-
-const animatedFacepalmPatterns = [
-  /\b(rm -rf \/|format c:|dropped production|deleted production database|pushed secrets|committed secrets)\b/i,
-  /\b(deployed).{0,24}\b(broken hotfix twice|totally broken|catastrophic)\b/i,
-];
-
-const helpRequestPatterns = [
-  /\b(help|hilfe|support|frage|question|kann jemand helfen|can someone help|how do i|wie kann ich)\b/i,
-  /\?$/,
-];
 
 function normalizeContent(content: string): string {
   return content.replace(/\s+/g, " ").trim();

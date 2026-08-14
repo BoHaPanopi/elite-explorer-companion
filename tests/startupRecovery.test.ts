@@ -118,7 +118,7 @@ test("local test builds skip only their own updater check", () => {
 });
 
 test("initial setup explains the temporary computer-name limitation in every supported language", () => {
-  const messages = readFileSync("src/i18n.tsx", "utf8");
+  const messages = readFileSync("src/content/uiMessages.ts", "utf8");
   const panel = readFileSync("src/components/AssistantPanel.tsx", "utf8");
   const app = readFileSync("src/App.tsx", "utf8");
 
@@ -145,8 +145,8 @@ test("initial setup explains the temporary computer-name limitation in every sup
 });
 
 test("every selectable language defines every interface message without an English fallback", () => {
-  const source = readFileSync("src/i18n.tsx", "utf8");
-  const messageDefinitions = source.slice(source.indexOf("const baseMessages"), source.indexOf("type MessageKey"));
+  const source = readFileSync("src/content/uiMessages.ts", "utf8");
+  const messageDefinitions = source.slice(source.indexOf("const baseMessages"));
   const germanBlock = source.slice(source.indexOf("  de: {") + "  de: {".length, source.indexOf("  en: {"));
   const keys = [...germanBlock.matchAll(/\b([a-z][A-Za-z0-9]*):/g)].map((match) => match[1]);
 

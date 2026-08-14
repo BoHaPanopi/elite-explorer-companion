@@ -1,5 +1,14 @@
 import type { Language } from "../types/language.ts";
 import type { TacticalTarget, ThreatLevel } from "ogg-core";
+import {
+  TONY_GREETING_VARIANTS,
+  TONY_START_POOL,
+  TONY_TACTICAL_TEXT,
+  TONY_TACTICAL_COMMENTS,
+  TONY_WELCOME_MESSAGES,
+} from "../content/tony.ts";
+
+export { seasonalMessage, TONY_START_POOL } from "../content/tony.ts";
 
 export type TonyProfile = "helitony" | "helitony2";
 export type TonyMessageType = "welcome" | "seasonal";
@@ -9,111 +18,11 @@ type TonyGreetingContext = {
   bordcomputerName: string;
   commanderName: string;
   isReturning: boolean;
-};
-
-type TonyGreetingVariant = {
-  online: string;
-  ready: string;
-  firstVisit: string;
-  returning: string;
-};
-
-const greetingVariants: TonyGreetingVariant[] = [
-  {
-    online: "Onboard computer {computer} is online.",
-    ready: "All systems are ready.",
-    firstVisit: "Welcome to the cockpit, {commander}.",
-    returning: "Welcome back to the cockpit, {commander}.",
-  },
-  {
-    online: "Onboard computer {computer} reporting in.",
-    ready: "Everything is up and running.",
-    firstVisit: "Good to have you aboard, {commander}.",
-    returning: "Good to have you back aboard, {commander}.",
-  },
-  {
-    online: "Onboard computer {computer} is awake.",
-    ready: "The ship is ready when you are.",
-    firstVisit: "The cockpit is yours, {commander}.",
-    returning: "The cockpit has been waiting for you, {commander}.",
-  },
-  {
-    online: "Onboard computer {computer} is fully online.",
-    ready: "All systems are behaving themselves.",
-    firstVisit: "Welcome aboard, {commander}.",
-    returning: "Welcome back aboard, {commander}.",
-  },
-  {
-    online: "Onboard computer {computer} is ready.",
-    ready: "The system check came back clean.",
-    firstVisit: "Settle in, {commander}.",
-    returning: "Settle back in, {commander}.",
-  },
-  {
-    online: "Onboard computer {computer} is running.",
-    ready: "The ship is in good order.",
-    firstVisit: "Your seat is ready, {commander}.",
-    returning: "Your seat is ready again, {commander}.",
-  },
-];
-
-const tacticalComments: Record<ThreatLevel, string> = {
-  green: "They have picked the wrong ship today.",
-  yellow: "I would not underestimate that one.",
-  orange: "Right. This is getting uncomfortable.",
-  red: "That is our cue to leave. No need to make a ceremony of it.",
+  random?: () => number;
 };
 
 let lastGreetingVariantIndex = -1;
-
-const welcomeMessages: Record<TonyProfile, string> = {
-  helitony: `Welcome aboard, Tony.
-
-Thank you for being the very first external Commander
-to help shape the future of OGG.
-
-Your friendship,
-your support,
-and your honest feedback
-mean more to me than you probably realise.
-
-Take your time,
-enjoy the journey,
-and welcome aboard.
-
-Fly safe, my friend.
-
-o7`,
-  helitony2: `Welcome back, Tony.
-
-Guardian of the Black...
-
-The Fuel Rats chapter may be closed...
-
-...yet Helitony2 is still quietly watching over the road between Colonia and Sagittarius A*.
-
-Some habits are simply part of who we are.
-
-Fly safe, my friend.
-
-o7`,
-};
-
-export const seasonalMessage = `Tony...
-
-Don't forget to put the Christmas tree
-in the cockpit.
-
-And this year...
-
-don't forget to take it out again
-after Christmas.
-
-😄
-
-Fly safe.
-
-o7`;
+let lastTonyStartIndex = -1;
 
 export function resolveTonyProfile(commander: string | null | undefined): TonyProfile | null {
   const identity = commander?.toLocaleLowerCase("en-US");
@@ -123,7 +32,7 @@ export function resolveTonyProfile(commander: string | null | undefined): TonyPr
 }
 
 export function getTonyWelcomeMessage(profile: TonyProfile): string {
-  return welcomeMessages[profile];
+  return TONY_WELCOME_MESSAGES[profile];
 }
 
 export function selectCommanderIdentity(
@@ -153,29 +62,31 @@ export function createTonyStartupGreeting({
   bordcomputerName,
   commanderName,
   isReturning,
+  random = Math.random,
 }: TonyGreetingContext): string[] {
-  const offset = 1 + Math.floor(Math.random() * (greetingVariants.length - 1));
+  const offset = 1 + Math.floor(random() * (TONY_GREETING_VARIANTS.length - 1));
   const index = lastGreetingVariantIndex < 0
-    ? Math.floor(Math.random() * greetingVariants.length)
-    : (lastGreetingVariantIndex + offset) % greetingVariants.length;
+    ? Math.floor(Math.random() * TONY_GREETING_VARIANTS.length)
+    : (lastGreetingVariantIndex + offset) % TONY_GREETING_VARIANTS.length;
   lastGreetingVariantIndex = index;
 
-  const variant = greetingVariants[index];
-  const commander = commanderName.trim();
-  const commanderReference = commander === "Commander"
-    ? "Commander"
-    : `Commander ${commander}`;
+  const variant = TONY_GREETING_VARIANTS[index];
+  void commanderName;
+  void isReturning;
+  const specialIndex = lastTonyStartIndex < 0
+    ? Math.floor(random() * TONY_START_POOL.length)
+    : (lastTonyStartIndex + 1 + Math.floor(random() * (TONY_START_POOL.length - 1))) % TONY_START_POOL.length;
+  lastTonyStartIndex = specialIndex;
 
   return [
     variant.online.replace("{computer}", bordcomputerName),
     variant.ready,
-    (isReturning ? variant.returning : variant.firstVisit)
-      .replace("{commander}", commanderReference),
+    TONY_START_POOL[specialIndex]!,
   ];
 }
 
 export function getTonyTacticalComment(level: ThreatLevel): string {
-  return tacticalComments[level];
+  return TONY_TACTICAL_COMMENTS[level];
 }
 
 export function createTonyTacticalText(
@@ -188,24 +99,24 @@ export function createTonyTacticalText(
   oggComment: string;
 } {
   const title = target.missionTarget
-    ? `Mission target: ${target.pilotName}`
+    ? TONY_TACTICAL_TEXT.missionTargetTitle.replace("{pilotName}", target.pilotName)
     : target.legalStatus === "Wanted"
-      ? `Wanted pilot: ${target.pilotName}`
-      : `Scan by ${target.pilotName}`;
+      ? TONY_TACTICAL_TEXT.wantedPilotTitle.replace("{pilotName}", target.pilotName)
+      : TONY_TACTICAL_TEXT.scanTitle.replace("{pilotName}", target.pilotName);
   const missionText = target.missionTarget
-    ? "Mission target"
+    ? TONY_TACTICAL_TEXT.missionTargetDetail
     : target.legalStatus === "Wanted"
-      ? "Wanted, not a mission target"
-      : "Clean";
+      ? TONY_TACTICAL_TEXT.wantedDetail
+      : TONY_TACTICAL_TEXT.cleanDetail;
   const wingText = target.wingSize > 1
-    ? ` · Wing of ${target.wingSize} ships`
+    ? TONY_TACTICAL_TEXT.wingDetail.replace("{wingSize}", String(target.wingSize))
     : "";
   const bountyText = target.bounty > 0
-    ? ` · Expected bounty ${target.bounty.toLocaleString("en-US")} Cr`
+    ? TONY_TACTICAL_TEXT.bountyDetail.replace("{bounty}", target.bounty.toLocaleString("en-US"))
     : "";
   const opponentWarning = level === "red" || level === "orange"
-    ? `Pilot ${target.pilotName}. You scanned us. Consider this your first and final warning.`
-    : `Pilot ${target.pilotName}. You scanned us. Before you do anything foolish, I would think that through once more.`;
+    ? TONY_TACTICAL_TEXT.severeOpponentWarning.replace("{pilotName}", target.pilotName)
+    : TONY_TACTICAL_TEXT.standardOpponentWarning.replace("{pilotName}", target.pilotName);
 
   return {
     title,

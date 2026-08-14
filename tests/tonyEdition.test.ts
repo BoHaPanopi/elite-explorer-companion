@@ -11,6 +11,7 @@ import {
   resolveTonyProfile,
   selectCommanderIdentity,
   seasonalMessage,
+  TONY_START_POOL,
   tonySeasonalStorageKey,
   tonyWelcomeStorageKey,
 } from "ogg-core";
@@ -52,6 +53,11 @@ test("forces English OGG output only for the exact Tony identities", () => {
   assert.deepEqual(resolveOggMode("Panopi", "en"), { language: "en", mode: "standard", tonyProfile: null });
 });
 
+test("both Tony identities use the en-GB OGG locale", () => {
+  assert.equal(resolveOggMode("helitony", "de").language, "en");
+  assert.equal(resolveOggMode("helitony2", "de").language, "en");
+});
+
 test("restores the last known Tony identity until the journal reports a commander", () => {
   assert.equal(selectCommanderIdentity(null, "helitony"), "helitony");
   assert.equal(resolveOggMode(selectCommanderIdentity(null, "helitony"), "de").mode, "tony");
@@ -61,7 +67,7 @@ test("restores the last known Tony identity until the journal reports a commande
   assert.equal(resolveOggMode(selectCommanderIdentity("Panopi", "helitony"), "de").mode, "standard");
 });
 
-test("Tony greetings are English and never repeat the same variant directly", () => {
+test("Tony greetings are English, personal, and never repeat the same exact line directly", () => {
   const greetings = Array.from({ length: 18 }, () =>
     createTonyStartupGreeting({
       bordcomputerName: "Old Guy of Grumpy",
@@ -72,7 +78,8 @@ test("Tony greetings are English and never repeat the same variant directly", ()
 
   for (const greeting of greetings) {
     assert.match(greeting, /Onboard computer Old Guy of Grumpy/);
-    assert.match(greeting, /Commander Helitony/);
+    assert.ok(TONY_START_POOL.some((line) => greeting.includes(line)));
+    assert.doesNotMatch(greeting, /\b(?:Commander|CMDR|Captain)\b/i);
   }
 
   for (let index = 1; index < greetings.length; index += 1) {

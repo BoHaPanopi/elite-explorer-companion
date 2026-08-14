@@ -97,6 +97,24 @@ test("frontend stall diagnostics are emitted after missed heartbeat", () => {
   assert.match(backendSource, /> 12_000/);
 });
 
+test("frontend polling and speech emit local timing diagnostics for stall investigation", () => {
+  for (const kind of [
+    "FRONTEND_TICK_START",
+    "FRONTEND_TICK_END",
+    "TELEMETRY_POLL_START",
+    "TELEMETRY_POLL_END",
+    "ANNA_POLL_START",
+    "ANNA_POLL_END",
+    "RENDER_STALL_WARNING",
+  ]) {
+    assert.match(appSource, new RegExp(kind));
+  }
+  assert.match(speechSource, /VOICE_FRONTEND_START/);
+  assert.match(speechSource, /VOICE_FRONTEND_END/);
+  assert.match(appSource, /durationMs:\s*telemetryDurationMs/);
+  assert.match(appSource, /durationMs:\s*annaDurationMs/);
+});
+
 test("logging failures are contained and do not crash app flow", () => {
   assert.match(diagnosticsSource, /logging_without_global_logger_is_safe/);
   assert.match(diagnosticsSource, /if let Err\(error\) = self\.sender\.try_send\(line\)/);

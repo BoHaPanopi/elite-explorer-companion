@@ -1,4 +1,5 @@
 import type { Language } from "../i18n";
+import { CREW_VARIANTS_BY_ROLE } from "../content/crewProfiles.ts";
 
 export type CrewLocale = "de" | "uk" | "fr" | "it" | "es";
 
@@ -30,157 +31,6 @@ export const crewRoleLabels: Record<CrewRole, string> = {
   science: "Science",
   engineeringSystems: "Engineering & Systems",
   weaponsTactics: "Weapons & Tactics",
-};
-
-const crewVariantsByRole: Record<CrewRole, CrewVariant[]> = {
-  navigation: [
-    {
-      locale: "de",
-      fullName: "Ole Wilhelm Knudsen",
-      callSign: "Wilhelm",
-      region: "Hanseat / norddeutsche Kueste",
-      portraitFileName: "ole.png",
-    },
-    {
-      locale: "uk",
-      fullName: "Antony William Hanam",
-      callSign: "William",
-      region: "West Sussex / Southern England",
-      portraitFileName: "william.png",
-    },
-    {
-      locale: "fr",
-      fullName: "Guillaume Le Gall",
-      callSign: "Guillaume",
-      region: "Bretagne",
-      portraitFileName: "guillaume.png",
-    },
-    {
-      locale: "it",
-      fullName: "Guglielmo Parodi",
-      callSign: "Guglielmo",
-      region: "Genua / Ligurien",
-      portraitFileName: "guglielmo.png",
-    },
-    {
-      locale: "es",
-      fullName: "Guillermo Souto",
-      callSign: "Guillermo",
-      region: "Galicien",
-      portraitFileName: "guillermo.png",
-    },
-  ],
-  science: [
-    {
-      locale: "de",
-      fullName: "Dr. Anna Kaeberer",
-      callSign: "Anna",
-      region: "Wiesbaden / Rhein-Main",
-      portraitFileName: "kaeberer.png",
-    },
-    {
-      locale: "uk",
-      fullName: "Dr Anna Beckett",
-      callSign: "Anna",
-      region: "Cambridge / Cambridgeshire",
-      portraitFileName: "beckett.png",
-    },
-    {
-      locale: "fr",
-      fullName: "Dr Claire Anne Fabre",
-      callSign: "Anne",
-      region: "Toulouse / Okzitanien",
-      portraitFileName: "fabre.png",
-    },
-    {
-      locale: "it",
-      fullName: "Dott.ssa Anna Ferrari",
-      callSign: "Anna",
-      region: "Bologna / Emilia-Romagna",
-      portraitFileName: "ferrari.png",
-    },
-    {
-      locale: "es",
-      fullName: "Dra. Ana Sanchez Martin",
-      callSign: "Ana",
-      region: "Salamanca / Kastilien und Leon",
-      portraitFileName: "sanchez-martin.png",
-    },
-  ],
-  engineeringSystems: [
-    {
-      locale: "de",
-      fullName: "Susanne Jungverdorben",
-      callSign: "Susanne",
-      region: "Ruhrgebiet",
-      portraitFileName: "susanne.png",
-    },
-    {
-      locale: "uk",
-      fullName: "Karen Susan Makepeace",
-      callSign: "Susan",
-      region: "Birmingham / West Midlands",
-      portraitFileName: "karen.png",
-    },
-    {
-      locale: "fr",
-      fullName: "Suzanne Dubois",
-      callSign: "Suzanne",
-      region: "Lille / Nordfrankreich",
-      portraitFileName: "suzanne.png",
-    },
-    {
-      locale: "it",
-      fullName: "Susanna Macchina",
-      callSign: "Susanna",
-      region: "Turin / Piemont",
-      portraitFileName: "susanna.png",
-    },
-    {
-      locale: "es",
-      fullName: "Susana Urrutia",
-      callSign: "Susana",
-      region: "Bilbao / Baskenland",
-      portraitFileName: "susana.png",
-    },
-  ],
-  weaponsTactics: [
-    {
-      locale: "de",
-      fullName: "Bastian Sauer",
-      callSign: "Bastian",
-      region: "Mitteldeutschland",
-      portraitFileName: "bastian.png",
-    },
-    {
-      locale: "uk",
-      fullName: "Sebastian Gunn",
-      callSign: "Sebastian",
-      region: "Caithness / Schottland",
-      portraitFileName: "sebastian.png",
-    },
-    {
-      locale: "fr",
-      fullName: "Sebastien Oberst",
-      callSign: "Sebastien",
-      region: "Elsass",
-      portraitFileName: "sebastien.png",
-    },
-    {
-      locale: "it",
-      fullName: "Sebastiano Scuderi",
-      callSign: "Sebastiano",
-      region: "Sizilien",
-      portraitFileName: "sebastiano.png",
-    },
-    {
-      locale: "es",
-      fullName: "Alvaro Sebastian Guerra Paz",
-      callSign: "Sebastian",
-      region: "Asturien",
-      portraitFileName: "alvaro.png",
-    },
-  ],
 };
 
 const portraitModules = import.meta.glob("../assets/*.png", {
@@ -228,7 +78,7 @@ export function resolveCrewSelection(
 ): CrewVariant {
   const fallback = defaultCrewLocaleForUiLanguage(language);
   const selectedLocale = selections[role] ?? fallback;
-  const variants = crewVariantsByRole[role];
+  const variants = CREW_VARIANTS_BY_ROLE[role];
 
   return (
     variants.find((variant) => variant.locale === selectedLocale) ?? variants[0]
@@ -245,7 +95,7 @@ export function isCrewLocaleActive(
 }
 
 export function getCrewVariants(role: CrewRole): CrewVariant[] {
-  return crewVariantsByRole[role];
+  return CREW_VARIANTS_BY_ROLE[role];
 }
 
 export function resolveCrewPortraitSource(fileName: string): string | null {

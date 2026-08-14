@@ -12,6 +12,17 @@ Old Guy of Grumpy (OGG) — the official AI-powered onboard companion for the El
 - [Security Policy](./SECURITY.md) – public security philosophy, alpha support note, and reporting guidance.
 - [Security Model](./docs/SECURITY_MODEL.md) – detailed trust boundaries, least-privilege model, and integration constraints.
 
+## Licensing
+
+This repository uses a split license structure:
+
+- project-owned technical program code is licensed under `GPL-3.0-or-later` — see [LICENSE](./LICENSE) and [LICENSE_SCOPE.md](./LICENSE_SCOPE.md);
+- only the technical documentation listed in `LICENSE_SCOPE.md` is licensed under `CC BY 4.0`;
+- OGG, brand, character, portrait, lore, dialogue, and other Creative Content is All rights reserved; and
+- third-party software, assets, and marks remain under their original terms.
+
+See the [license matrix](./docs/LICENSE_MATRIX.md), [Creative Content rights boundary](./docs/CREATIVE_CONTENT_RIGHTS.md), [asset provenance](./docs/ASSET_PROVENANCE.md), and [third-party notices](./THIRD_PARTY_NOTICES.md) for the exact classification.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { normalizeVoiceLocale, type SupportedVoiceLocale } from "../voices/crewVoiceProfiles";
-import { OGG_VOICE_CONFIG } from "../voices/voiceConfig";
+import { getCrewVoiceProfile, normalizeVoiceLocale, type CrewVoiceGender, type SupportedVoiceLocale } from "../voices/crewVoiceProfiles.ts";
+import { OGG_VOICE_CONFIG } from "../voices/voiceConfig.ts";
 
 export type SpeechOptions = {
   rate?: number;
@@ -12,7 +12,27 @@ export type SpeechOptions = {
   speaker?: string;
   locale?: string;
   style?: string;
+  voiceGender?: CrewVoiceGender;
 };
+
+export type LocalVoiceResolutionRequest = {
+  locale: SupportedVoiceLocale;
+  baseVoiceName?: string;
+  gender?: CrewVoiceGender;
+};
+
+export function resolveLocalVoice(
+  voices: LocalVoice[],
+  request: LocalVoiceResolutionRequest,
+): LocalVoice | null {
+  const normalizedLocale = request.locale.toLocaleLowerCase();
+  const normalizedName = request.baseVoiceName?.trim().toLocaleLowerCase();
+  return voices
+    .filter((voice) => voice.available && voice.locale.toLocaleLowerCase() === normalizedLocale)
+    .filter((voice) => !request.gender || voice.gender === request.gender)
+    .filter((voice) => !normalizedName || voice.displayName.trim().toLocaleLowerCase() === normalizedName)
+    .sort((left, right) => left.displayName.localeCompare(right.displayName) || left.id.localeCompare(right.id))[0] ?? null;
+}
 
 export type LocalVoice = {
   id: string;
@@ -75,24 +95,18 @@ class SpeechService {
   async getAvailability(
     localeInput: string,
     requestedVoice?: string,
+    requestedGender?: CrewVoiceGender,
   ): Promise<LocalVoiceAvailability> {
     const locale = normalizeVoiceLocale(localeInput);
     if (!locale) {
       throw new Error(`Unsupported OGG voice locale: ${localeInput}`);
     }
     const voices = await this.listLocalVoices();
-    const localeVoices = voices.filter(
-      (voice) => voice.available && voice.locale.toLowerCase() === locale.toLowerCase(),
-    );
+    const localeVoices = voices.filter((voice) => voice.available && voice.locale.toLowerCase() === locale.toLowerCase());
     if (!localeVoices.length) {
       return { locale, available: false, voice: null, reason: "locale_missing" };
     }
-    if (!requestedVoice) {
-      return { locale, available: true, voice: localeVoices[0], reason: "available" };
-    }
-    const voice = localeVoices.find(
-      (candidate) => candidate.id === requestedVoice || candidate.displayName === requestedVoice,
-    ) ?? null;
+    const voice = resolveLocalVoice(voices, { locale, baseVoiceName: requestedVoice, gender: requestedGender });
     return voice
       ? { locale, available: true, voice, reason: "available" }
       : { locale, available: false, voice: null, reason: "voice_missing" };
@@ -164,6 +178,7 @@ class SpeechService {
     const cleanedText = String(text ?? "").trim();
     const speaker = options.speaker ?? "OGG";
     const id = `voice-${Date.now()}-${(this.voiceSequence += 1)}`;
+    const frontendStartedAt = performance.now();
     if (!cleanedText) throw new Error("OGG hat keinen Text erhalten.");
 
     const requestedLocale = options.locale
@@ -172,15 +187,21 @@ class SpeechService {
       ?? "de-DE";
     const locale = normalizeVoiceLocale(requestedLocale);
     if (!locale) throw new Error(`Unsupported OGG voice locale: ${requestedLocale}`);
-    const requestedVoice = options.voice
-      ?? (speaker === "OGG" ? OGG_VOICE_CONFIG.voice : undefined);
-    const availability = await this.getAvailability(locale, requestedVoice);
+    logDiagnostic("VOICE_FRONTEND_START", { id, speaker, locale, localProcessing: true });
+    const profile = speaker === "OGG"
+      ? getCrewVoiceProfile(locale, "M1")
+      : undefined;
+    const requestedVoice = options.voice ?? profile?.baseVoiceName
+      ?? (normalizeVoiceLocale(OGG_VOICE_CONFIG.locale) === locale ? OGG_VOICE_CONFIG.voice : undefined);
+    const requestedGender = options.voiceGender ?? profile?.gender;
+    const availability = await this.getAvailability(locale, requestedVoice, requestedGender);
     if (!availability.available || !availability.voice) {
       logDiagnostic("VOICE_UNAVAILABLE", {
         id,
         speaker,
         locale,
         requestedVoice: requestedVoice ?? null,
+        requestedGender: requestedGender ?? null,
         reason: availability.reason,
         localProcessing: true,
       });
@@ -236,6 +257,13 @@ class SpeechService {
         localProcessing: true,
         playbackDurationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       });
+      logDiagnostic("VOICE_FRONTEND_END", {
+        id,
+        speaker,
+        locale,
+        durationMs: Math.max(0, Math.round(performance.now() - frontendStartedAt)),
+        localProcessing: true,
+      });
     } catch (error) {
       logDiagnostic("VOICE_ERROR", {
         id,
@@ -243,6 +271,14 @@ class SpeechService {
         locale,
         localProcessing: true,
         error: errorMessage(error),
+      });
+      logDiagnostic("VOICE_FRONTEND_END", {
+        id,
+        speaker,
+        locale,
+        durationMs: Math.max(0, Math.round(performance.now() - frontendStartedAt)),
+        error: errorMessage(error),
+        localProcessing: true,
       });
       throw error;
     }

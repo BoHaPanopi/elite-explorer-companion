@@ -98,6 +98,19 @@ fn journal_changed(previous: &JournalCacheState, current: &JournalCacheState) ->
         || previous.modified_ms != current.modified_ms
 }
 
+fn with_elite_connection_state(mut snapshot: EliteSnapshot, elite_connected: bool) -> EliteSnapshot {
+    snapshot.elite_connected = elite_connected;
+
+    if !snapshot.elite_connected {
+        snapshot.docked = None;
+        snapshot.ship_state = None;
+        snapshot.station_name = None;
+        snapshot.planet_name = None;
+    }
+
+    snapshot
+}
+
 const RELEVANT_JOURNAL_EVENTS: &[&str] = &[
     "FSDJump",
     "StartJump",
@@ -687,6 +700,7 @@ struct EliteSnapshot {
     max_jump_range: Option<f64>,
     has_wake_scanner: bool,
     elite_connected: bool,
+    current_telemetry_confirmed: bool,
     exploration: ExplorationSnapshot,
     journal_path: String,
     navigation_progress: NavigationProgress,
@@ -698,8 +712,8 @@ fn is_elite_dangerous_running() -> bool {
 }
 
 #[tauri::command]
-fn list_local_voices() -> Result<Vec<LocalVoice>, String> {
-    local_speech::list_local_voices()
+fn list_local_voices(state: tauri::State<'_, LocalSpeechState>) -> Result<Vec<LocalVoice>, String> {
+    local_speech::list_local_voices(state.inner())
 }
 
 #[tauri::command]
@@ -1396,6 +1410,7 @@ fn apply_snapshot_event(
 
     match event_name {
         "Commander" | "LoadGame" => {
+            snapshot.current_telemetry_confirmed = false;
             if let Some(name) = journal_commander_name(event) {
                 snapshot.commander = Some(name.to_string());
             }
@@ -1426,6 +1441,7 @@ fn apply_snapshot_event(
         }
 
         "Location" | "FSDJump" | "CarrierJump" => {
+            snapshot.current_telemetry_confirmed = true;
             *current_system_address = event.get("SystemAddress").and_then(Value::as_u64);
             *current_star_class = current_system_address.as_ref().and_then(|address| {
                 KNOWN_STAR_CLASSES
@@ -1600,6 +1616,29 @@ mod snapshot_cache_tests {
         };
 
         assert!(journal_changed(&previous, &current));
+    }
+
+    #[test]
+    fn cached_journal_snapshot_rechecks_the_live_elite_process_state() {
+        let mut journal_snapshot = EliteSnapshot::default();
+        journal_snapshot.system = Some("HIP 49485".into());
+        journal_snapshot.current_telemetry_confirmed = true;
+        journal_snapshot.docked = Some(false);
+        journal_snapshot.ship_state = Some(ShipState::Supercruise);
+
+        let disconnected = with_elite_connection_state(journal_snapshot, false);
+        assert!(!disconnected.elite_connected);
+        assert_eq!(disconnected.ship_state, None);
+
+        let mut cached_journal_snapshot = EliteSnapshot::default();
+        cached_journal_snapshot.system = Some("HIP 49485".into());
+        cached_journal_snapshot.current_telemetry_confirmed = true;
+        cached_journal_snapshot.docked = Some(false);
+        cached_journal_snapshot.ship_state = Some(ShipState::Supercruise);
+        let reconnected = with_elite_connection_state(cached_journal_snapshot, true);
+
+        assert!(reconnected.elite_connected);
+        assert_eq!(reconnected.ship_state, Some(ShipState::Supercruise));
     }
 }
 
@@ -1794,10 +1833,71 @@ mod navigation_tests {
     }
 
     #[test]
+    fn load_game_keeps_the_commander_but_does_not_invent_a_ship_status() {
+        let snapshot = apply_events(&[serde_json::json!({
+            "event": "LoadGame",
+            "Commander": "helitony2",
+            "Ship": "CobraMkIII",
+            "ShipName": "Test Ship",
+        })]);
+
+        assert_eq!(snapshot.commander.as_deref(), Some("helitony2"));
+        assert_eq!(snapshot.ship_state, None);
+        assert!(!snapshot.current_telemetry_confirmed);
+    }
+
+    #[test]
+    fn location_after_load_game_confirms_the_current_telemetry() {
+        let snapshot = apply_events(&[
+            serde_json::json!({ "event": "LoadGame", "Commander": "helitony" }),
+            serde_json::json!({
+                "event": "Location",
+                "StarSystem": "HIP 49485",
+                "SystemAddress": 908888937178u64,
+                "Docked": false,
+            }),
+        ]);
+
+        assert_eq!(snapshot.commander.as_deref(), Some("helitony"));
+        assert_eq!(snapshot.system.as_deref(), Some("HIP 49485"));
+        assert!(snapshot.current_telemetry_confirmed);
+    }
+
+    #[test]
     fn returns_to_normal_space_after_supercruise_exit() {
         let snapshot = apply_events(&[
             serde_json::json!({ "event": "SupercruiseEntry" }),
             serde_json::json!({ "event": "SupercruiseExit" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
+        assert_eq!(snapshot.docked, Some(false));
+    }
+
+    #[test]
+    fn preserves_supercruise_until_the_matching_exit_event_arrives() {
+        let snapshot = apply_events(&[
+            serde_json::json!({
+                "event": "Location",
+                "StarSystem": "HIP 49485",
+                "SystemAddress": 908888937178u64,
+                "Docked": false,
+            }),
+            serde_json::json!({ "event": "SupercruiseEntry" }),
+            serde_json::json!({ "event": "Status" }),
+            serde_json::json!({ "event": "Status" }),
+        ]);
+
+        assert_eq!(snapshot.ship_state, Some(ShipState::Supercruise));
+        assert_eq!(snapshot.docked, Some(false));
+    }
+
+    #[test]
+    fn supercruise_exit_remains_normal_space_through_following_status_events() {
+        let snapshot = apply_events(&[
+            serde_json::json!({ "event": "SupercruiseEntry" }),
+            serde_json::json!({ "event": "SupercruiseExit" }),
+            serde_json::json!({ "event": "Status" }),
         ]);
 
         assert_eq!(snapshot.ship_state, Some(ShipState::NormalSpace));
@@ -2143,12 +2243,15 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
             if !journal_changed(&cached.journal_state, &journal_state) {
                 let snapshot: EliteSnapshot = serde_json::from_str(&cached.snapshot_json)
                     .map_err(|error| format!("snapshot cache is invalid: {error}"))?;
-                return Ok(snapshot);
+                return Ok(with_elite_connection_state(
+                    snapshot,
+                    is_elite_dangerous_running(),
+                ));
             }
         }
     }
 
-    let mut snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
+    let snapshot = read_latest_snapshot(&journal_path, &journal_directory, locale)?;
     let commander_key = (journal_path.clone(), snapshot.commander.clone());
     let last_logged = LAST_LOGGED_COMMANDER.get_or_init(|| Mutex::new(None));
     if let Ok(mut previous) = last_logged.lock() {
@@ -2163,15 +2266,6 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
             *previous = Some(commander_key);
         }
     }
-    snapshot.elite_connected = is_elite_dangerous_running();
-
-    if !snapshot.elite_connected {
-        snapshot.docked = None;
-        snapshot.ship_state = None;
-        snapshot.station_name = None;
-        snapshot.planet_name = None;
-    }
-
     let snapshot_json = serde_json::to_string(&snapshot)
         .map_err(|error| format!("snapshot serialization failed: {error}"))?;
 
@@ -2182,7 +2276,10 @@ fn get_elite_snapshot(locale: Option<String>) -> Result<EliteSnapshot, String> {
         });
     }
 
-    Ok(snapshot)
+    Ok(with_elite_connection_state(
+        snapshot,
+        is_elite_dangerous_running(),
+    ))
 }
 
 #[tauri::command]

@@ -1,82 +1,43 @@
+import {
+  OGG_START_POOL,
+  OGG_START_SUFFIX_POOL,
+  PANOPI_START_LINE,
+} from "../content/startupGreetings.ts";
+
+export { OGG_START_POOL, OGG_START_SUFFIX_POOL, PANOPI_START_LINE } from "../content/startupGreetings.ts";
+
 export type GreetingContext = {
   bordcomputerName: string;
   commanderName: string;
   isReturning: boolean;
+  random?: () => number;
 };
 
-type GreetingVariant = {
-  online: string;
-  ready: string;
-  firstVisit: string;
-  returning: string;
-};
+let lastStartIndex = -1;
+let lastSuffixIndex = -1;
 
-const greetingVariants: GreetingVariant[] = [
-  {
-    online: "Bordcomputer {computer} ist online.",
-    ready: "Alle Systeme sind betriebsbereit.",
-    firstVisit: "Willkommen im Cockpit, {commander}.",
-    returning: "Willkommen zurück im Cockpit, {commander}.",
-  },
-  {
-    online: "Bordcomputer {computer} meldet sich online.",
-    ready: "Sämtliche Systeme sind einsatzbereit.",
-    firstVisit: "Willkommen an Bord, {commander}.",
-    returning: "Willkommen zurück an Bord, {commander}.",
-  },
-  {
-    online: "Bordcomputer {computer} ist hochgefahren.",
-    ready: "Die Systeme stehen bereit.",
-    firstVisit: "Das Cockpit erwartet Sie, {commander}.",
-    returning: "Schön, Sie wieder im Cockpit zu haben, {commander}.",
-  },
-  {
-    online: "Bordcomputer {computer} ist vollständig online.",
-    ready: "Alle Systeme laufen ordnungsgemäß.",
-    firstVisit: "Willkommen auf Ihrem Platz, {commander}.",
-    returning: "Willkommen wieder auf Ihrem Platz, {commander}.",
-  },
-  {
-    online: "Bordcomputer {computer} ist bereit.",
-    ready: "Der Systemcheck ist abgeschlossen.",
-    firstVisit: "Willkommen im Cockpit, {commander}.",
-    returning: "Willkommen zurück im Cockpit, {commander}.",
-  },
-  {
-    online: "Bordcomputer {computer} läuft.",
-    ready: "Alle Systeme melden Bereitschaft.",
-    firstVisit: "Willkommen an Bord, {commander}.",
-    returning: "Gut, Sie wieder an Bord zu haben, {commander}.",
-  },
-];
-
-let lastVariantIndex = -1;
-
-function chooseVariant(): GreetingVariant {
-  const offset = 1 + Math.floor(Math.random() * (greetingVariants.length - 1));
-  const index = lastVariantIndex < 0
-    ? Math.floor(Math.random() * greetingVariants.length)
-    : (lastVariantIndex + offset) % greetingVariants.length;
-  lastVariantIndex = index;
-  return greetingVariants[index];
+function chooseNonRepeating<T>(pool: readonly T[], lastIndex: number, random: () => number): [T, number] {
+  const index = lastIndex < 0
+    ? Math.floor(random() * pool.length)
+    : (lastIndex + 1 + Math.floor(random() * (pool.length - 1))) % pool.length;
+  return [pool[index]!, index];
 }
 
-export function createStartupGreeting({
-  bordcomputerName,
-  commanderName,
-  isReturning,
-}: GreetingContext): string[] {
-  const variant = chooseVariant();
-  const normalizedCommander = commanderName.trim();
-  const commanderReference =
-    normalizedCommander.toLocaleLowerCase("de-DE") === "commander"
-      ? "Commander"
-      : `Commander ${normalizedCommander}`;
+function isPanopi(commanderName: string): boolean {
+  return commanderName.trim().toLocaleLowerCase("de-DE") === "panopi";
+}
 
-  return [
-    variant.online.replace("{computer}", bordcomputerName),
-    variant.ready,
-    (isReturning ? variant.returning : variant.firstVisit)
-      .replace("{commander}", commanderReference),
-  ];
+export function createStartupGreeting({ commanderName, random = Math.random }: GreetingContext): string[] {
+  const name = commanderName.trim();
+  const [start, nextStartIndex] = chooseNonRepeating(OGG_START_POOL, lastStartIndex, random);
+  lastStartIndex = nextStartIndex;
+  const greeting = isPanopi(name)
+    ? PANOPI_START_LINE
+    : start.replace("{Name}", name);
+
+  // A suffix is deliberately independent from the base greeting pool.
+  if (random() >= 0.35) return [greeting];
+  const [suffix, nextSuffixIndex] = chooseNonRepeating(OGG_START_SUFFIX_POOL, lastSuffixIndex, random);
+  lastSuffixIndex = nextSuffixIndex;
+  return [greeting, suffix];
 }

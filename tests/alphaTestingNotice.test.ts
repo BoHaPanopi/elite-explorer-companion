@@ -14,18 +14,18 @@ const noticeSource = readFileSync(noticeTsPath, "utf8");
 const noticeTsxSource = readFileSync(noticeTsxPath, "utf8");
 const appSource = readFileSync(appPath, "utf8");
 
-test("notice version constant is 0.14.12", () => {
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.12");
+test("notice version constant is 0.14.13.3", () => {
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.13.3");
 });
 
-test("storage key is version-scoped to 0.14.12", () => {
+test("storage key is version-scoped to 0.14.13.3", () => {
   // Key is built from the version constant, not hardcoded – check both parts
   assert.match(noticeSource, /ogg\.alphaTesterNotice/);
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.12");
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.13.3");
 });
 
 test("DE title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.12 – Testhinweise/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.13\.3 – Testhinweise/);
   assert.match(noticeTsxSource, /neues Crew-Konfigurationslayout/);
   assert.match(noticeTsxSource, /Auswahl \+ Kreis-Haken/);
   assert.match(noticeTsxSource, /Willi in allen fünf Sprachen/);
@@ -34,7 +34,7 @@ test("DE title and body text are present in component", () => {
 });
 
 test("EN title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.12 – Testing Notes/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.13\.3 – Testing Notes/);
   assert.match(noticeTsxSource, /new crew configuration layout/);
   assert.match(noticeTsxSource, /selection \+ circle confirmation check/);
   assert.match(noticeTsxSource, /Willi in all five languages/);

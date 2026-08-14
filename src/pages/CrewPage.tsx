@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CREW_PAGE_COPY, CREW_PAGE_MEMBERS } from "../content/crewPage";
 
 type CrewPageProps = {
   bordcomputerName: string;
@@ -8,52 +9,10 @@ type CrewPageProps = {
   onPlayIntroduction: () => void;
 };
 
-type CrewRole = "science" | "navigation" | "engineering";
-
-type CrewMember = {
-  role: CrewRole;
-  defaultName: string;
-  title: string;
-  region: string;
-  initials: string;
-  icon: string;
-  description: string;
-};
+type CrewMember = (typeof CREW_PAGE_MEMBERS)[number];
+type CrewRole = CrewMember["role"];
 
 const STORAGE_PREFIX = "ogg.crew.";
-
-const crewMembers: CrewMember[] = [
-  {
-    role: "science",
-    defaultName: "Johanna",
-    title: "Wissenschaftsoffizierin",
-    region: "Deutschland · klares Hochdeutsch",
-    initials: "JO",
-    icon: "🔬",
-    description:
-      "Exploration, Exobiologie, FSS, DSS und wissenschaftliche Auswertung.",
-  },
-  {
-    role: "navigation",
-    defaultName: "Konrad",
-    title: "Navigationsoffizier",
-    region: "Hannover · ruhiges Hochdeutsch",
-    initials: "KO",
-    icon: "🧭",
-    description:
-      "Routen, Treibstoffreserven, Sprungoptimierung und Wegpunkte.",
-  },
-  {
-    role: "engineering",
-    defaultName: "Eva Maria",
-    title: "Technische Offizierin",
-    region: "Mecklenburg-Vorpommern · norddeutsch ruhig",
-    initials: "EM",
-    icon: "⚙️",
-    description:
-      "Energie, Module, Reparaturen, Schilde und Schiffszustand.",
-  },
-];
 
 function readSavedName(member: CrewMember): string {
   const saved = localStorage.getItem(`${STORAGE_PREFIX}${member.role}.name`);
@@ -70,7 +29,7 @@ export default function CrewPage({
   const initialNames = useMemo(
     () =>
       Object.fromEntries(
-        crewMembers.map((member) => [member.role, readSavedName(member)]),
+        CREW_PAGE_MEMBERS.map((member) => [member.role, readSavedName(member)]),
       ) as Record<CrewRole, string>,
     [],
   );
@@ -106,17 +65,15 @@ export default function CrewPage({
       <header className="crew-deck__header">
         <div>
           <span className="crew-deck__eyebrow">
-            DEUTSCHE STAMMBESATZUNG
+            {CREW_PAGE_COPY.eyebrow}
           </span>
-          <h2>Ihre Crew im Cockpit</h2>
-          <p>
-            Vier Rollen, klare Zuständigkeiten und frei wählbare Namen.
-          </p>
+          <h2>{CREW_PAGE_COPY.heading}</h2>
+          <p>{CREW_PAGE_COPY.introduction}</p>
         </div>
 
         <div className="crew-deck__count">
           <strong>4</strong>
-          <span>Crewmitglieder</span>
+          <span>{CREW_PAGE_COPY.memberCount}</span>
         </div>
       </header>
 
@@ -125,7 +82,7 @@ export default function CrewPage({
           <div className="crew-hero__portrait" aria-hidden="true" />
           <span className="crew-hero__online">
             <i aria-hidden="true" />
-            ONLINE
+            {CREW_PAGE_COPY.online}
           </span>
         </div>
 
@@ -133,32 +90,27 @@ export default function CrewPage({
           <div className="crew-hero__topline">
             <div>
               <span className="crew-hero__role">
-                BORDCOMPUTER · ERSTER OFFIZIER
+                {CREW_PAGE_COPY.oggRole}
               </span>
               <h2>{bordcomputerName}</h2>
               <p className="crew-hero__subtitle">
-                Old Guy of Grumpy · Bayern
+                {CREW_PAGE_COPY.oggSubtitle}
               </p>
             </div>
 
-            <span className="crew-hero__badge">OGG</span>
+            <span className="crew-hero__badge">{CREW_PAGE_COPY.oggBadge}</span>
           </div>
 
           <p className="crew-hero__description">
-            Ein alter Hase mit leichtem Grant, trockenem Humor und
-            einem großen Herzen für seinen Commander.
+            {CREW_PAGE_COPY.oggDescription}
           </p>
 
           <blockquote>
-            „Old Guy of Grumpy ist der Typ, der über alles ein bisschen
-            schimpft – außer über seinen Commander.“
+            {CREW_PAGE_COPY.oggQuote}
           </blockquote>
 
           <div className="crew-hero__tags">
-            <span>Deutsch</span>
-            <span>Leicht bayerisch</span>
-            <span>Trocken-humorig</span>
-            <span>Spricht wenig</span>
+            {CREW_PAGE_COPY.oggTags.map((tag) => <span key={tag}>{tag}</span>)}
           </div>
 
           <div className="crew-hero__actions">
@@ -167,7 +119,7 @@ export default function CrewPage({
               type="button"
               onClick={onPlayIntroduction}
             >
-              ▶ Vorstellung anhören
+              {CREW_PAGE_COPY.playIntroduction}
             </button>
 
             <button
@@ -175,7 +127,7 @@ export default function CrewPage({
               type="button"
               onClick={onTestGreeting}
             >
-              Begrüßung testen
+              {CREW_PAGE_COPY.testGreeting}
             </button>
 
             <button
@@ -183,13 +135,13 @@ export default function CrewPage({
               type="button"
               onClick={onRename}
             >
-              Namen ändern
+              {CREW_PAGE_COPY.rename}
             </button>
           </div>
 
           <footer className="crew-hero__footer">
-            <span>Zugeordnet zu Commander {commanderName}</span>
-            <span>Deutsche Originalbesatzung</span>
+            <span>{CREW_PAGE_COPY.assignedToCommander} {commanderName}</span>
+            <span>{CREW_PAGE_COPY.originalCrew}</span>
           </footer>
         </div>
       </article>
@@ -197,17 +149,15 @@ export default function CrewPage({
       <section className="crew-roster">
         <div className="crew-roster__heading">
           <div>
-            <span>CREW</span>
-            <h3>Fachoffiziere</h3>
+            <span>{CREW_PAGE_COPY.rosterEyebrow}</span>
+            <h3>{CREW_PAGE_COPY.rosterHeading}</h3>
           </div>
 
-          <p>
-            Namen können jederzeit geändert werden.
-          </p>
+          <p>{CREW_PAGE_COPY.rosterHint}</p>
         </div>
 
         <div className="crew-roster__grid">
-          {crewMembers.map((member) => {
+          {CREW_PAGE_MEMBERS.map((member) => {
             const isEditing = editingRole === member.role;
 
             return (
@@ -251,7 +201,7 @@ export default function CrewPage({
 
                     <span className="crew-member__ready">
                       <i aria-hidden="true" />
-                      BEREIT
+                      {CREW_PAGE_COPY.ready}
                     </span>
                   </div>
 
@@ -270,7 +220,7 @@ export default function CrewPage({
                           onClick={() => saveName(member)}
                           disabled={!draftName.trim()}
                         >
-                          Speichern
+                          {CREW_PAGE_COPY.save}
                         </button>
 
                         <button
@@ -278,7 +228,7 @@ export default function CrewPage({
                           type="button"
                           onClick={cancelEditing}
                         >
-                          Abbrechen
+                          {CREW_PAGE_COPY.cancel}
                         </button>
                       </div>
                     ) : (
@@ -287,7 +237,7 @@ export default function CrewPage({
                         type="button"
                         onClick={() => startEditing(member)}
                       >
-                        Namen ändern
+                        {CREW_PAGE_COPY.rename}
                       </button>
                     )}
                   </footer>

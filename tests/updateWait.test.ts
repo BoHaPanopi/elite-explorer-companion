@@ -56,7 +56,7 @@ test("installs the downloaded update only when the exit workflow runs", async ()
 test("the app downloads automatically and never waits for Elite before installation", () => {
   const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const backendSource = readFileSync(new URL("../src-tauri/src/lib.rs", import.meta.url), "utf8");
-  const translations = readFileSync(new URL("../src/i18n.tsx", import.meta.url), "utf8");
+  const translations = readFileSync(new URL("../src/content/uiMessages.ts", import.meta.url), "utf8");
 
   assert.match(appSource, /downloadUpdate\(update\)/);
   assert.match(appSource, /onCloseRequested/);

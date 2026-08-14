@@ -1,18 +1,13 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
+import { ABOUT_COMMAND_DESCRIPTION, ABOUT_REPLY_LINES } from "../content/commandCopy.js";
 
 export const data = new SlashCommandBuilder()
   .setName("about")
-  .setDescription("Learn about OGG and this bot.");
+  .setDescription(ABOUT_COMMAND_DESCRIPTION);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.reply(
-    [
-      "**OGG — Old Guy of Grumpy**",
-      "OGG is the voice and personality of the *Elite Explorer Companion* desktop app.",
-      "This Discord bot is the companion counterpart — bringing OGG to your server.",
-      "",
-      "Built with o7.",
-    ].join("\n"),
+    ABOUT_REPLY_LINES.join("\n"),
   );
 }

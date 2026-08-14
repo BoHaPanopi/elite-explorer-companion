@@ -1,19 +1,13 @@
 import { SlashCommandBuilder } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
+import { HELP_COMMAND_DESCRIPTION, HELP_REPLY_LINES } from "../content/commandCopy.js";
 
 export const data = new SlashCommandBuilder()
   .setName("help")
-  .setDescription("List all available OGG commands.");
+  .setDescription(HELP_COMMAND_DESCRIPTION);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.reply(
-    [
-      "**Available OGG commands:**",
-      "`/ogg` — Summon OGG for a greeting.",
-      "`/quote` — Return a space-themed quote.",
-      "`/about` — Learn about OGG and this bot.",
-      "`/help` — Show this message.",
-      "`/test-onboarding` — Trigger the Discord onboarding flow for yourself (admin only).",
-    ].join("\n"),
+    HELP_REPLY_LINES.join("\n"),
   );
 }

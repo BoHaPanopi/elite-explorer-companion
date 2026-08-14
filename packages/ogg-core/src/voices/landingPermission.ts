@@ -1,4 +1,8 @@
 import type { Language } from "../types/language.ts";
+import {
+  LANDING_PERMISSION_FALLBACK_STATION,
+  LANDING_PERMISSION_REMINDER_VARIANTS,
+} from "../content/landingPermissionMessages.ts";
 
 export type LandingPermissionState = {
   armed: boolean;
@@ -18,34 +22,6 @@ export type LandingPermissionDecision = {
   text: string | null;
 };
 
-const REMINDER_VARIANTS: Record<Language, string[]> = {
-  de: [
-    "Fuer {station} hamma no koa Landeerlaubnis.",
-    "{station} laesst uns grad no ned ran.",
-    "No koa Freigabe fuer {station}.",
-  ],
-  en: [
-    "We still do not have landing permission for {station}.",
-    "{station} has not cleared us for docking yet.",
-    "No landing permission for {station} yet.",
-  ],
-  fr: [
-    "Nous n’avons pas encore l’autorisation d’amarrage pour {station}.",
-    "{station} ne nous a pas encore autorises a nous amarrer.",
-    "Pas encore d’autorisation d’amarrage pour {station}.",
-  ],
-  it: [
-    "Non abbiamo ancora il permesso di attracco per {station}.",
-    "{station} non ci ha ancora autorizzati all’attracco.",
-    "Nessun permesso di attracco per {station} per ora.",
-  ],
-  es: [
-    "Aun no tenemos permiso de atraque para {station}.",
-    "{station} todavia no nos ha autorizado a atracar.",
-    "Todavia no hay permiso de atraque para {station}.",
-  ],
-};
-
 function chooseVariant(variants: string[]): string {
   if (variants.length === 0) return "";
   const index = Math.floor(Math.random() * variants.length);
@@ -54,7 +30,7 @@ function chooseVariant(variants: string[]): string {
 
 function normalizeStationName(stationName: string | null | undefined): string {
   const trimmed = stationName?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "die Station";
+  return trimmed && trimmed.length > 0 ? trimmed : LANDING_PERMISSION_FALLBACK_STATION;
 }
 
 export function evaluateLandingPermissionReminder(
@@ -96,6 +72,6 @@ export function evaluateLandingPermissionReminder(
   return {
     nextState: { armed: false, reminded: true },
     shouldRemind: true,
-    text: chooseVariant(REMINDER_VARIANTS[language]).replace("{station}", station),
+    text: chooseVariant(LANDING_PERMISSION_REMINDER_VARIANTS[language]).replace("{station}", station),
   };
 }

@@ -12,10 +12,10 @@ type AlphaTestingNoticeProps = {
   onConfirm: () => void;
 };
 
-const DE_TITLE = "Alpha 0.14.12 – Testhinweise";
-const EN_TITLE = "Alpha 0.14.12 – Testing Notes";
+const DE_TITLE = "Alpha 0.14.13.3 – Testhinweise";
+const EN_TITLE = "Alpha 0.14.13.3 – Testing Notes";
 
-const DE_BODY = `Bitte testet in Alpha 0.14.12 besonders:
+const DE_BODY = `Bitte testet in Alpha 0.14.13.3 besonders:
 
 • neues Crew-Konfigurationslayout
 • Auswahl + Kreis-Haken
@@ -28,7 +28,7 @@ const DE_BODY = `Bitte testet in Alpha 0.14.12 besonders:
 Hinweis:
 Susanne und Bastian sind noch nicht Bestandteil dieses Voice-Tests.`;
 
-const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.12:
+const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.13.3:
 
 • new crew configuration layout
 • selection + circle confirmation check

@@ -48,6 +48,7 @@ import { createExplorationMessage, type ExplorationObservationKind } from "ogg-c
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
 import type { AnnaLiveJournalEvent } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
+import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
 
 type Page =
   | "dashboard"
@@ -80,6 +81,7 @@ type EliteSnapshot = {
   currentJumpRange: number | null;
   maxJumpRange: number | null;
   eliteConnected: boolean;
+  currentTelemetryConfirmed: boolean;
   exploration: {
     systemScan: "undiscovered" | "partially_discovered" | "fully_discovered";
     bodies: Array<{
@@ -124,6 +126,7 @@ const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
 const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
 const annaEvidenceService = new AnnaEvidenceService(localStorage);
+const annaLivePredictionAnnouncer = new AnnaLivePredictionAnnouncer();
 
 type DashboardStatusTone = "flight" | "docked" | "landed" | "idle";
 
@@ -174,7 +177,7 @@ function resolveShipContext(snapshot: EliteSnapshot | null, t: (key: "station" |
 
 function resolveLastKnownShipStatus(
   telemetry: LastKnownTelemetry | null,
-  t: (key: "lastDocked" | "lastLanded" | "lastInFlight" | "unknown") => string,
+  t: (key: "lastDocked" | "lastLanded" | "lastSupercruise" | "lastNormalSpace" | "unknown") => string,
 ) {
   if (!telemetry) return { label: t("unknown"), tone: "idle" as DashboardStatusTone, context: null, contextLabel: null };
   if (telemetry.shipState === "docked" || telemetry.docked === true) {
@@ -184,7 +187,12 @@ function resolveLastKnownShipStatus(
     return { label: t("lastLanded"), tone: "landed" as DashboardStatusTone, context: telemetry.planetName, contextLabel: "planet" as const };
   }
   if (telemetry.shipState === "supercruise" || telemetry.shipState === "normal_space" || telemetry.docked === false) {
-    return { label: t("lastInFlight"), tone: "flight" as DashboardStatusTone, context: null, contextLabel: null };
+    return {
+      label: telemetry.shipState === "supercruise" ? t("lastSupercruise") : t("lastNormalSpace"),
+      tone: "flight" as DashboardStatusTone,
+      context: null,
+      contextLabel: null,
+    };
   }
   return { label: t("unknown"), tone: "idle" as DashboardStatusTone, context: null, contextLabel: null };
 }
@@ -227,6 +235,7 @@ function App() {
   const { language, t } = useI18n();
   const [page, setPage] = useState<Page>("dashboard");
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
+  const [annaPredictionRevision, setAnnaPredictionRevision] = useState(0);
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
   const [journalError, setJournalError] = useState<string | null>(null);
@@ -268,6 +277,7 @@ function App() {
   }, []);
 
   const snapshotRequestInFlight = useRef(false);
+  const frontendPollSequence = useRef(0);
 
   const loadEliteSnapshot = useCallback(async () => {
     if (snapshotRequestInFlight.current) {
@@ -275,13 +285,40 @@ function App() {
     }
 
     snapshotRequestInFlight.current = true;
+    const pollId = ++frontendPollSequence.current;
+    const tickStartedAt = performance.now();
+    logDiagnostic("FRONTEND_TICK_START", { pollId });
 
     try {
+      const telemetryStartedAt = performance.now();
+      logDiagnostic("TELEMETRY_POLL_START", { pollId });
       const result = await invoke<EliteSnapshot>("get_elite_snapshot", { locale: language });
+      const telemetryDurationMs = Math.round(performance.now() - telemetryStartedAt);
+      if (telemetryDurationMs > 250) {
+        logDiagnostic("TELEMETRY_POLL_END", {
+          pollId,
+          durationMs: telemetryDurationMs,
+          bodyCount: result.exploration.bodies.length,
+        });
+      }
+      const annaStartedAt = performance.now();
+      logDiagnostic("ANNA_POLL_START", { pollId });
       const annaEvents = await invoke<AnnaLiveJournalEvent[]>("get_live_anna_journal_events", { locale: language });
       annaEvidenceService.process(result.commander
         ? [{ event: "Commander", name: result.commander }, ...annaEvents]
         : annaEvents);
+      setAnnaPredictionRevision(annaEvidenceService.predictions().reduce(
+        (latest, prediction) => Math.max(latest, prediction.revision),
+        0,
+      ));
+      const annaDurationMs = Math.round(performance.now() - annaStartedAt);
+      if (annaDurationMs > 250) {
+        logDiagnostic("ANNA_POLL_END", {
+          pollId,
+          durationMs: annaDurationMs,
+          eventCount: annaEvents.length,
+        });
+      }
       if (result.commander) {
         localStorage.setItem(LAST_KNOWN_COMMANDER_KEY, result.commander);
         setLastKnownCommander(result.commander);
@@ -307,10 +344,14 @@ function App() {
     } catch (error) {
       setJournalError(error instanceof Error ? error.message : String(error));
     } finally {
+      const tickDurationMs = Math.round(performance.now() - tickStartedAt);
+      if (tickDurationMs > 250) {
+        logDiagnostic("FRONTEND_TICK_END", { pollId, durationMs: tickDurationMs });
+      }
       snapshotRequestInFlight.current = false;
       setIsLoading(false);
     }
-  }, [language]);
+  }, [language, logDiagnostic]);
 
   useEffect(() => {
     void getVersion().then(setAppVersion);
@@ -336,7 +377,17 @@ function App() {
   useEffect(() => {
     let active = true;
     void invoke("mark_frontend_ready");
-    const heartbeatInterval = window.setInterval(() => void invoke("frontend_heartbeat"), 2000);
+    let previousHeartbeatTick = performance.now();
+    const heartbeat = () => {
+      const now = performance.now();
+      const elapsedMs = Math.round(now - previousHeartbeatTick);
+      previousHeartbeatTick = now;
+      if (elapsedMs > 2_500) {
+        logDiagnostic("RENDER_STALL_WARNING", { elapsedMs, expectedIntervalMs: 2_000 });
+      }
+      void invoke("frontend_heartbeat");
+    };
+    const heartbeatInterval = window.setInterval(heartbeat, 2000);
     const refreshStartupHealth = () => void invoke<StartupHealth>("get_startup_health").then((health) => {
       if (active && !health.ready) setStartupHealth(health);
     });
@@ -599,6 +650,28 @@ function App() {
   }, [isLoading, logDiagnostic, oggLanguage, snapshot?.exploration.latestObservation?.id]);
 
   useEffect(() => {
+    if (annaPredictionRevision === 0) return;
+    const predictions = annaEvidenceService.predictions();
+    logDiagnostic("ANNA_LIVE_PREDICTION_READY", {
+      revision: annaPredictionRevision,
+      predictions: predictions.map((prediction) => ({
+        bodyName: prediction.input.bodyName,
+        candidates: prediction.result.candidates.map((candidate) => candidate.displayName),
+      })),
+    });
+    void annaLivePredictionAnnouncer.announce(predictions, oggLanguage, speechService).then((announced) => {
+      for (const revision of announced) {
+        logDiagnostic("ANNA_LIVE_PREDICTION_SPOKEN", { revision, localProcessing: true });
+      }
+    }).catch((error) => {
+      logDiagnostic("ANNA_LIVE_PREDICTION_SPEECH_ERROR", {
+        revision: annaPredictionRevision,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      });
+    });
+  }, [annaPredictionRevision, logDiagnostic, oggLanguage]);
+
+  useEffect(() => {
     const state: Record<string, unknown> = {
       systemName: snapshot?.system ?? null,
       shipStatus: snapshot?.shipState ?? null,
@@ -654,9 +727,7 @@ function App() {
         : createStartupGreeting(greetingContext);
 
       try {
-        const greetingText = `${greeting
-          .map((segment) => segment.replace(/[.!?]+$/, ""))
-          .join(", ")}.`;
+        const greetingText = greeting.join(" ");
         await speechService.speak(greetingText, {
           preRollMs: 650,
           speaker: "OGG",

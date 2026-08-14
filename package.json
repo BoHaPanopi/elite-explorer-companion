@@ -4,7 +4,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "version": "0.14.12",
+  "version": "0.14.13.3",
   "homepage": "https://bohapanopi.github.io/elite-explorer-companion/",
   "repository": {
     "type": "git",

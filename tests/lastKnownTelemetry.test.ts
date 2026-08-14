@@ -4,7 +4,7 @@ import test from "node:test";
 import { hasCurrentTelemetry, persistLastKnownTelemetry, readLastKnownTelemetry, sameLastKnownTelemetry, updateLastKnownTelemetry, type TelemetrySnapshot } from "../src/features/lastKnownTelemetry.ts";
 
 const docked: TelemetrySnapshot = {
-  eliteConnected: true, system: "Shinrarta Dezhra", docked: true, shipState: "docked",
+  eliteConnected: true, currentTelemetryConfirmed: true, system: "Shinrarta Dezhra", docked: true, shipState: "docked",
   stationName: "Jameson Memorial", planetName: null,
 };
 
@@ -12,6 +12,7 @@ test("connected snapshot with a system is current telemetry", () => {
   assert.equal(hasCurrentTelemetry(docked), true);
   assert.equal(hasCurrentTelemetry({ ...docked, system: null }), false);
   assert.equal(hasCurrentTelemetry({ ...docked, eliteConnected: false }), false);
+  assert.equal(hasCurrentTelemetry({ ...docked, currentTelemetryConfirmed: false }), false);
 });
 
 test("last confirmed system and docked station survive a disconnect", () => {

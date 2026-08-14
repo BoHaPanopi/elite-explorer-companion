@@ -1,4 +1,5 @@
 import type { Language } from "./types/language.ts";
+import { COMMANDER_PROFILE_REGISTRY } from "./content/commanderProfiles.ts";
 
 export type CommanderProfileId = string;
 
@@ -7,23 +8,12 @@ export type CommanderProfile = {
   preferredLanguage?: Language;
 };
 
-const commanderProfileRegistry: Record<string, CommanderProfile> = {
-  helitony: {
-    id: "helitony",
-    preferredLanguage: "en",
-  },
-  helitony2: {
-    id: "helitony2",
-    preferredLanguage: "en",
-  },
-};
-
 export function resolveCommanderProfile(
   commanderName: string | null | undefined,
 ): CommanderProfile | null {
   if (!commanderName) return null;
   const normalized = commanderName.toLocaleLowerCase("en-US").trim();
-  return commanderProfileRegistry[normalized] ?? null;
+  return COMMANDER_PROFILE_REGISTRY[normalized] ?? null;
 }
 
-export const commanderProfiles = commanderProfileRegistry;
+export const commanderProfiles = COMMANDER_PROFILE_REGISTRY;

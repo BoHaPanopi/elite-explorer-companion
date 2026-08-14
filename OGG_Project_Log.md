@@ -90,6 +90,8 @@ Das Fenster bleibt während der Initialisierung verborgen. Boot-Oberfläche, Fro
 
 Tags mit Präfix `v` starten den reproduzierbaren Windows-Build. Tests laufen vor der Veröffentlichung; Tauri erzeugt Update-Artefakte, die der Client über `latest.json` findet und anhand des hinterlegten öffentlichen Schlüssels prüft.
 
+Öffentliche Alpha-Releases werden auf GitHub zusammen mit den benötigten Installer- und Updater-Artefakten veröffentlicht. Damit stehen sowohl die manuelle Installation über den veröffentlichten Installer als auch der integrierte Anwendungs-Updater über die veröffentlichten Updater-Artefakte zur Verfügung. `createUpdaterArtifacts` bleibt für normale Alpha-Builds aktiviert und wird nicht für lokale Installer-Tests deaktiviert.
+
 ## Letzte Änderungen
 
 ### 5. August 2026

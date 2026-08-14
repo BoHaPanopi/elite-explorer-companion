@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.14.12"
+version = "0.14.13.3"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -32,11 +32,13 @@ windows = { version = "0.61.3", features = [
   "Media_Playback",
   "Media_SpeechSynthesis",
   "Storage_Streams",
+  "Win32_Media_Audio",
   "Win32_Foundation",
   "Win32_System_WinRT",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
 ] }
+cpal = "0.17"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"

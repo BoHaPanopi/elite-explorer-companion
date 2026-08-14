@@ -31,7 +31,9 @@ The application should be designed according to least privilege.
 
 Local data should remain local whenever possible.
 
-- Elite Dangerous journal data, Commander data, profile data, and configuration data are not to be transferred without a clear, documented purpose.
+- Elite Dangerous journal data, Commander data, profile data, usage data, and configuration data are not transferred outside Elite Explorer Companion unless the Commander has explicitly approved the transfer.
+- The Commander decides which data may be transferred to which external service.
+- Without explicit approval, no external data transfer takes place.
 - No hidden telemetry.
 - No undocumented background transfer.
 - External communication must have an explicit functional reason and be documented.
@@ -72,6 +74,28 @@ Binding rules:
 - Integrations must not become a generic remote-control layer for the user's computer.
 - Local grants and permissions should be understandable, reviewable, and revocable.
 
+### Anna and Journal Data
+
+Anna's internal processing is distinct from external integrations.
+
+- Anna may read and use Elite Dangerous journal data internally when the Commander has allowed journal access.
+- This processing takes place within Elite Explorer Companion and is therefore not an external data transfer.
+- The Commander must be able to understand which journal data Anna uses internally and for what purpose.
+- The future data-flow detail view must provide a dedicated area or tab for Anna's journal access and internal processing.
+
+### External Services and Data Grants
+
+Discord, Twitch, and every future external integration are separate from Anna's internal processing. For each external integration:
+
+- The Commander must explicitly approve the integration.
+- Approval is specific to that service and must show which data may be transferred, where it goes, and for what purpose.
+- One integration must never inherit or reuse another integration's approval automatically.
+- No approval means no transfer.
+- Approval must be revocable.
+- After revocation, the affected data must no longer be transferred to that service.
+
+Elite Explorer Companion does not independently decide to publish data. It provides controlled mechanisms through which the Commander may send only data they have approved for the selected service.
+
 ## Allowlist Model
 
 The trust model is allowlist-first, not open-ended.
@@ -84,6 +108,51 @@ That means:
 - Missing approval means no execution.
 
 This principle applies to current and future integrations alike.
+
+The same model applies to external data flows:
+
+- External functions receive only explicitly allowed data and capabilities.
+- There are no implicit permissions or hidden transfers.
+- New integrations start without grants and never receive existing grants automatically.
+- Missing, invalid, uncertain, or revoked grants fail closed.
+
+## Permanent Data-Flow Status
+
+The current data-flow status must always be visible to the Commander.
+
+The status is permanently displayed at the bottom of:
+
+- Command Center,
+- Navigation,
+- Settings,
+- future main views,
+- narrow and responsive layouts.
+
+Design requirements:
+
+- Place the status in the fixed lower area near the version display.
+- Make it slightly larger and clearer than the version number, while keeping it visually subordinate to the page's primary content.
+- Preserve the OGG design and existing color and layout rules.
+- When no external grant is active, state unambiguously that the data remains local.
+- When one or more external grants are active, do not make a blanket "Local only" claim; show that external data paths have been approved.
+
+## Data-Flow Detail View
+
+The permanent data-flow status is intended to become interactive. Its detail view must make this path understandable:
+
+```text
+data source -> internal use -> storage/processing -> approved external destination, if any
+```
+
+The view must clearly separate:
+
+### Anna / Internal
+
+Journal access and internal processing within Elite Explorer Companion, including which journal data Anna uses and for what purpose.
+
+### External Grants
+
+Discord, Twitch, and future integrations, with the actual grant status visible separately for every integration.
 
 ## No Arbitrary Shell Execution
 

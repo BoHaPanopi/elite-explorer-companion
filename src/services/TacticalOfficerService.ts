@@ -5,6 +5,10 @@ import type {
   ThreatLevel,
 } from "ogg-core";
 import { createTonyTacticalText, type TonyProfile } from "ogg-core";
+import {
+  OGG_OPPONENT_WARNINGS,
+  OGG_TACTICAL_COMMENTS,
+} from "../content/tacticalOfficer";
 
 const rankScore: Record<string, number> = {
   Harmless: 0,
@@ -88,14 +92,7 @@ function getThreatLevel(
 }
 
 function getOggComment(level: ThreatLevel): string {
-  const comments: Record<ThreatLevel, string> = {
-    green: "De hom si den Foisch'n ausgsuacht.",
-    yellow: "Den dad i trotzdem ned unterschätzen.",
-    orange: "Jedzd werd's hoarig.",
-    red: "Do pfeift da Straps.",
-  };
-
-  return comments[level];
+  return OGG_TACTICAL_COMMENTS[level];
 }
 
 export function assessTarget(
@@ -136,9 +133,10 @@ export function assessTarget(
         : "engage";
 
   const opponentWarning =
-    level === "red" || level === "orange"
-      ? `Pilot ${target.pilotName}. Sie haben uns gescannt. Das ist Ihre einzige und letzte Warnung.`
-      : `Pilot ${target.pilotName}. Sie haben uns gescannt. Bevor Sie irgendetwas Dummes tun, würde ich mir das noch einmal überlegen.`;
+    (level === "red" || level === "orange"
+      ? OGG_OPPONENT_WARNINGS.severe
+      : OGG_OPPONENT_WARNINGS.standard
+    ).replace("{pilotName}", target.pilotName);
 
   return {
     level,
