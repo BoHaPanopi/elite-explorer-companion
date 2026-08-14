@@ -28,16 +28,19 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v0.14.15
-          releaseName: Old Guy of Grumpy v0.14.15
+          tagName: ${{ github.ref_name }}
+          releaseName: Old Guy of Grumpy ${{ github.ref_name }}
           releaseBody: |
-            Old Guy of Grumpy v0.14.15
+            Old Guy of Grumpy ${{ github.ref_name }}
 
-            - Neues Command Center mit profilabhängigen Rängen für Exploration, Exobiologie, Handel und Kampf.
-            - Aktuelles Schiff mit Schiffsname, Kennung und Frontier-Schiffsdarstellung.
-            - Willi ergänzt lokale Reise- und Navigationshistorie.
-            - Permanenter Datenflussstatus trennt lokale Crew-Verarbeitung klar von externen Freigaben.
-            - Hintergrundindex und inkrementelle Verarbeitung beschleunigen lokale Journal- und Telemetrieauswertung deutlich.
-            - Updates werden beim Beenden installiert und starten OGG nicht automatisch neu.
+            ## English
+
+            - Public alpha releases are published through GitHub Latest so the existing updater can reliably discover new versions.
+            - Updates install on exit without automatically restarting OGG.
+
+            ## Deutsch
+
+            - Öffentliche Alpha-Releases werden über GitHub Latest veröffentlicht, damit der bestehende Updater neue Versionen zuverlässig erkennt.
+            - Updates werden beim Beenden installiert und starten OGG anschließend nicht automatisch neu.
           releaseDraft: false
           prerelease: false
