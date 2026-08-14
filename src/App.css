@@ -1926,6 +1926,7 @@ footer {
     min-width: 0;
   }
 }
+
 /* Alpha 0.13.0 – Taktischer Offizier */
 .tactical-officer{display:grid;gap:18px}
 .tactical-officer__header{display:flex;justify-content:space-between;gap:22px;align-items:flex-start}
@@ -2620,4 +2621,36 @@ footer {
   .crew-config-variants__buttons {
     grid-template-columns: 1fr;
   }
+}
+
+/* Typical desktop heights keep the complete command center in view without
+   changing the small-window document flow: those layouts remain scrollable. */
+@media (min-width: 721px) {
+  .content { padding-top: 10px; padding-bottom: 0; }
+  .command-brand { padding: 4px 16px 0; }
+  .command-brand__logo { width: 46px; height: 46px; margin-bottom: 5px; border-radius: 13px; }
+  .command-brand > span { margin-top: 2px; }
+  .topbar { margin-bottom: 8px; padding-bottom: 8px; }
+  .dashboard-overview { gap: 8px; }
+  .dashboard-hero { min-height: 130px; }
+  .command-identity, .command-center-status { padding: clamp(10px, 1.4vw, 18px); }
+  .command-system { margin-top: 8px; }
+  .command-center-status h3 { margin-bottom: 7px; }
+  .command-center-status__item + .command-center-status__item { margin-top: 7px; }
+  .command-center-status__detail { margin-top: 4px; }
+  .command-card-grid { gap: 8px; }
+  .command-card { padding: 8px; }
+  .command-card > header { min-height: 28px; }
+  .command-card h3 { margin-top: 2px; }
+  .commander-ranks { gap: 6px; margin-top: 7px; }
+  .commander-rank { grid-template-columns: 38px minmax(0, 1fr); gap: 6px; padding: 5px; }
+  .commander-rank .command-card__asset,
+  .commander-rank .command-card__asset-fallback { flex-basis: 38px; width: 38px; height: 38px; border-radius: 9px; }
+  .commander-rank progress { margin-top: 4px; }
+  .command-card dl { gap: 5px; margin-top: 7px; }
+  .command-card__ship-layout { gap: clamp(16px, 2.5vw, 30px); margin-top: 7px; }
+  .command-card__ship-asset { height: clamp(90px, 7.5vw, 110px); transform: translateY(8px); }
+  .command-card__ship-details { gap: 3px; transform: translate(-16px, -8px); }
+  .command-card dl.command-card__ship-details > div { gap: 1px; }
+  footer { margin-top: 4px; }
 }

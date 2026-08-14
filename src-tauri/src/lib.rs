@@ -22,6 +22,7 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tauri::{LogicalSize, Manager};
+use tauri_plugin_window_state::StateFlags;
 
 
 #[cfg(target_os = "windows")]
@@ -97,6 +98,10 @@ struct JourneyFileCursor {
     path: PathBuf,
     complete_bytes: u64,
     observed_size: u64,
+}
+
+fn persisted_window_state_flags() -> StateFlags {
+    StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1819,6 +1824,14 @@ mod snapshot_cache_tests {
     use super::*;
 
     #[test]
+    fn window_state_persists_size_position_and_maximization() {
+        let flags = persisted_window_state_flags();
+        assert!(flags.contains(StateFlags::SIZE));
+        assert!(flags.contains(StateFlags::POSITION));
+        assert!(flags.contains(StateFlags::MAXIMIZED));
+    }
+
+    #[test]
     fn unchanged_journal_is_not_marked_as_changed() {
         let previous = JournalCacheState {
             path: PathBuf::from("C:/Games/Journal.00001.log"),
@@ -2788,7 +2801,11 @@ pub fn run() {
                 .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                 .build(),
         )
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(persisted_window_state_flags())
+                .build(),
+        )
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
