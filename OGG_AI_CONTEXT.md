@@ -53,6 +53,14 @@ Beispielhaft richtig: „Der nächste Stern ist nicht tankbar. Wir planen besser
 
 Beispielhaft falsch: „Achtung! Kritische Navigationswarnung! Bitte überprüfen Sie sofort Ihre Route!“
 
+## Verbindliche Regel fuer oeffentliche Profilbezeichnungen
+
+- Die fruehere Bezeichnung aus dem Namen `Tony` mit dem nachgestellten Wort `Edition` darf niemals oeffentlich oder nutzersichtbar erscheinen.
+- Das Verbot gilt insbesondere fuer UI, Release Notes, Fehlermeldungen, nutzersichtbare Diagnoseausgaben und Logs, oeffentliche Dokumentation, Screenshots, Beispieltexte und Changelogs.
+- Oeffentliche Texte verwenden neutrale Bezeichnungen wie `English voice profile`, `configured commander profile`, `englisches Sprachprofil` oder `konfiguriertes Commander-Profil`.
+- Die internen Profil-IDs `helitony` und `helitony2` sowie interne Test-, Routing- und Profilbegriffe bleiben im Quellcode und in nicht oeffentlichen technischen Diagnosen erlaubt.
+- Vor einem Release muss der automatisierte Public-Copy-Test erfolgreich sein. Historische, bereits veroeffentlichte Release Notes werden nicht stillschweigend veraendert, sondern mit Fundstelle und neutralem Ersatzvorschlag gemeldet.
+
 ## OGG-Sprache und Persönlichkeit
 
 OGG ist kein steriler Assistent.

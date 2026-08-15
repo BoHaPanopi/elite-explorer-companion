@@ -17,9 +17,9 @@ const EN_TITLE = "Alpha 0.14.17 – Testing Notes";
 
 const DE_BODY = `Bitte testet in Alpha 0.14.17 besonders:
 
-• die Tony Edition mit helitony und helitony2
+• das englische Sprachprofil für konfigurierte Commander
 • die englische en-GB-Sprachausgabe mit Microsoft George
-• die eindeutige Meldung bei fehlender Tony-Stimme
+• die eindeutige Meldung bei fehlender englischer Stimme
 • Auffälligkeiten/Fehler im normalen Betrieb
 
 Hinweis:
@@ -27,9 +27,9 @@ Alle Journal- und Telemetriedaten bleiben lokal.`;
 
 const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.17:
 
-• Tony Edition with helitony and helitony2
+• the English voice profile for configured commanders
 • English en-GB speech with Microsoft George
-• the clear status when the Tony voice is unavailable
+• the clear status when the required English voice is unavailable
 • anomalies/errors during normal operation
 
 Note:

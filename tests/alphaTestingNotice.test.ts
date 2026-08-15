@@ -26,14 +26,14 @@ test("storage key is version-scoped to 0.14.17", () => {
 
 test("DE title and body text are present in component", () => {
   assert.match(noticeTsxSource, /Alpha 0\.14\.17 – Testhinweise/);
-  assert.match(noticeTsxSource, /Tony Edition mit helitony und helitony2/);
+  assert.match(noticeTsxSource, /englische Sprachprofil für konfigurierte Commander/);
   assert.match(noticeTsxSource, /Microsoft George/);
   assert.match(noticeTsxSource, /Alle Journal- und Telemetriedaten bleiben lokal/);
 });
 
 test("EN title and body text are present in component", () => {
   assert.match(noticeTsxSource, /Alpha 0\.14\.17 – Testing Notes/);
-  assert.match(noticeTsxSource, /Tony Edition with helitony and helitony2/);
+  assert.match(noticeTsxSource, /English voice profile for configured commanders/);
   assert.match(noticeTsxSource, /Microsoft George/);
   assert.match(noticeTsxSource, /All journal and telemetry data remains local/);
 });

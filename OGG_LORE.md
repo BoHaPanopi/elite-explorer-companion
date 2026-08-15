@@ -38,7 +38,7 @@ OGG begleitet lange Reisen, ohne sie zu überreden. Navigation steht vor Animati
 
 - Der Voice-Server wurde fest in die Release-Anwendung eingebunden und startet seitdem als Teil des Bordcomputers.
 - Der integrierte Auto-Updater kam mit Alpha 0.14 hinzu.
-- Mit `v0.14.1` erschien die **Tony Edition**.
+- Mit `v0.14.1` erschien das erste automatisch erkannte englische Commander-Profil.
 
 ### 5. August 2026 – Zuverlässigkeit wird Teil des Charakters
 
@@ -56,13 +56,13 @@ Mit den taktischen Kommentaren und den englischen Begrüßungen wurde sichtbar, 
 
 So wurde aus einer Stimme eine Figur – nicht als Schauspieler neben dem Spiel, sondern als glaubwürdiger Teil des Schiffs.
 
-## Die Entstehung der Tony Edition
+## Die Entstehung des englischen Commander-Profils
 
-Die Tony Edition entstand aus echter Zusammenarbeit während der frühen Entwicklung. Statt ein allgemeines Sprachpaket zu bauen, erhielt ein realer Commander ein eigenes, automatisch erkanntes Profil.
+Das englische Commander-Profil entstand aus echter Zusammenarbeit während der frühen Entwicklung. Statt ein allgemeines Sprachpaket zu bauen, erhielt ein realer Commander ein eigenes, automatisch erkanntes Profil.
 
 Mit Alpha `v0.14.1` wurde diese Idee offiziell veröffentlicht. Erkennt OGG Commander `Helitony`, wechselt er automatisch in das englische Commander-Profil. Die Begrüßungen sind persönlich, natürlich formuliert und variieren, ohne den ruhigen Charakter zu verlieren. Saisonale Nachrichten und ausgewählte taktische Kommentare ergänzen das Profil.
 
-Die Tony Edition ist deshalb mehr als eine Sonderausgabe. Sie ist der erste Beleg dafür, dass OGG einen Commander wiedererkennen und persönlich ansprechen kann, ohne zu einem beliebigen Assistenten zu werden. Das Profil verändert die Beziehung und die Sprache, nicht OGGs Identität.
+Das konfigurierte Commander-Profil ist der erste Beleg dafür, dass OGG einen Commander wiedererkennen und persönlich ansprechen kann, ohne zu einem beliebigen Assistenten zu werden. Das Profil verändert die Beziehung und die Sprache, nicht OGGs Identität.
 
 ## CMDR Helitony – erster offizieller Feldtester
 
@@ -70,7 +70,7 @@ Die Tony Edition ist deshalb mehr als eine Sonderausgabe. Sie ist der erste Bele
 
 Seine Unterstützung, seine Rückmeldungen und seine Erfahrung außerhalb der unmittelbaren Entwicklung halfen dabei, OGG nicht nur aus Sicht des Codes, sondern aus Sicht eines Commanders zu formen. Dadurch wurde früh geprüft, ob Begrüßungen natürlich wirken, ob Persönlichkeit auch auf Englisch trägt und ob der Bordcomputer im echten Einsatz als Begleiter glaubwürdig bleibt.
 
-Die im Projekt erhaltene Willkommensnachricht bedankt sich ausdrücklich dafür, dass Tony als erster externer Commander die Zukunft von OGG mitgestaltet hat. Diese Anerkennung ist ein Teil der Projektgeschichte und der Grund, weshalb die Tony Edition dauerhaft einen besonderen Platz in OGG besitzt.
+Die im Projekt erhaltene Willkommensnachricht bedankt sich ausdrücklich dafür, dass Tony als erster externer Commander die Zukunft von OGG mitgestaltet hat. Diese Anerkennung ist ein Teil der Projektgeschichte und der Grund, weshalb das konfigurierte Commander-Profil dauerhaft einen besonderen Platz in OGG besitzt.
 
 Zum Profil gehört außerdem `Helitony2`, „Guardian of the Black“ – eine Erinnerung an die Fuel-Rats-Zeit und an die weiterhin wachsame Reise zwischen Colonia und Sagittarius A*. Damit verbindet die Edition persönliche Geschichte mit dem größeren Motiv von OGG: Auch wenn ein Kapitel endet, bleiben Erfahrung und Aufmerksamkeit an Bord.
 
@@ -88,7 +88,7 @@ Mit dem lokalen OGG-Sprachserver bekam das Projekt eine hörbare Identität. Die
 
 Der gebündelte Voice-Server erscheint unter Windows konstruktionsbedingt als zwei Prozesse. Was zunächst wie eine doppelte Instanz wirken konnte, erwies sich als normales Verhalten des verwendeten Ein-Datei-Pakets. Die Entscheidung, dieses Modell beizubehalten, steht sinnbildlich für OGGs Entwicklung: Beobachten, prüfen und dann die ruhige, belastbare Lösung wählen.
 
-### Die Tony Edition wird Teil des offiziellen Releases
+### Das englische Commander-Profil wird Teil des offiziellen Releases
 
 Eine persönliche Idee wurde mit `v0.14.1` zu einem regulären Meilenstein. Damit wurde ein Feldtester nicht nur in einer Danksagung erwähnt, sondern dauerhaft in der Geschichte und im Verhalten des Produkts verankert.
 

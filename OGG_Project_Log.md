@@ -41,7 +41,7 @@ OGG ist eine Windows-Desktop-Begleitanwendung für **Elite Dangerous**. Sie lies
 
 - `v0.1.1` / `v0.1.2` – frühe veröffentlichte Grundlagenversionen.
 - `v0.14.0` – integrierter, signierter Auto-Updater und gebündelter Voice-Sidecar.
-- `v0.14.1` – Tony's Edition mit Commander-spezifischen und saisonalen Regeln.
+- `v0.14.1` – englisches Sprachprofil mit Commander-spezifischen und saisonalen Regeln.
 - `v0.14.2` – höhere Audio- und Startzuverlässigkeit.
 - `v0.14.3` – zuverlässige Navigation: Fortschritt nach Sprüngen und Routen-Neuberechnung, konsistente Kennzahlen aus einer zentralen Route sowie Wiederherstellung nach Neustart und manueller Aktualisierung.
 - `v0.14.4` – verlässlicher Tankstatus aus Journal- und Systemscandaten, verzögerte Update-Installation sowie vereinheitlichte Cockpit-Navigation und Einstellungsanordnung.
@@ -93,6 +93,12 @@ Tags mit Präfix `v` starten den reproduzierbaren Windows-Build. Tests laufen vo
 Öffentliche Alpha-Releases werden auf GitHub zusammen mit den benötigten Installer- und Updater-Artefakten veröffentlicht. Damit stehen sowohl die manuelle Installation über den veröffentlichten Installer als auch der integrierte Anwendungs-Updater über die veröffentlichten Updater-Artefakte zur Verfügung. `createUpdaterArtifacts` bleibt für normale Alpha-Builds aktiviert und wird nicht für lokale Installer-Tests deaktiviert.
 
 ## Letzte Änderungen
+
+### 15. August 2026
+
+- Verbindliche Public-Copy-Regel fuer neutrale Bezeichnungen konfigurierter Commander- und Sprachprofile dokumentiert.
+- Automatisierten Public-Copy-Test eingefuehrt und als verpflichtenden Schritt in den Tag-Release-Workflow aufgenommen.
+- Bestehende nutzersichtbare Alpha-Hinweise und oeffentliche Projektdokumentation auf neutrale Profilbezeichnungen umgestellt.
 
 ### 5. August 2026
 
