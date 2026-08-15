@@ -1,4 +1,4 @@
-import type { CoreBodyExploration, CoreBodySignals, CoreExobioBodyContext, CoreExobioObservation, CoreFlightContext, OggCoreEvent, OggCoreState } from "./model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreExobioBodyContext, CoreExobioObservation, CoreFlightContext, CorePredictionBodyFacts, OggCoreEvent, OggCoreState } from "./model.ts";
 import { initialOggCoreState } from "./model.ts";
 
 function sameBody(previous: CoreBodySignals, next: CoreBodySignals): boolean {
@@ -15,6 +15,10 @@ function sameExobioBody(previous: CoreExobioBodyContext, next: { systemAddress: 
 
 function sameExobioObservation(previous: CoreExobioObservation, next: Pick<CoreExobioObservation, "genus" | "species" | "variant">): boolean {
   return previous.genus === next.genus && previous.species === next.species && previous.variant === next.variant;
+}
+
+function samePredictionBody(previous: CorePredictionBodyFacts, next: { systemAddress: string; bodyId: number }): boolean {
+  return previous.systemAddress === next.systemAddress && previous.bodyId === next.bodyId;
 }
 
 function normalizedContext(flightState: "supercruise" | "normalSpace" | "docked" | "landed" | "airborne" | "unknown", context: CoreFlightContext | undefined): CoreFlightContext | null {
@@ -85,6 +89,26 @@ export function reduceCoreState(previousState: OggCoreState = initialOggCoreStat
         ...previousState,
         exobioBodies: [...previousState.exobioBodies.filter((current) => !sameExobioBody(current, event.body)), body],
         activeExobioContext: event.body,
+      };
+    }
+    case "PredictionPlanetFactsUpdated": {
+      const previousBody = previousState.predictionBodies.find((current) => samePredictionBody(current, event.facts));
+      const body = { ...previousBody, ...event.facts };
+      return {
+        ...previousState,
+        predictionBodies: [...previousState.predictionBodies.filter((current) => !samePredictionBody(current, event.facts)), body],
+      };
+    }
+    case "PredictionBiologicalSignalCountConfirmed": {
+      const previousBody = previousState.predictionBodies.find((current) => samePredictionBody(current, event.body));
+      const body: CorePredictionBodyFacts = {
+        ...previousBody,
+        ...event.body,
+        biologicalSignalCount: event.biologicalSignalCount,
+      };
+      return {
+        ...previousState,
+        predictionBodies: [...previousState.predictionBodies.filter((current) => !samePredictionBody(current, event.body)), body],
       };
     }
     case "FlightStateChanged":

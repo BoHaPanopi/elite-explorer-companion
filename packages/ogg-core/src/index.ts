@@ -15,3 +15,4 @@ export * from "./types/language.ts";
 export * from "./types/tactical.ts";
 export * from "./quotes.ts";
 export * from "./exobiology/index.ts";
+export * from "./prediction/decision.ts";

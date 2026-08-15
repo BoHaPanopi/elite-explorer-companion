@@ -79,6 +79,21 @@ export type CoreExobioActiveContext = {
   bodyName?: string;
 };
 
+export type CorePredictionBodyFacts = {
+  systemAddress: string;
+  bodyId: number;
+  bodyName?: string;
+  planetClass?: string;
+  atmosphere?: string;
+  surfaceTemperatureKelvin?: number;
+  gravityG?: number;
+  surfacePressurePascals?: number;
+  volcanism?: string;
+  biologicalSignalCount?: number;
+};
+
+export type CorePredictionBodyRef = Pick<CorePredictionBodyFacts, "systemAddress" | "bodyId" | "bodyName">;
+
 export type CoreFlightContext = {
   stationName?: string;
   bodyName?: string;
@@ -97,6 +112,8 @@ export type OggCoreEvent =
       body: CoreExobioActiveContext;
       observation: Pick<CoreExobioObservation, "genus" | "species" | "variant"> & { scanType: string };
     }
+  | { type: "PredictionPlanetFactsUpdated"; facts: CorePredictionBodyFacts }
+  | { type: "PredictionBiologicalSignalCountConfirmed"; body: CorePredictionBodyRef; biologicalSignalCount: number }
   | { type: "FlightStateChanged"; flightState: OggFlightState; context?: CoreFlightContext };
 
 export type OggCoreState = {
@@ -110,6 +127,7 @@ export type OggCoreState = {
   bodyExplorations: readonly CoreBodyExploration[];
   exobioBodies: readonly CoreExobioBodyContext[];
   activeExobioContext: CoreExobioActiveContext | null;
+  predictionBodies: readonly CorePredictionBodyFacts[];
 };
 
 export const initialOggCoreState: OggCoreState = {
@@ -123,4 +141,5 @@ export const initialOggCoreState: OggCoreState = {
   bodyExplorations: [],
   exobioBodies: [],
   activeExobioContext: null,
+  predictionBodies: [],
 };

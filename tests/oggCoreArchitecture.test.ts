@@ -39,6 +39,7 @@ test("replays the complete anonymized journal sequence to one deterministic core
     bodyExplorations: [],
     exobioBodies: [],
     activeExobioContext: null,
+    predictionBodies: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", biologicalSignalCount: 1 }],
   });
 });
 
@@ -109,7 +110,10 @@ test("adapter remains fail-soft and optional fields never invent values", () => 
   assert.deepEqual(adaptEliteJournalEvent({ event: "Location", Docked: false }), [{ type: "FlightStateChanged", flightState: "normalSpace" }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "SAASignalsFound", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSBodySignals", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
-  assert.deepEqual(adaptEliteJournalEvent({ event: "Scan", ScanType: "Detailed", SystemAddress: 123, BodyID: 5, BodyName: "HIP 49485 B 5", WasDiscovered: true, WasMapped: false, WasFootfalled: true }), [{ type: "BodyScanUpdated", body: { systemAddress: "123", bodyId: 5, bodyName: "HIP 49485 B 5", wasDiscovered: true, wasMapped: false, wasFootfalled: true, scanType: "Detailed" } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "Scan", ScanType: "Detailed", SystemAddress: 123, BodyID: 5, BodyName: "HIP 49485 B 5", WasDiscovered: true, WasMapped: false, WasFootfalled: true }), [
+    { type: "BodyScanUpdated", body: { systemAddress: "123", bodyId: 5, bodyName: "HIP 49485 B 5", wasDiscovered: true, wasMapped: false, wasFootfalled: true, scanType: "Detailed" } },
+    { type: "PredictionPlanetFactsUpdated", facts: { systemAddress: "123", bodyId: 5, bodyName: "HIP 49485 B 5" } },
+  ]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "Scan", ScanType: "Detailed" }), []);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, SystemName: "Real System", StarSystem: "Fallback System", SystemAddress: 123, BodyCount: 7, NonBodyCount: 2 }), [{ type: "SystemScanCompleted", scan: { systemName: "Real System", systemAddress: "123", bodyCount: 7, nonBodyCount: 2 } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, StarSystem: "Fallback System" }), [{ type: "SystemScanCompleted", scan: { systemName: "Fallback System" } }]);
@@ -133,7 +137,10 @@ test("journal core bridge productively retains confirmed FSS completion and repl
   assert.deepEqual(bridge.getState().currentSystemScan, { systemName: "HIP 49485", systemAddress: "123", bodyCount: 7, nonBodyCount: 2 });
   bridge.ingest({ event: "FSSBodySignals", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Geological;", Count: 2 }] });
   const signalEvents = bridge.ingest({ event: "SAASignalsFound", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Human;", Count: 4 }] });
-  assert.deepEqual(signalEvents, [{ type: "BodySignalsDetected", signals: { systemAddress: "123", bodyId: 5, signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_human;", count: 4 }] } }]);
+  assert.deepEqual(signalEvents, [
+    { type: "BodySignalsDetected", signals: { systemAddress: "123", bodyId: 5, signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_human;", count: 4 }] } },
+    { type: "PredictionBiologicalSignalCountConfirmed", body: { systemAddress: "123", bodyId: 5 }, biologicalSignalCount: 1 },
+  ]);
   assert.equal(bridge.getState().bodySignals.length, 1);
   assert.deepEqual(bridge.getState().bodySignals[0]?.signalTypes, [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_human;", count: 4 }]);
   bridge.ingest({ event: "FSDJump", StarSystem: "Next System", SystemAddress: 456 });

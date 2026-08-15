@@ -1,4 +1,4 @@
-import type { CoreBodyExploration, CoreBodySignals, CoreFlightContext, CoreShip, CoreSystem, CoreSystemScan, OggCoreEvent, OggFlightState } from "./model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreFlightContext, CorePredictionBodyFacts, CorePredictionBodyRef, CoreShip, CoreSystem, CoreSystemScan, OggCoreEvent, OggFlightState } from "./model.ts";
 
 export type EliteJournalFact = Readonly<Record<string, unknown>>;
 
@@ -100,6 +100,38 @@ function bodyExplorationFrom(event: EliteJournalFact): CoreBodyExploration {
   };
 }
 
+function predictionBodyRefFrom(event: EliteJournalFact): CorePredictionBodyRef | null {
+  const systemAddress = address(event.SystemAddress);
+  const bodyId = finiteNumber(event.BodyID);
+  if (systemAddress === undefined || bodyId === undefined) return null;
+  return { systemAddress, bodyId, ...optionalField(nonEmptyString(event.BodyName), "bodyName") };
+}
+
+function predictionFactsFromScan(event: EliteJournalFact): CorePredictionBodyFacts | null {
+  const body = predictionBodyRefFrom(event);
+  if (!body) return null;
+  const facts: CorePredictionBodyFacts = {
+    ...body,
+    ...optionalField(nonEmptyString(event.PlanetClass), "planetClass"),
+    ...optionalField(nonEmptyString(event.Atmosphere) ?? nonEmptyString(event.AtmosphereType), "atmosphere"),
+    ...optionalField(finiteNumber(event.SurfaceTemperature), "surfaceTemperatureKelvin"),
+    ...optionalField(finiteNumber(event.SurfaceGravity) === undefined ? undefined : finiteNumber(event.SurfaceGravity)! / 9.80665, "gravityG"),
+    ...optionalField(finiteNumber(event.SurfacePressure), "surfacePressurePascals"),
+    ...optionalField(nonEmptyString(event.Volcanism), "volcanism"),
+  };
+  return Object.keys(facts).length > 2 ? facts : null;
+}
+
+function biologicalSignalCountFrom(event: EliteJournalFact): number | undefined {
+  if (!Array.isArray(event.Signals)) return undefined;
+  return event.Signals.reduce((total, signal) => {
+    if (!signal || typeof signal !== "object") return total;
+    const source = signal as Record<string, unknown>;
+    const type = nonEmptyString(source.Type)?.toLocaleLowerCase("en-US");
+    return type?.includes("biological") ? total + (finiteNumber(source.Count) ?? 1) : total;
+  }, 0);
+}
+
 function exobioBodyFrom(event: EliteJournalFact) {
   const systemAddress = address(event.SystemAddress);
   const bodyId = finiteNumber(event.BodyID) ?? finiteNumber(event.Body);
@@ -143,20 +175,32 @@ export function adaptEliteJournalEvent(event: EliteJournalFact): readonly OggCor
   }
   if (eventName === "FSDJump" || eventName === "CarrierJump") return [{ type: "SystemEntered", system: systemFrom(event) }];
   if (eventName === "FSSDiscoveryScan") return finiteNumber(event.Progress) === 1 ? [{ type: "SystemScanCompleted", scan: scanFrom(event) }] : [];
-  if (eventName === "FSSBodySignals") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  if (eventName === "FSSBodySignals") {
+    const body = predictionBodyRefFrom(event);
+    const biologicalSignalCount = biologicalSignalCountFrom(event);
+    return [
+      { type: "BodySignalsDetected", signals: signalsFrom(event) },
+      ...(body && biologicalSignalCount !== undefined ? [{ type: "PredictionBiologicalSignalCountConfirmed" as const, body, biologicalSignalCount }] : []),
+    ];
+  }
   if (eventName === "SAASignalsFound") {
     const body = exobioBodyFrom(event);
     const genuses = confirmedGenusesFrom(event);
-    return body && genuses.length > 0
-      ? [
-          { type: "BodySignalsDetected", signals: signalsFrom(event) },
-          { type: "ExobioGenusesConfirmed", body, genuses },
-        ]
-      : [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+    const predictionBody = predictionBodyRefFrom(event);
+    const biologicalSignalCount = biologicalSignalCountFrom(event);
+    return [
+      { type: "BodySignalsDetected", signals: signalsFrom(event) },
+      ...(body && genuses.length > 0 ? [{ type: "ExobioGenusesConfirmed" as const, body, genuses }] : []),
+      ...(predictionBody && biologicalSignalCount !== undefined ? [{ type: "PredictionBiologicalSignalCountConfirmed" as const, body: predictionBody, biologicalSignalCount }] : []),
+    ];
   }
   if (eventName === "Scan") {
     const body = bodyExplorationFrom(event);
-    return body.bodyId === undefined ? [] : [{ type: "BodyScanUpdated", body }];
+    const predictionFacts = predictionFactsFromScan(event);
+    return body.bodyId === undefined ? [] : [
+      { type: "BodyScanUpdated", body },
+      ...(predictionFacts ? [{ type: "PredictionPlanetFactsUpdated" as const, facts: predictionFacts }] : []),
+    ];
   }
   if (eventName === "ScanOrganic") {
     const body = exobioBodyFrom(event);
