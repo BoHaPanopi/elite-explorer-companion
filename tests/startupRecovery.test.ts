@@ -60,10 +60,13 @@ test("the startup greeting is completed only after audible playback succeeds", (
 
 test("startup routing is finalized after the journal commander state commits and before greeting", () => {
   const app = readFileSync("src/App.tsx", "utf8");
+  const runtime = readFileSync("src/services/AnnaCoreDecisionRuntime.ts", "utf8");
 
   assert.match(app, /const \[coreCommander, setCoreCommander\] = useState<string \| null>\(null\)/);
   assert.match(app, /const activeCommander = coreCommander/);
-  assert.match(app, /for \(const event of coreJournalEvents\) \{[\s\S]*bridge\?\.ingestRuntimeDecisions\(event\)[\s\S]*annaEvidenceService\.consumeCoreDecisions\([\s\S]*\}[\s\S]*setCoreCommander\(journalCommander\)/);
+  assert.match(app, /for \(const event of coreJournalEvents\) \{[\s\S]*consumeAnnaCoreDecisions\(event, \{ bridge, evidence: annaEvidenceService \}\)[\s\S]*\}[\s\S]*setCoreCommander\(journalCommander\)/);
+  assert.match(runtime, /dependencies\.bridge\.ingestRuntimeDecisions\(event\)/);
+  assert.match(runtime, /dependencies\.evidence\.consumeCoreDecisions\(/);
   assert.doesNotMatch(app, /selectCommanderIdentity\(/);
   assert.match(app, /source=core/);
   assert.match(app, /const \[startupRoutingCommander, setStartupRoutingCommander\] = useState<string \| null>\(null\)/);

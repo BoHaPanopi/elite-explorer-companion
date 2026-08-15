@@ -31,16 +31,22 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Old Guy of Grumpy ${{ github.ref_name }}
           releaseBody: |
-            ## English
+            ENGLISH
 
-            Old Guy of Grumpy v0.14.19
+            Alpha 0.14.20
 
-            - Audio startup reliability improved.
+            - Improved exploration and exobiology event processing.
+            - Improved prediction and biological observation handling.
+            - Improved runtime stability and decision routing.
+            - Additional regression protection for critical application paths.
 
-            ## Deutsch
+            DEUTSCH
 
-            Old Guy of Grumpy v0.14.19
+            Alpha 0.14.20
 
-            - Die Zuverlässigkeit der Sprachausgabe beim Start wurde verbessert.
+            - Die Verarbeitung von Exploration- und Exobiologie-Ereignissen wurde verbessert.
+            - Vorhersagen und biologische Beobachtungen werden zuverlässiger verarbeitet.
+            - Laufzeitstabilität und Entscheidungsrouting wurden verbessert.
+            - Kritische Anwendungspfade wurden zusätzlich gegen Regressionen abgesichert.
           releaseDraft: false
           prerelease: false

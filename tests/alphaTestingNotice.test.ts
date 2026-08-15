@@ -14,14 +14,14 @@ const noticeSource = readFileSync(noticeTsPath, "utf8");
 const noticeTsxSource = readFileSync(noticeTsxPath, "utf8");
 const appSource = readFileSync(appPath, "utf8");
 
-test("notice version constant is 0.14.19", () => {
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.19");
+test("notice version constant is 0.14.20", () => {
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.20");
 });
 
-test("storage key is version-scoped to 0.14.19", () => {
+test("storage key is version-scoped to 0.14.20", () => {
   // Key is built from the version constant, not hardcoded – check both parts
   assert.match(noticeSource, /ogg\.alphaTesterNotice/);
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.19");
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.20");
 });
 
 test("DE title and body text are present in component", () => {
