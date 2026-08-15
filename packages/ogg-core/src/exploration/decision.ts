@@ -1,4 +1,4 @@
-import type { CoreBodySignals, CoreSystem, OggCoreEvent, OggCoreState } from "../core/model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreSystem, OggCoreEvent, OggCoreState } from "../core/model.ts";
 
 export type ExplorationDecision =
   | { kind: "scanIncomplete"; system: CoreSystem | null }
@@ -24,6 +24,10 @@ export type ExplorationDecision =
       bodyName?: string;
       biologicalSignalCount: number;
       signalTypes: CoreBodySignals["signalTypes"];
+    }
+  | {
+      kind: "bodyExplorationUpdated";
+      body: CoreBodyExploration;
     };
 
 function sameSignals(left: CoreBodySignals | undefined, right: CoreBodySignals): boolean {
@@ -36,6 +40,10 @@ function bodySignalsForEvent(event: OggCoreEvent): CoreBodySignals | null {
 
 function previousSignals(state: Readonly<OggCoreState>, signals: CoreBodySignals): CoreBodySignals | undefined {
   return state.bodySignals.find((current) => current.systemAddress === signals.systemAddress && current.bodyId === signals.bodyId);
+}
+
+function previousBodyExploration(state: Readonly<OggCoreState>, body: CoreBodyExploration): CoreBodyExploration | undefined {
+  return state.bodyExplorations.find((current) => current.systemAddress === body.systemAddress && current.bodyId === body.bodyId);
 }
 
 export function evaluateExploration(
@@ -56,6 +64,12 @@ export function evaluateExploration(
       ...(scan.nonBodyCount === undefined ? {} : { nonBodyCount: scan.nonBodyCount }),
       observedSignalBodies: state.bodySignals.length,
     };
+  }
+
+  if (event.type === "BodyScanUpdated") {
+    const current = state.bodyExplorations.find((body) => body.systemAddress === event.body.systemAddress && body.bodyId === event.body.bodyId);
+    if (!current || JSON.stringify(previousBodyExploration(previousState, event.body)) === JSON.stringify(current)) return null;
+    return { kind: "bodyExplorationUpdated", body: current };
   }
 
   const signals = bodySignalsForEvent(event);

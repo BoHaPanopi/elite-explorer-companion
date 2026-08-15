@@ -1,4 +1,4 @@
-import type { CoreBodySignals, CoreFlightContext, CoreShip, CoreSystem, CoreSystemScan, OggCoreEvent, OggFlightState } from "./model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreFlightContext, CoreShip, CoreSystem, CoreSystemScan, OggCoreEvent, OggFlightState } from "./model.ts";
 
 export type EliteJournalFact = Readonly<Record<string, unknown>>;
 
@@ -88,6 +88,18 @@ function signalsFrom(event: EliteJournalFact): CoreBodySignals {
   };
 }
 
+function bodyExplorationFrom(event: EliteJournalFact): CoreBodyExploration {
+  return {
+    ...optionalField(address(event.SystemAddress), "systemAddress"),
+    ...optionalField(finiteNumber(event.BodyID), "bodyId"),
+    ...optionalField(nonEmptyString(event.BodyName), "bodyName"),
+    ...optionalField(typeof event.WasDiscovered === "boolean" ? event.WasDiscovered : undefined, "wasDiscovered"),
+    ...optionalField(typeof event.WasMapped === "boolean" ? event.WasMapped : undefined, "wasMapped"),
+    ...optionalField(typeof event.WasFootfalled === "boolean" ? event.WasFootfalled : undefined, "wasFootfalled"),
+    ...optionalField(nonEmptyString(event.ScanType), "scanType"),
+  };
+}
+
 function flightEvent(flightState: OggFlightState, context?: CoreFlightContext): OggCoreEvent {
   return { type: "FlightStateChanged", flightState, ...(context ? { context } : {}) };
 }
@@ -111,6 +123,10 @@ export function adaptEliteJournalEvent(event: EliteJournalFact): readonly OggCor
   if (eventName === "FSDJump" || eventName === "CarrierJump") return [{ type: "SystemEntered", system: systemFrom(event) }];
   if (eventName === "FSSDiscoveryScan") return finiteNumber(event.Progress) === 1 ? [{ type: "SystemScanCompleted", scan: scanFrom(event) }] : [];
   if (eventName === "FSSBodySignals" || eventName === "SAASignalsFound") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  if (eventName === "Scan") {
+    const body = bodyExplorationFrom(event);
+    return body.bodyId === undefined ? [] : [{ type: "BodyScanUpdated", body }];
+  }
   if (eventName === "SupercruiseEntry") return [flightEvent("supercruise")];
   if (eventName === "SupercruiseExit" || eventName === "Undocked") return [flightEvent("normalSpace")];
   if (eventName === "Docked") return [flightEvent("docked", { ...optionalField(nonEmptyString(event.StationName), "stationName") })];

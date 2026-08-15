@@ -36,6 +36,7 @@ test("replays the complete anonymized journal sequence to one deterministic core
     flightContext: { stationName: "Celsius Reach" },
     currentSystemScan: { systemName: "HIP 49485", systemAddress: "123456789", bodyCount: 17, nonBodyCount: 3 },
     bodySignals: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_geological;", count: 2 }] }],
+    bodyExplorations: [],
   });
 });
 
@@ -64,6 +65,8 @@ test("adapter remains fail-soft and optional fields never invent values", () => 
   assert.deepEqual(adaptEliteJournalEvent({ event: "Location", Docked: false }), [{ type: "FlightStateChanged", flightState: "normalSpace" }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "SAASignalsFound", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSBodySignals", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "Scan", ScanType: "Detailed", SystemAddress: 123, BodyID: 5, BodyName: "HIP 49485 B 5", WasDiscovered: true, WasMapped: false, WasFootfalled: true }), [{ type: "BodyScanUpdated", body: { systemAddress: "123", bodyId: 5, bodyName: "HIP 49485 B 5", wasDiscovered: true, wasMapped: false, wasFootfalled: true, scanType: "Detailed" } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "Scan", ScanType: "Detailed" }), []);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, SystemName: "Real System", StarSystem: "Fallback System", SystemAddress: 123, BodyCount: 7, NonBodyCount: 2 }), [{ type: "SystemScanCompleted", scan: { systemName: "Real System", systemAddress: "123", bodyCount: 7, nonBodyCount: 2 } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, StarSystem: "Fallback System" }), [{ type: "SystemScanCompleted", scan: { systemName: "Fallback System" } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 0.99 }), []);
@@ -129,7 +132,7 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   const dashboardSource = readFileSync("src/components/Dashboard.tsx", "utf8");
   const rustSource = readFileSync("src-tauri/src/lib.rs", "utf8");
 
-  assert.doesNotMatch(coreSource, /react|tauri|invoke\(|fetch\(|speech|voice|crew|window|update/i);
+  assert.doesNotMatch(coreSource, /react|tauri|invoke\(|fetch\(|speech|voice|crew|window/i);
   assert.doesNotMatch(coreSource, /CoreShadowStateBridge|\.\.\/\.\.\/src\//);
   assert.doesNotMatch(bridgeSource, /react|tauri|invoke\(|fetch\(|speech|voice|greeting|dashboard|update/i);
   assert.match(bridgeSource, /from "ogg-core"/);

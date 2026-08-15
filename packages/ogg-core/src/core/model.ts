@@ -45,6 +45,16 @@ export type CoreBodySignals = {
   // Genus evidence is intentionally modeled separately before a future exobiology migration.
 };
 
+export type CoreBodyExploration = {
+  systemAddress?: string;
+  bodyId?: number;
+  bodyName?: string;
+  wasDiscovered?: boolean;
+  wasMapped?: boolean;
+  wasFootfalled?: boolean;
+  scanType?: string;
+};
+
 export type CoreFlightContext = {
   stationName?: string;
   bodyName?: string;
@@ -56,6 +66,7 @@ export type OggCoreEvent =
   | { type: "SystemEntered"; system: CoreSystem }
   | { type: "SystemScanCompleted"; scan: CoreSystemScan }
   | { type: "BodySignalsDetected"; signals: CoreBodySignals }
+  | { type: "BodyScanUpdated"; body: CoreBodyExploration }
   | { type: "FlightStateChanged"; flightState: OggFlightState; context?: CoreFlightContext };
 
 export type OggCoreState = {
@@ -66,6 +77,7 @@ export type OggCoreState = {
   flightContext: CoreFlightContext | null;
   currentSystemScan: CoreSystemScan | null;
   bodySignals: readonly CoreBodySignals[];
+  bodyExplorations: readonly CoreBodyExploration[];
 };
 
 export const initialOggCoreState: OggCoreState = {
@@ -76,4 +88,5 @@ export const initialOggCoreState: OggCoreState = {
   flightContext: null,
   currentSystemScan: null,
   bodySignals: [],
+  bodyExplorations: [],
 };

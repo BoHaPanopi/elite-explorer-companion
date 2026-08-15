@@ -1,7 +1,11 @@
-import type { CoreBodySignals, CoreFlightContext, OggCoreEvent, OggCoreState } from "./model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreFlightContext, OggCoreEvent, OggCoreState } from "./model.ts";
 import { initialOggCoreState } from "./model.ts";
 
 function sameBody(previous: CoreBodySignals, next: CoreBodySignals): boolean {
+  return previous.systemAddress === next.systemAddress && previous.bodyId === next.bodyId;
+}
+
+function sameExplorationBody(previous: CoreBodyExploration, next: CoreBodyExploration): boolean {
   return previous.systemAddress === next.systemAddress && previous.bodyId === next.bodyId;
 }
 
@@ -23,12 +27,18 @@ export function reduceCoreState(previousState: OggCoreState = initialOggCoreStat
         system: event.system,
         currentSystemScan: null,
         bodySignals: [],
+        bodyExplorations: [],
       };
     case "SystemScanCompleted":
       return { ...previousState, currentSystemScan: event.scan };
     case "BodySignalsDetected": {
       const bodySignals = previousState.bodySignals.filter((current) => !sameBody(current, event.signals));
       return { ...previousState, bodySignals: [...bodySignals, event.signals] };
+    }
+    case "BodyScanUpdated": {
+      const previousBody = previousState.bodyExplorations.find((current) => sameExplorationBody(current, event.body));
+      const bodyExplorations = previousState.bodyExplorations.filter((current) => !sameExplorationBody(current, event.body));
+      return { ...previousState, bodyExplorations: [...bodyExplorations, { ...previousBody, ...event.body }] };
     }
     case "FlightStateChanged":
       return {

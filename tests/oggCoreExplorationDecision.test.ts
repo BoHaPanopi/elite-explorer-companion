@@ -27,6 +27,7 @@ const historicalReplay: EliteJournalFact[] = [
   { event: "FSSDiscoveryScan", Progress: 0.5, SystemName: "System Two", SystemAddress: 200, BodyCount: 2, NonBodyCount: 1 },
   { event: "FSSDiscoveryScan", Progress: 1, SystemName: "System Two", SystemAddress: 200, BodyCount: 2, NonBodyCount: 1 },
   { event: "FSSBodySignals", SystemAddress: 200, BodyID: 7, BodyName: "System Two 7", Signals: [{ Type: "$SAA_SignalType_Geological;", Count: 3 }] },
+  { event: "Scan", ScanType: "Detailed", SystemAddress: 200, BodyID: 7, BodyName: "System Two 7", WasDiscovered: true, WasMapped: false, WasFootfalled: false },
 ];
 
 test("replays the historical FSS and body-signal sequence deterministically without premature no-biology decisions", () => {
@@ -42,6 +43,7 @@ test("replays the historical FSS and body-signal sequence deterministically with
     "scanIncomplete",
     "scanCompleted",
     "bodySignalsDetected",
+    "bodyExplorationUpdated",
   ]);
   assert.deepEqual(first[1], { kind: "scanCompleted", systemName: "System One", systemAddress: "100", bodyCount: 7, nonBodyCount: 3, observedSignalBodies: 0 });
   assert.deepEqual(first[2], {
@@ -53,6 +55,27 @@ test("replays the historical FSS and body-signal sequence deterministically with
     signalTypes: [{ type: "$saa_signaltype_biological;", count: 2 }, { type: "$saa_signaltype_geological;", count: 1 }],
   });
   assert.deepEqual(first[5], { kind: "scanCompleted", systemName: "System Two", systemAddress: "200", bodyCount: 2, nonBodyCount: 1, observedSignalBodies: 0 });
+});
+
+test("Scan facts retain confirmed discovery, mapping, and footfall data as later scans add detail", () => {
+  const decisions = replay([
+    { event: "FSDJump", StarSystem: "System One", SystemAddress: 100 },
+    { event: "Scan", ScanType: "AutoScan", SystemAddress: 100, BodyID: 4, BodyName: "System One 4", WasDiscovered: false },
+    { event: "Scan", ScanType: "Detailed", SystemAddress: 100, BodyID: 4, WasMapped: true, WasFootfalled: true },
+  ]);
+
+  assert.deepEqual(decisions.at(-1), {
+    kind: "bodyExplorationUpdated",
+    body: {
+      systemAddress: "100",
+      bodyId: 4,
+      bodyName: "System One 4",
+      wasDiscovered: false,
+      wasMapped: true,
+      wasFootfalled: true,
+      scanType: "Detailed",
+    },
+  });
 });
 
 test("duplicate confirmed core facts do not emit a second decision", () => {
