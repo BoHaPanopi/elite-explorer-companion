@@ -9,8 +9,10 @@ const anonymizedReplay: EliteJournalFact[] = [
   { event: "Commander", Name: "  Explorer One  ", FID: "F123" },
   { event: "Loadout", Ship: "Krait Phantom", ShipID: 42, ShipName: "Surveyor", ShipIdent: "OGG-01", FuelCapacity: { Main: 32 }, CargoCapacity: 64, MaxJumpRange: 68.5 },
   { event: "FSDJump", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], JumpDist: 18.5, FuelUsed: 2.4, FuelLevel: 29.6 },
+  { event: "Location", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], Docked: false },
   { event: "FSSDiscoveryScan", Progress: 1, StarSystem: "HIP 49485", SystemAddress: 123456789, BodyCount: 17, NonBodyCount: 3 },
   { event: "FSSBodySignals", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 2 }, { Type: "$SAA_SignalType_Geological;", Count: 1 }] },
+  { event: "SAASignalsFound", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Geological;", Count: 2 }] },
   { event: "SupercruiseExit" },
   { event: "Docked", StationName: "Celsius Reach" },
 ];
@@ -29,11 +31,11 @@ test("replays the complete anonymized journal sequence to one deterministic core
   assert.deepEqual(first, {
     commander: { name: "Explorer One", normalizedName: "explorer one", fid: "F123" },
     ship: { shipType: "Krait Phantom", shipId: 42, shipName: "Surveyor", shipIdent: "OGG-01", fuelCapacity: 32, cargoCapacity: 64, maxJumpRange: 68.5 },
-    system: { systemName: "HIP 49485", systemAddress: "123456789", starPosition: [1, 2, 3], jumpDistance: 18.5, fuelUsed: 2.4, fuelLevel: 29.6 },
+    system: { systemName: "HIP 49485", systemAddress: "123456789", starPosition: [1, 2, 3] },
     flightState: "docked",
     flightContext: { stationName: "Celsius Reach" },
     currentSystemScan: { systemName: "HIP 49485", systemAddress: "123456789", bodyCount: 17, nonBodyCount: 3 },
-    bodySignals: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", signalTypes: [{ type: "$saa_signaltype_biological;", count: 2 }, { type: "$saa_signaltype_geological;", count: 1 }] }],
+    bodySignals: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_geological;", count: 2 }] }],
   });
 });
 
@@ -58,6 +60,10 @@ test("store changes state only through dispatched reducer events and subscriptio
 test("adapter remains fail-soft and optional fields never invent values", () => {
   const [ship] = adaptEliteJournalEvent({ event: "Loadout", Ship: "Adder" });
   assert.deepEqual(ship, { type: "ShipStateChanged", ship: { shipType: "Adder" } });
+  assert.deepEqual(adaptEliteJournalEvent({ event: "Location", StarSystem: "HIP 49485" }), [{ type: "SystemEntered", system: { systemName: "HIP 49485" } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "Location", Docked: false }), [{ type: "FlightStateChanged", flightState: "normalSpace" }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "SAASignalsFound", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "FSSBodySignals", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 0.99 }), []);
   assert.deepEqual(adaptEliteJournalEvent({ event: "UnknownFutureEvent" }), []);
 });
@@ -83,6 +89,10 @@ test("shadow bridge dispatches adapted facts and emits compact mismatch diagnost
   assert.equal(mismatches.length, 1);
   bridge.compare({ system: "Different system" }, "FSDJump");
   assert.equal(mismatches.length, 1);
+
+  const signalEvents = bridge.ingest({ event: "SAASignalsFound", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] });
+  assert.deepEqual(signalEvents, [{ type: "BodySignalsDetected", signals: { systemAddress: "123", bodyId: 5, signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
+  assert.equal(bridge.getState().bodySignals.length, 1);
 });
 
 test("core and shadow boundary stay free of runtime and product side effects", () => {
@@ -101,4 +111,5 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(appSource, /bridge\?\.ingest/);
   assert.match(appSource, /CORE_STATE_MISMATCH/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
+  assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
 });

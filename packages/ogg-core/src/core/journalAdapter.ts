@@ -50,6 +50,17 @@ function systemFrom(event: EliteJournalFact): CoreSystem {
   };
 }
 
+function systemFromLocation(event: EliteJournalFact): CoreSystem {
+  const starPosition = Array.isArray(event.StarPos) && event.StarPos.length === 3 && event.StarPos.every((value) => finiteNumber(value) !== undefined)
+    ? event.StarPos as [number, number, number]
+    : undefined;
+  return {
+    ...optionalField(nonEmptyString(event.StarSystem), "systemName"),
+    ...optionalField(address(event.SystemAddress), "systemAddress"),
+    ...optionalField(starPosition, "starPosition"),
+  };
+}
+
 function scanFrom(event: EliteJournalFact): CoreSystemScan {
   return {
     ...optionalField(nonEmptyString(event.StarSystem), "systemName"),
@@ -99,13 +110,18 @@ export function adaptEliteJournalEvent(event: EliteJournalFact): readonly OggCor
   }
   if (eventName === "FSDJump" || eventName === "CarrierJump") return [{ type: "SystemEntered", system: systemFrom(event) }];
   if (eventName === "FSSDiscoveryScan") return finiteNumber(event.Progress) === 1 ? [{ type: "SystemScanCompleted", scan: scanFrom(event) }] : [];
-  if (eventName === "FSSBodySignals") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  if (eventName === "FSSBodySignals" || eventName === "SAASignalsFound") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
   if (eventName === "SupercruiseEntry") return [flightEvent("supercruise")];
   if (eventName === "SupercruiseExit" || eventName === "Undocked") return [flightEvent("normalSpace")];
   if (eventName === "Docked") return [flightEvent("docked", { ...optionalField(nonEmptyString(event.StationName), "stationName") })];
   if (eventName === "Touchdown") return [flightEvent("landed", { ...optionalField(nonEmptyString(event.Body), "bodyName") })];
   if (eventName === "Liftoff") return [flightEvent("airborne")];
-  if (eventName === "Location" && event.Docked === true) return [flightEvent("docked", { ...optionalField(nonEmptyString(event.StationName), "stationName") })];
-  if (eventName === "Location" && event.Docked === false) return [flightEvent("normalSpace")];
+  if (eventName === "Location") {
+    const system = systemFromLocation(event);
+    const systemEvent = Object.keys(system).length ? [{ type: "SystemEntered" as const, system }] : [];
+    if (event.Docked === true) return [...systemEvent, flightEvent("docked", { ...optionalField(nonEmptyString(event.StationName), "stationName") })];
+    if (event.Docked === false) return [...systemEvent, flightEvent("normalSpace")];
+    return systemEvent;
+  }
   return [];
 }

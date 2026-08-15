@@ -2779,7 +2779,7 @@ fn get_live_core_journal_events(locale: Option<String>) -> Result<Vec<Value>, St
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .filter(|event| matches!(
             event.get("event").and_then(Value::as_str),
-            Some("Commander" | "LoadGame" | "Loadout" | "FSDJump" | "CarrierJump" | "FSSDiscoveryScan" | "FSSBodySignals" | "SupercruiseEntry" | "SupercruiseExit" | "Docked" | "Undocked" | "Touchdown" | "Liftoff" | "Location")
+            Some("Commander" | "LoadGame" | "Loadout" | "FSDJump" | "CarrierJump" | "FSSDiscoveryScan" | "FSSBodySignals" | "SAASignalsFound" | "SupercruiseEntry" | "SupercruiseExit" | "Docked" | "Undocked" | "Touchdown" | "Liftoff" | "Location")
         ))
         .collect();
     *cursor = Some(AnnaLiveJournalCursor { path, line_number: lines.len() });
