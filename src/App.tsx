@@ -98,8 +98,42 @@ type EliteSnapshot = {
       discovery: "undiscovered" | "discovered_by_other_commander" | "first_discovered_by_current_commander" | "previously_discovered_ownership_unknown";
       mapping: "not_mapped" | "scanned_not_mapped" | "mapped_by_other_commander" | "first_mapped_by_current_commander" | "previously_mapped_ownership_unknown";
       biology: "none_detected" | "signals_present";
-      biologyFinding: "none" | "unknown" | "known" | "new";
+      biologicalSignalCount: number | null;
     }>;
+    latestExplorationObservation: {
+      id: string;
+      kind: ExplorationObservationKind;
+      bodyId: number | null;
+      bodyName: string | null;
+    } | null;
+    exobio: {
+      bodies: Array<{
+        bodyId: number;
+        bodyName: string;
+        biologyFinding: "none" | "unknown" | "known" | "new";
+        confirmedGenera: string[];
+        compositionSpecies: string | null;
+        codexEntryName: string | null;
+        voucherAmount: number | null;
+        organicProbeStage: number | null;
+      }>;
+      latestExobioObservation: {
+        id: string;
+        kind: ExplorationObservationKind;
+        bodyId: number | null;
+        bodyName: string | null;
+        details?: {
+          biologicalSignalCount?: number | null;
+          confirmedGenera?: string[];
+          compositionSpecies?: string | null;
+          codexEntryName?: string | null;
+          voucherAmount?: number | null;
+          remainingBiologicalBodies?: number | null;
+          probeStage?: 1 | 2 | 3 | null;
+        };
+      } | null;
+    };
+    // Temporary compatibility bridge for comparing the former mixed stream.
     latestObservation: {
       id: string;
       kind: ExplorationObservationKind;
@@ -537,7 +571,7 @@ function App() {
 
   useEffect(() => {
     if (isLoading) return;
-    const observation = snapshot?.exploration.latestObservation ?? null;
+    const observation = snapshot?.exploration.exobio.latestExobioObservation ?? null;
     const observationId = observation?.id ?? null;
     const annaVoice = resolveCrewVoicePreview("science", defaultCrewLocaleForUiLanguage(oggLanguage));
     const previousLatestObservation = lastLatestObservation.current;
@@ -676,7 +710,7 @@ function App() {
       });
       console.error(oggLanguage === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
     });
-  }, [isLoading, logDiagnostic, oggLanguage, snapshot?.exploration.latestObservation?.id]);
+  }, [isLoading, logDiagnostic, oggLanguage, snapshot?.exploration.exobio.latestExobioObservation?.id]);
 
   useEffect(() => {
     if (annaPredictionRevision === 0) return;

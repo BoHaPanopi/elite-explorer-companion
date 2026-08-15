@@ -115,9 +115,10 @@ test("baseline initialization skip happens exactly once and next stage is proces
   ]);
 });
 
-test("App observation effect depends on latestObservation id instead of object reference", () => {
+test("Anna consumes the separated Exobio observation id instead of the legacy mixed stream", () => {
   const appSource = readFileSync("src/App.tsx", "utf8");
 
-  assert.match(appSource, /snapshot\?\.exploration\.latestObservation\?\.id/);
-  assert.doesNotMatch(appSource, /snapshot\?\.exploration\.latestObservation\]\);/);
+  assert.match(appSource, /snapshot\?\.exploration\.exobio\.latestExobioObservation\?\.id/);
+  assert.match(appSource, /latestObservation:\s*\{/);
+  assert.doesNotMatch(appSource, /const observation = snapshot\?\.exploration\.latestObservation/);
 });
