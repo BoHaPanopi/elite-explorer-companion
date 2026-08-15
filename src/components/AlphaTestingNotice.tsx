@@ -12,28 +12,24 @@ type AlphaTestingNoticeProps = {
   onConfirm: () => void;
 };
 
-const DE_TITLE = "Alpha 0.14.16 – Testhinweise";
-const EN_TITLE = "Alpha 0.14.16 – Testing Notes";
+const DE_TITLE = "Alpha 0.14.17 – Testhinweise";
+const EN_TITLE = "Alpha 0.14.17 – Testing Notes";
 
-const DE_BODY = `Bitte testet in Alpha 0.14.16 besonders:
+const DE_BODY = `Bitte testet in Alpha 0.14.17 besonders:
 
-• das neue Command Center und die profilabhängigen Ränge
-• das aktuelle Schiff mit Name, Kennung und Darstellung
-• Willi: lokale Navigation und letzte Reise
-• den permanenten Datenflussstatus
-• schnelle Telemetrie auch bei vielen lokalen Journalen
+• die Tony Edition mit helitony und helitony2
+• die englische en-GB-Sprachausgabe mit Microsoft George
+• die eindeutige Meldung bei fehlender Tony-Stimme
 • Auffälligkeiten/Fehler im normalen Betrieb
 
 Hinweis:
 Alle Journal- und Telemetriedaten bleiben lokal.`;
 
-const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.16:
+const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.17:
 
-• the new Command Center and profile-dependent ranks
-• the current ship with name, identifier, and display
-• Willi: local navigation and last journey
-• the permanent data-flow status
-• fast telemetry with many local journals
+• Tony Edition with helitony and helitony2
+• English en-GB speech with Microsoft George
+• the clear status when the Tony voice is unavailable
 • anomalies/errors during normal operation
 
 Note:
