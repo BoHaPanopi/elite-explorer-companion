@@ -292,12 +292,10 @@ function App() {
     void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
   }, []);
 
-  // Commander is productively routed from core; all remaining core areas stay comparison-only.
+  // The journal-fed CoreStateStore is the productive truth for all modeled core areas.
   const coreShadowBridge = useRef<CoreShadowStateBridge | null>(null);
   if (!coreShadowBridge.current) {
-    coreShadowBridge.current = new CoreShadowStateBridge(undefined, (mismatch) => {
-      logDiagnostic("CORE_STATE_MISMATCH", mismatch);
-    });
+    coreShadowBridge.current = new CoreShadowStateBridge();
   }
   const snapshotRequestInFlight = useRef(false);
   const frontendPollSequence = useRef(0);
@@ -328,8 +326,7 @@ function App() {
       annaEvidenceService.process(result.commander
         ? [{ event: "Commander", name: result.commander }, ...annaEvents]
         : annaEvents);
-      // The journal-fed core is authoritative only for commander routing at this stage.
-      // All other core areas remain comparison-only.
+      // The journal-fed core is authoritative for every currently modeled core area.
       try {
         const coreJournalEvents = await invoke<EliteJournalFact[]>("get_live_core_journal_events", { locale: language });
         const bridge = coreShadowBridge.current;
@@ -348,14 +345,8 @@ function App() {
             technical: `mode=${detectedMode.mode} commander=${JSON.stringify(journalCommander)} source=core`,
           });
         }
-        if (coreJournalEvents.length) {
-          bridge?.compare({
-            systemScanCompleted: result.exploration.systemScan === "fully_discovered",
-            bodySignalsDetected: result.exploration.bodies.some((body) => body.biology === "signals_present"),
-          }, String(coreJournalEvents.at(-1)?.event ?? "unknown"));
-        }
       } catch {
-        // Shadow diagnostics must never affect the established runtime path.
+        // Core journal ingestion must never affect the established runtime path.
       }
       setAnnaPredictionRevision(annaEvidenceService.predictions().reduce(
         (latest, prediction) => Math.max(latest, prediction.revision),

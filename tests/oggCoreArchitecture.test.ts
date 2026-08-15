@@ -10,7 +10,7 @@ const anonymizedReplay: EliteJournalFact[] = [
   { event: "Loadout", Ship: "Krait Phantom", ShipID: 42, ShipName: "Surveyor", ShipIdent: "OGG-01", FuelCapacity: { Main: 32 }, CargoCapacity: 64, MaxJumpRange: 68.5 },
   { event: "FSDJump", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], JumpDist: 18.5, FuelUsed: 2.4, FuelLevel: 29.6 },
   { event: "Location", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], Docked: false },
-  { event: "FSSDiscoveryScan", Progress: 1, StarSystem: "HIP 49485", SystemAddress: 123456789, BodyCount: 17, NonBodyCount: 3 },
+  { event: "FSSDiscoveryScan", Progress: 1, SystemName: "HIP 49485", SystemAddress: 123456789, BodyCount: 17, NonBodyCount: 3 },
   { event: "FSSBodySignals", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 2 }, { Type: "$SAA_SignalType_Geological;", Count: 1 }] },
   { event: "SAASignalsFound", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Geological;", Count: 2 }] },
   { event: "SupercruiseExit" },
@@ -64,6 +64,8 @@ test("adapter remains fail-soft and optional fields never invent values", () => 
   assert.deepEqual(adaptEliteJournalEvent({ event: "Location", Docked: false }), [{ type: "FlightStateChanged", flightState: "normalSpace" }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "SAASignalsFound", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSBodySignals", SystemAddress: 123, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] }), [{ type: "BodySignalsDetected", signals: { systemAddress: "123", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, SystemName: "Real System", StarSystem: "Fallback System", SystemAddress: 123, BodyCount: 7, NonBodyCount: 2 }), [{ type: "SystemScanCompleted", scan: { systemName: "Real System", systemAddress: "123", bodyCount: 7, nonBodyCount: 2 } }]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 1, StarSystem: "Fallback System" }), [{ type: "SystemScanCompleted", scan: { systemName: "Fallback System" } }]);
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 0.99 }), []);
   assert.deepEqual(adaptEliteJournalEvent({ event: "UnknownFutureEvent" }), []);
 });
@@ -78,21 +80,18 @@ test("flight events remove obsolete station and body context", () => {
   assert.equal(state.flightContext, null);
 });
 
-test("shadow bridge dispatches adapted facts and emits compact mismatch diagnostics only when they change", () => {
-  const mismatches: unknown[] = [];
-  const bridge = new CoreShadowStateBridge(undefined, (mismatch) => mismatches.push(mismatch));
-  bridge.ingest({ event: "FSSDiscoveryScan", Progress: 1 });
-  assert.notEqual(bridge.getState().currentSystemScan, null);
-  assert.deepEqual(bridge.compare({ systemScanCompleted: true }, "FSSDiscoveryScan"), []);
-  assert.equal(mismatches.length, 0);
-  assert.equal(bridge.compare({ systemScanCompleted: false }, "FSSDiscoveryScan").length, 1);
-  assert.equal(mismatches.length, 1);
-  bridge.compare({ systemScanCompleted: false }, "FSSDiscoveryScan");
-  assert.equal(mismatches.length, 1);
-
-  const signalEvents = bridge.ingest({ event: "SAASignalsFound", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] });
-  assert.deepEqual(signalEvents, [{ type: "BodySignalsDetected", signals: { systemAddress: "123", bodyId: 5, signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }] } }]);
+test("journal core bridge productively retains confirmed FSS completion and replaces same-body signals", () => {
+  const bridge = new CoreShadowStateBridge();
+  bridge.ingest({ event: "FSSDiscoveryScan", Progress: 1, SystemName: "HIP 49485", SystemAddress: 123, BodyCount: 7, NonBodyCount: 2 });
+  assert.deepEqual(bridge.getState().currentSystemScan, { systemName: "HIP 49485", systemAddress: "123", bodyCount: 7, nonBodyCount: 2 });
+  bridge.ingest({ event: "FSSBodySignals", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Geological;", Count: 2 }] });
+  const signalEvents = bridge.ingest({ event: "SAASignalsFound", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }, { Type: "$SAA_SignalType_Human;", Count: 4 }] });
+  assert.deepEqual(signalEvents, [{ type: "BodySignalsDetected", signals: { systemAddress: "123", bodyId: 5, signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_human;", count: 4 }] } }]);
   assert.equal(bridge.getState().bodySignals.length, 1);
+  assert.deepEqual(bridge.getState().bodySignals[0]?.signalTypes, [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_human;", count: 4 }]);
+  bridge.ingest({ event: "FSDJump", StarSystem: "Next System", SystemAddress: 456 });
+  assert.equal(bridge.getState().currentSystemScan, null);
+  assert.deepEqual(bridge.getState().bodySignals, []);
 });
 
 test("journal commander is available from core state for the sole routing source", () => {
@@ -136,7 +135,6 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(bridgeSource, /from "ogg-core"/);
   assert.match(appSource, /get_live_core_journal_events/);
   assert.match(appSource, /bridge\?\.ingest/);
-  assert.match(appSource, /CORE_STATE_MISMATCH/);
   assert.match(appSource, /const activeCommander = coreCommander/);
   assert.match(appSource, /setCoreShip\(bridge\?\.getState\(\)\.ship \?\? null\)/);
   assert.match(appSource, /setCoreSystem\(bridge\?\.getState\(\)\.system \?\? null\)/);
@@ -151,5 +149,6 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.doesNotMatch(appSource, /selectCommanderIdentity\(/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
-  assert.doesNotMatch(bridgeSource, /"system"|"flightState"/);
+  assert.doesNotMatch(appSource, /result\.exploration\.systemScan|result\.exploration\.bodies\.some/);
+  assert.doesNotMatch(bridgeSource, /compareCoreShadowState|CORE_STATE_MISMATCH/);
 });

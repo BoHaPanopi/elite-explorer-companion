@@ -63,7 +63,7 @@ function systemFromLocation(event: EliteJournalFact): CoreSystem {
 
 function scanFrom(event: EliteJournalFact): CoreSystemScan {
   return {
-    ...optionalField(nonEmptyString(event.StarSystem), "systemName"),
+    ...optionalField(nonEmptyString(event.SystemName) ?? nonEmptyString(event.StarSystem), "systemName"),
     ...optionalField(address(event.SystemAddress), "systemAddress"),
     ...optionalField(finiteNumber(event.BodyCount), "bodyCount"),
     ...optionalField(finiteNumber(event.NonBodyCount), "nonBodyCount"),

@@ -42,6 +42,7 @@ export type CoreBodySignals = {
   bodyId?: number;
   bodyName?: string;
   signalTypes: readonly CoreSignalType[];
+  // Genus evidence is intentionally modeled separately before a future exobiology migration.
 };
 
 export type CoreFlightContext = {
