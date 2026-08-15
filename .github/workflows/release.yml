@@ -17,10 +17,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Test commander-specific activation rules
-        run: npm run test:tony
-      - name: Enforce public terminology policy
-        run: npm run test:public-copy
+      - name: Enforce protected product rules on the release path
+        run: npm run test:release-guards
       - name: Test journal recognition
         working-directory: src-tauri
         run: cargo test

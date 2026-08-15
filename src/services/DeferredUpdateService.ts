@@ -8,6 +8,37 @@ export type UpdateReadiness = {
   blocker: string | null;
 };
 
+export type UpdateExitPhase = "downloading" | "ready" | "installing" | "error";
+
+export async function completeUpdateExit({
+  update,
+  phase,
+  preventClose,
+  install,
+  exitApp,
+}: {
+  update: { install: () => Promise<void> } | null;
+  phase: UpdateExitPhase;
+  preventClose: () => void;
+  install: () => Promise<void>;
+  exitApp: () => Promise<void>;
+}): Promise<"exited" | "installing" | "ignored"> {
+  if (!update) {
+    await exitApp();
+    return "exited";
+  }
+  if (phase === "installing") {
+    preventClose();
+    return "installing";
+  }
+  if (phase !== "ready") return "ignored";
+
+  preventClose();
+  await install();
+  await exitApp();
+  return "exited";
+}
+
 export async function downloadUpdateInBackground(
   update: { download: (onEvent: (event: DownloadEvent) => void) => Promise<void> },
   onProgress: (progress: number) => void,

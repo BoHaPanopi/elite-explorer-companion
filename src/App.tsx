@@ -46,7 +46,7 @@ import { createLocalDataFlowStatus } from "./features/dataFlowStatus";
 import { persistMissionProfile, readMissionProfile, type MissionProfile, type RankCategory } from "./features/missionProfile";
 import { MISSION_PROFILE_LABELS } from "./content/commandCenter";
 import { LocalVoiceUnavailableError, speechService } from "./services/SpeechService";
-import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
+import { completeUpdateExit, downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
@@ -472,30 +472,26 @@ function App() {
     let unlisten: (() => void) | undefined;
     void getCurrentWindow().onCloseRequested(async (event) => {
       const update = pendingUpdate.current;
-      if (!update) {
-        await exit(0);
-        return;
-      }
-      if (updatePhaseRef.current === "installing") {
-        event.preventDefault();
-        return;
-      }
-      if (updatePhaseRef.current !== "ready") return;
-
-      event.preventDefault();
-      updatePhaseRef.current = "installing";
-      setUpdatePhase("installing");
-      void invoke("log_update_phase", { phase: "install", cause: "application_exit", technical: null });
       try {
-        await installDownloadedUpdateOnExit(
+        await completeUpdateExit({
           update,
-          () => invoke<UpdateReadiness>("prepare_for_update"),
-          () => new Promise((resolve) => window.setTimeout(resolve, 500)),
-          (blocker) => void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: blocker }),
-          () => void invoke("log_update_phase", { phase: "install_started", cause: "application_exit", technical: null }),
-        );
-        pendingUpdate.current = null;
-        await exit(0);
+          phase: updatePhaseRef.current,
+          preventClose: () => event.preventDefault(),
+          install: async () => {
+            updatePhaseRef.current = "installing";
+            setUpdatePhase("installing");
+            void invoke("log_update_phase", { phase: "install", cause: "application_exit", technical: null });
+            await installDownloadedUpdateOnExit(
+              update!,
+              () => invoke<UpdateReadiness>("prepare_for_update"),
+              () => new Promise((resolve) => window.setTimeout(resolve, 500)),
+              (blocker) => void invoke("log_update_phase", { phase: "waiting", cause: "file_or_process_lock", technical: blocker }),
+              () => void invoke("log_update_phase", { phase: "install_started", cause: "application_exit", technical: null }),
+            );
+            pendingUpdate.current = null;
+          },
+          exitApp: () => exit(0),
+        });
       } catch (error) {
         updatePhaseRef.current = "error";
         setUpdatePhase("error");

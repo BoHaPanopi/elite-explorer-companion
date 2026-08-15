@@ -18,6 +18,7 @@
     "test:tony": "node --experimental-strip-types --test tests/tonyEdition.test.ts",
     "test:public-copy": "node --experimental-strip-types --test tests/publicCopyPolicy.test.ts",
     "test:update": "node --experimental-strip-types --test tests/updateWait.test.ts tests/startupRecovery.test.ts",
+    "test:release-guards": "node --experimental-strip-types --test tests/updateWait.test.ts tests/windowStatePersistence.test.ts tests/windowLifecycleNativePath.test.ts tests/startupRecovery.test.ts tests/tonyEdition.test.ts tests/tonySpeechRegression.test.ts tests/publicCopyPolicy.test.ts",
     "test:star-class": "node --experimental-strip-types --test tests/starClass.test.ts",
     "test:anna-exobiology": "node --experimental-strip-types --test tests/annaExobiologyPrediction.test.ts",
     "test:anna-evidence": "node --experimental-strip-types --test tests/annaExobiologyEvidence.test.ts",
