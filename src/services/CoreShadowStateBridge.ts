@@ -7,14 +7,12 @@ import {
 } from "ogg-core";
 
 export type CoreShadowRuntimeState = {
-  system?: string | null;
-  flightState?: string | null;
   systemScanCompleted?: boolean | null;
   bodySignalsDetected?: boolean | null;
 };
 
 export type CoreStateMismatch = {
-  area: "system" | "flightState" | "systemScan" | "bodySignals";
+  area: "systemScan" | "bodySignals";
   runtimeValue: unknown;
   coreValue: unknown;
   sourceEvent: string;
@@ -26,8 +24,6 @@ function sameValue(left: unknown, right: unknown): boolean {
 
 export function compareCoreShadowState(runtime: CoreShadowRuntimeState, core: Readonly<OggCoreState>, sourceEvent: string): readonly CoreStateMismatch[] {
   const comparisons: ReadonlyArray<[CoreStateMismatch["area"], unknown, unknown]> = [
-    ["system", runtime.system, core.system?.systemName ?? null],
-    ["flightState", runtime.flightState, core.flightState],
     ["systemScan", runtime.systemScanCompleted, core.currentSystemScan !== null],
     ["bodySignals", runtime.bodySignalsDetected, core.bodySignals.length > 0],
   ];

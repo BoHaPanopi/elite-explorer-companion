@@ -81,13 +81,13 @@ test("flight events remove obsolete station and body context", () => {
 test("shadow bridge dispatches adapted facts and emits compact mismatch diagnostics only when they change", () => {
   const mismatches: unknown[] = [];
   const bridge = new CoreShadowStateBridge(undefined, (mismatch) => mismatches.push(mismatch));
-  bridge.ingest({ event: "FSDJump", StarSystem: "HIP 49485" });
-  assert.equal(bridge.getState().system?.systemName, "HIP 49485");
-  assert.deepEqual(bridge.compare({ system: "HIP 49485" }, "FSDJump"), []);
+  bridge.ingest({ event: "FSSDiscoveryScan", Progress: 1 });
+  assert.notEqual(bridge.getState().currentSystemScan, null);
+  assert.deepEqual(bridge.compare({ systemScanCompleted: true }, "FSSDiscoveryScan"), []);
   assert.equal(mismatches.length, 0);
-  assert.equal(bridge.compare({ system: "Different system" }, "FSDJump").length, 1);
+  assert.equal(bridge.compare({ systemScanCompleted: false }, "FSSDiscoveryScan").length, 1);
   assert.equal(mismatches.length, 1);
-  bridge.compare({ system: "Different system" }, "FSDJump");
+  bridge.compare({ systemScanCompleted: false }, "FSSDiscoveryScan");
   assert.equal(mismatches.length, 1);
 
   const signalEvents = bridge.ingest({ event: "SAASignalsFound", SystemAddress: 123, BodyID: 5, Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] });
@@ -139,6 +139,11 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(appSource, /CORE_STATE_MISMATCH/);
   assert.match(appSource, /const activeCommander = coreCommander/);
   assert.match(appSource, /setCoreShip\(bridge\?\.getState\(\)\.ship \?\? null\)/);
+  assert.match(appSource, /setCoreSystem\(bridge\?\.getState\(\)\.system \?\? null\)/);
+  assert.match(appSource, /setCoreFlightState\(bridge\?\.getState\(\)\.flightState \?\? "unknown"\)/);
+  assert.match(appSource, /setCoreFlightContext\(bridge\?\.getState\(\)\.flightContext \?\? null\)/);
+  assert.match(appSource, /resolveCoreShipStatus\(snapshot, coreFlightState/);
+  assert.match(appSource, /resolveCoreShipContext\(snapshot, coreFlightContext/);
   assert.match(appSource, /ship=\{productiveShip\?\.shipType \?\? null\}/);
   assert.match(appSource, /shipName=\{productiveShip\?\.shipName \?\? null\}/);
   assert.match(appSource, /shipIdent=\{productiveShip\?\.shipIdent \?\? null\}/);
@@ -146,4 +151,5 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.doesNotMatch(appSource, /selectCommanderIdentity\(/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
+  assert.doesNotMatch(bridgeSource, /"system"|"flightState"/);
 });

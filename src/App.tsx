@@ -52,7 +52,7 @@ import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
 import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
-import type { CoreShip } from "ogg-core";
+import type { CoreFlightContext, CoreShip, CoreSystem, OggFlightState } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
 
@@ -144,7 +144,7 @@ const annaLivePredictionAnnouncer = new AnnaLivePredictionAnnouncer();
 
 type DashboardStatusTone = "flight" | "docked" | "landed" | "idle";
 
-function resolveShipStatus(snapshot: EliteSnapshot | null, isLoading: boolean, t: (key: "loading" | "eliteDisconnected" | "supercruise" | "normalSpace" | "docked" | "landed" | "unknown") => string) {
+function resolveCoreShipStatus(snapshot: EliteSnapshot | null, flightState: OggFlightState, isLoading: boolean, t: (key: "loading" | "eliteDisconnected" | "supercruise" | "normalSpace" | "docked" | "landed" | "unknown") => string) {
   if (isLoading) {
     return { label: t("loading"), tone: "idle" as DashboardStatusTone };
   }
@@ -153,37 +153,31 @@ function resolveShipStatus(snapshot: EliteSnapshot | null, isLoading: boolean, t
     return { label: t("eliteDisconnected"), tone: "idle" as DashboardStatusTone };
   }
 
-  switch (snapshot.shipState) {
+  switch (flightState) {
     case "supercruise":
       return { label: t("supercruise"), tone: "flight" as DashboardStatusTone };
-    case "normal_space":
+    case "normalSpace":
       return { label: t("normalSpace"), tone: "flight" as DashboardStatusTone };
     case "docked":
       return { label: t("docked"), tone: "docked" as DashboardStatusTone };
     case "landed":
       return { label: t("landed"), tone: "landed" as DashboardStatusTone };
     default:
-      if (snapshot.docked === true) {
-        return { label: t("docked"), tone: "docked" as DashboardStatusTone };
-      }
-      if (snapshot.docked === false) {
-        return { label: t("normalSpace"), tone: "flight" as DashboardStatusTone };
-      }
       return { label: t("unknown"), tone: "idle" as DashboardStatusTone };
   }
 }
 
-function resolveShipContext(snapshot: EliteSnapshot | null, t: (key: "station" | "planet") => string) {
+function resolveCoreShipContext(snapshot: EliteSnapshot | null, context: CoreFlightContext | null, t: (key: "station" | "planet") => string) {
   if (!snapshot?.eliteConnected) {
     return null;
   }
 
-  if ((snapshot.shipState === "docked" || snapshot.docked === true) && snapshot.stationName) {
-    return { label: t("station"), value: snapshot.stationName };
+  if (context?.stationName) {
+    return { label: t("station"), value: context.stationName };
   }
 
-  if (snapshot.shipState === "landed" && snapshot.planetName) {
-    return { label: t("planet"), value: snapshot.planetName };
+  if (context?.bodyName) {
+    return { label: t("planet"), value: context.bodyName };
   }
 
   return null;
@@ -255,6 +249,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [coreCommander, setCoreCommander] = useState<string | null>(null);
   const [coreShip, setCoreShip] = useState<CoreShip | null>(null);
+  const [coreSystem, setCoreSystem] = useState<CoreSystem | null>(null);
+  const [coreFlightState, setCoreFlightState] = useState<OggFlightState>("unknown");
+  const [coreFlightContext, setCoreFlightContext] = useState<CoreFlightContext | null>(null);
   const [startupRoutingCommander, setStartupRoutingCommander] = useState<string | null>(null);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
@@ -339,6 +336,9 @@ function App() {
         for (const event of coreJournalEvents) bridge?.ingest(event);
         const journalCommander = bridge?.getState().commander?.name ?? null;
         setCoreShip(bridge?.getState().ship ?? null);
+        setCoreSystem(bridge?.getState().system ?? null);
+        setCoreFlightState(bridge?.getState().flightState ?? "unknown");
+        setCoreFlightContext(bridge?.getState().flightContext ?? null);
         setCoreCommander(journalCommander);
         if (journalCommander && lastLoggedJournalCommander.current !== journalCommander) {
           lastLoggedJournalCommander.current = journalCommander;
@@ -350,8 +350,6 @@ function App() {
         }
         if (coreJournalEvents.length) {
           bridge?.compare({
-            system: result.system,
-            flightState: result.shipState === "normal_space" ? "normalSpace" : result.shipState,
             systemScanCompleted: result.exploration.systemScan === "fully_discovered",
             bodySignalsDetected: result.exploration.bodies.some((body) => body.biology === "signals_present"),
           }, String(coreJournalEvents.at(-1)?.event ?? "unknown"));
@@ -958,11 +956,11 @@ function App() {
   }
 
   const telemetryIsCurrent = hasCurrentTelemetry(snapshot);
-  const currentShipStatus = resolveShipStatus(snapshot, isLoading, t);
+  const currentShipStatus = resolveCoreShipStatus(snapshot, coreFlightState, isLoading, t);
   const lastShipStatus = resolveLastKnownShipStatus(lastKnownTelemetry, t);
   const shipStatus = telemetryIsCurrent ? currentShipStatus : lastShipStatus;
   const shipContext = telemetryIsCurrent
-    ? resolveShipContext(snapshot, t)
+    ? resolveCoreShipContext(snapshot, coreFlightContext, t)
     : lastShipStatus.context && lastShipStatus.contextLabel
       ? { label: t(lastShipStatus.contextLabel), value: lastShipStatus.context }
       : null;
@@ -990,7 +988,7 @@ function App() {
         system={
           isLoading && !lastKnownTelemetry?.system
             ? t("loading")
-            : telemetryIsCurrent ? snapshot?.system ?? t("unknown") : lastKnownTelemetry?.system ?? t("unknown")
+            : telemetryIsCurrent ? coreSystem?.systemName ?? t("unknown") : lastKnownTelemetry?.system ?? t("unknown")
         }
         systemLabel={telemetryIsCurrent ? t("currentSystem") : t("lastKnownPosition")}
         status={shipStatus.label}
