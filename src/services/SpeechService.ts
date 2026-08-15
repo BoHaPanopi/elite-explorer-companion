@@ -30,8 +30,13 @@ export function resolveLocalVoice(
   return voices
     .filter((voice) => voice.available && voice.locale.toLocaleLowerCase() === normalizedLocale)
     .filter((voice) => !request.gender || voice.gender === request.gender)
-    .filter((voice) => !normalizedName || voice.displayName.trim().toLocaleLowerCase() === normalizedName)
+    .filter((voice) => !normalizedName || isConfiguredVoiceName(voice.displayName, normalizedName))
     .sort((left, right) => left.displayName.localeCompare(right.displayName) || left.id.localeCompare(right.id))[0] ?? null;
+}
+
+function isConfiguredVoiceName(displayName: string, configuredName: string): boolean {
+  const normalizedDisplayName = displayName.trim().toLocaleLowerCase();
+  return normalizedDisplayName === configuredName || normalizedDisplayName.startsWith(`${configuredName} - `);
 }
 
 export type LocalVoice = {
@@ -48,6 +53,13 @@ export type LocalVoiceAvailability = {
   available: boolean;
   voice: LocalVoice | null;
   reason: "available" | "locale_missing" | "voice_missing";
+};
+
+export type ResolvedSpeechVoice = {
+  speaker: string;
+  locale: SupportedVoiceLocale;
+  requestedVoice: string | undefined;
+  requestedGender: CrewVoiceGender | undefined;
 };
 
 export class LocalVoiceUnavailableError extends Error {
@@ -69,22 +81,49 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 }
 
-function logAudio(event: string, technical?: string): void {
-  void invoke("log_audio_event", { event, technical: technical ?? null }).catch(() => undefined);
+export type InvokeCommand = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+
+const invokeTauri: InvokeCommand = (command, args) => invoke(command, args);
+
+export function resolveSpeechVoice(options: SpeechOptions = {}): ResolvedSpeechVoice {
+  const speaker = options.speaker ?? "OGG";
+  const requestedLocale = options.locale
+    ?? options.lang
+    ?? (speaker === "OGG" ? OGG_VOICE_CONFIG.locale : localStorage.getItem("ogg.language"))
+    ?? "de-DE";
+  const locale = normalizeVoiceLocale(requestedLocale);
+  if (!locale) throw new Error(`Unsupported OGG voice locale: ${requestedLocale}`);
+  const profile = speaker === "OGG" ? getCrewVoiceProfile(locale, "M1") : undefined;
+  return {
+    speaker,
+    locale,
+    requestedVoice: options.voice ?? profile?.baseVoiceName
+      ?? (normalizeVoiceLocale(OGG_VOICE_CONFIG.locale) === locale ? OGG_VOICE_CONFIG.voice : undefined),
+    requestedGender: options.voiceGender ?? profile?.gender,
+  };
 }
 
-function logDiagnostic(kind: string, payload: Record<string, unknown>): void {
-  void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
-}
-
-class SpeechService {
+export class SpeechService {
   private queueToken = 0;
   private voiceSequence = 0;
   private voiceCache: Promise<LocalVoice[]> | null = null;
+  private readonly invokeCommand: InvokeCommand;
+
+  constructor(invokeCommand: InvokeCommand = invokeTauri) {
+    this.invokeCommand = invokeCommand;
+  }
+
+  private logAudio(event: string, technical?: string): void {
+    void this.invokeCommand("log_audio_event", { event, technical: technical ?? null }).catch(() => undefined);
+  }
+
+  private logDiagnostic(kind: string, payload: Record<string, unknown>): void {
+    void this.invokeCommand("log_diagnostic_event", { kind, payload }).catch(() => undefined);
+  }
 
   async listLocalVoices(refresh = false): Promise<LocalVoice[]> {
     if (refresh || !this.voiceCache) {
-      this.voiceCache = invoke<LocalVoice[]>("list_local_voices").catch((error) => {
+      this.voiceCache = this.invokeCommand<LocalVoice[]>("list_local_voices").catch((error) => {
         this.voiceCache = null;
         throw error;
       });
@@ -120,27 +159,40 @@ class SpeechService {
     }
   }
 
-  async waitUntilReady(timeoutMs = 30_000): Promise<boolean> {
+  async waitUntilReady(options: SpeechOptions = {}, timeoutMs = 30_000): Promise<LocalVoiceAvailability> {
     void timeoutMs;
+    const resolved = resolveSpeechVoice(options);
     try {
-      const availability = await this.getAvailability(
-        OGG_VOICE_CONFIG.locale,
-        OGG_VOICE_CONFIG.voice,
+      return await this.getAvailability(
+        resolved.locale,
+        resolved.requestedVoice,
+        resolved.requestedGender,
       );
-      return availability.available;
-    } catch {
-      return false;
+    } catch (error) {
+      this.logDiagnostic("VOICE_READINESS_ERROR", {
+        speaker: resolved.speaker,
+        locale: resolved.locale,
+        requestedVoice: resolved.requestedVoice ?? null,
+        error: errorMessage(error),
+        localProcessing: true,
+      });
+      return {
+        locale: resolved.locale,
+        available: false,
+        voice: null,
+        reason: "locale_missing",
+      };
     }
   }
 
   logTestButtonClick(): void {
-    logAudio("test_button_clicked");
+    this.logAudio("test_button_clicked");
   }
 
   stop(): void {
     this.queueToken += 1;
-    void invoke("stop_local_speech").catch((error) =>
-      logAudio("stop_error", errorMessage(error)),
+    void this.invokeCommand("stop_local_speech").catch((error) =>
+      this.logAudio("stop_error", errorMessage(error)),
     );
   }
 
@@ -149,11 +201,11 @@ class SpeechService {
   }
 
   resume(): void {
-    logAudio("resume_unavailable", "local Windows speech must be started again");
+    this.logAudio("resume_unavailable", "local Windows speech must be started again");
   }
 
   async playLocalTestTone(): Promise<void> {
-    logAudio("local_test_tone_started");
+    this.logAudio("local_test_tone_started");
     const context = new AudioContext();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
@@ -166,7 +218,7 @@ class SpeechService {
       oscillator.onended = () => resolve();
     });
     await context.close();
-    logAudio("local_test_tone_ended");
+    this.logAudio("local_test_tone_ended");
   }
 
   private async playSilentPreRoll(durationMs: number): Promise<void> {
@@ -176,27 +228,16 @@ class SpeechService {
 
   async speak(text: string, options: SpeechOptions = {}): Promise<void> {
     const cleanedText = String(text ?? "").trim();
-    const speaker = options.speaker ?? "OGG";
+    const resolved = resolveSpeechVoice(options);
+    const { speaker, locale, requestedVoice, requestedGender } = resolved;
     const id = `voice-${Date.now()}-${(this.voiceSequence += 1)}`;
     const frontendStartedAt = performance.now();
     if (!cleanedText) throw new Error("OGG hat keinen Text erhalten.");
 
-    const requestedLocale = options.locale
-      ?? options.lang
-      ?? (speaker === "OGG" ? OGG_VOICE_CONFIG.locale : localStorage.getItem("ogg.language"))
-      ?? "de-DE";
-    const locale = normalizeVoiceLocale(requestedLocale);
-    if (!locale) throw new Error(`Unsupported OGG voice locale: ${requestedLocale}`);
-    logDiagnostic("VOICE_FRONTEND_START", { id, speaker, locale, localProcessing: true });
-    const profile = speaker === "OGG"
-      ? getCrewVoiceProfile(locale, "M1")
-      : undefined;
-    const requestedVoice = options.voice ?? profile?.baseVoiceName
-      ?? (normalizeVoiceLocale(OGG_VOICE_CONFIG.locale) === locale ? OGG_VOICE_CONFIG.voice : undefined);
-    const requestedGender = options.voiceGender ?? profile?.gender;
+    this.logDiagnostic("VOICE_FRONTEND_START", { id, speaker, locale, localProcessing: true });
     const availability = await this.getAvailability(locale, requestedVoice, requestedGender);
     if (!availability.available || !availability.voice) {
-      logDiagnostic("VOICE_UNAVAILABLE", {
+      this.logDiagnostic("VOICE_UNAVAILABLE", {
         id,
         speaker,
         locale,
@@ -212,7 +253,7 @@ class SpeechService {
     const pitch = options.pitch ?? OGG_VOICE_CONFIG.pitch;
     const volume = Math.max(0, Math.min(1, options.volume ?? OGG_VOICE_CONFIG.volume));
     const startedAt = performance.now();
-    logDiagnostic("VOICE_CREATED", {
+    this.logDiagnostic("VOICE_CREATED", {
       id,
       speaker,
       voiceId: availability.voice.id,
@@ -225,7 +266,7 @@ class SpeechService {
       text: cleanedText,
       textLength: cleanedText.length,
     });
-    logDiagnostic("VOICE_QUEUED", {
+    this.logDiagnostic("VOICE_QUEUED", {
       id,
       speaker,
       locale,
@@ -234,14 +275,14 @@ class SpeechService {
 
     try {
       await this.playSilentPreRoll(Math.max(0, options.preRollMs ?? 0));
-      logAudio("local_tts_started", `locale=${locale} voice=${availability.voice.displayName}`);
-      logDiagnostic("VOICE_START", {
+      this.logAudio("local_tts_started", `locale=${locale} voice=${availability.voice.displayName}`);
+      this.logDiagnostic("VOICE_START", {
         id,
         speaker,
         locale,
         localProcessing: true,
       });
-      await invoke("speak_local", {
+      await this.invokeCommand("speak_local", {
         request: {
           voiceId: availability.voice.id,
           text: cleanedText,
@@ -250,14 +291,14 @@ class SpeechService {
           volume,
         },
       });
-      logDiagnostic("VOICE_END", {
+      this.logDiagnostic("VOICE_END", {
         id,
         speaker,
         locale,
         localProcessing: true,
         playbackDurationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       });
-      logDiagnostic("VOICE_FRONTEND_END", {
+      this.logDiagnostic("VOICE_FRONTEND_END", {
         id,
         speaker,
         locale,
@@ -265,14 +306,14 @@ class SpeechService {
         localProcessing: true,
       });
     } catch (error) {
-      logDiagnostic("VOICE_ERROR", {
+      this.logDiagnostic("VOICE_ERROR", {
         id,
         speaker,
         locale,
         localProcessing: true,
         error: errorMessage(error),
       });
-      logDiagnostic("VOICE_FRONTEND_END", {
+      this.logDiagnostic("VOICE_FRONTEND_END", {
         id,
         speaker,
         locale,

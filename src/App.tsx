@@ -45,7 +45,7 @@ import { advanceObservationProcessingState, type ObservationProcessingState } fr
 import { createLocalDataFlowStatus } from "./features/dataFlowStatus";
 import { persistMissionProfile, readMissionProfile, type MissionProfile, type RankCategory } from "./features/missionProfile";
 import { MISSION_PROFILE_LABELS } from "./content/commandCenter";
-import { speechService } from "./services/SpeechService";
+import { LocalVoiceUnavailableError, speechService } from "./services/SpeechService";
 import { downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
@@ -130,7 +130,7 @@ type UpdateReadiness = {
   blocker: "another_ogg_instance" | "installer_running" | null;
 };
 
-type StartupGreetingState = "idle" | "scheduled" | "playing" | "completed";
+type StartupGreetingState = "idle" | "scheduled" | "playing" | "completed" | "unavailable";
 
 const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
 let updateCheckStartedForSession = false;
@@ -792,9 +792,27 @@ function App() {
     let cancelled = false;
 
     void (async () => {
-        const localVoiceReady = await speechService.waitUntilReady(30_000);
+        const localVoiceReady = await speechService.waitUntilReady({
+          speaker: "OGG",
+          locale: oggLanguage,
+        }, 30_000);
         if (cancelled) return;
-        if (!localVoiceReady) {
+        if (!localVoiceReady.available) {
+          if (languageMode === "tony") {
+            startupGreetingState.current = "unavailable";
+            logDiagnostic("STARTUP_VOICE_UNAVAILABLE", {
+              mode: languageMode,
+              locale: localVoiceReady.locale,
+              requestedVoice: "Microsoft George",
+              reason: localVoiceReady.reason,
+              localProcessing: true,
+            });
+            void invoke("log_audio_event", {
+              event: "startup_greeting_suppressed",
+              technical: `reason=tony_voice_unavailable locale=${localVoiceReady.locale} voice=Microsoft George availability=${localVoiceReady.reason}`,
+            });
+            return;
+          }
           startupGreetingState.current = "idle";
           void invoke("log_audio_event", {
             event: "startup_greeting_suppressed",
@@ -825,6 +843,21 @@ function App() {
           });
         } catch (error) {
           if (cancelled) return;
+          if (languageMode === "tony" && error instanceof LocalVoiceUnavailableError) {
+            startupGreetingState.current = "unavailable";
+            logDiagnostic("STARTUP_VOICE_UNAVAILABLE", {
+              mode: languageMode,
+              locale: error.locale,
+              requestedVoice: "Microsoft George",
+              reason: error.reason,
+              localProcessing: true,
+            });
+            void invoke("log_audio_event", {
+              event: "startup_greeting_suppressed",
+              technical: `reason=tony_voice_unavailable locale=${error.locale} voice=Microsoft George availability=${error.reason}`,
+            });
+            return;
+          }
           startupGreetingState.current = "idle";
           const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
           void invoke("log_audio_event", {
@@ -850,6 +883,8 @@ function App() {
     greetingRetryNonce,
     isLoading,
     languageMode,
+    logDiagnostic,
+    oggLanguage,
     showSetup,
     activeCommander,
     speakGreeting,

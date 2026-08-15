@@ -15,9 +15,10 @@ const app = readFileSync("src/App.tsx", "utf8");
 const translations = readFileSync("src/content/uiMessages.ts", "utf8");
 
 test("SpeechService uses only the local Tauri speech commands", () => {
-  assert.match(speech, /invoke<LocalVoice\[]>\("list_local_voices"\)/);
-  assert.match(speech, /invoke\("speak_local"/);
-  assert.match(speech, /invoke\("stop_local_speech"\)/);
+  assert.match(speech, /invokeTauri: InvokeCommand = \(command, args\) => invoke\(command, args\)/);
+  assert.match(speech, /invokeCommand<LocalVoice\[]>\("list_local_voices"\)/);
+  assert.match(speech, /invokeCommand\("speak_local"/);
+  assert.match(speech, /invokeCommand\("stop_local_speech"\)/);
   assert.doesNotMatch(speech, /fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/);
 });
 
@@ -42,6 +43,13 @@ test("semantic en-GB profiles resolve the current machine's George token", () =>
   const otherMachine = enGbVoices.map((voice) => ({ ...voice, id: voice.id.replace("machine-a", "machine-b") }));
   assert.equal(resolveLocalVoice(otherMachine, { locale: "en-GB", baseVoiceName: "Microsoft George", gender: "male" })?.id, "machine-b-george");
   assert.equal(resolveLocalVoice(enGbVoices, { locale: "en-GB", baseVoiceName: "Microsoft Stefan", gender: "male" }), null);
+  assert.equal(
+    resolveLocalVoice(
+      [{ ...enGbVoices[0], displayName: "Microsoft George - English (United Kingdom)" }],
+      { locale: "en-GB", baseVoiceName: "Microsoft George", gender: "male" },
+    )?.displayName,
+    "Microsoft George - English (United Kingdom)",
+  );
 });
 
 test("en-US is never normalized or used as a fallback for en-GB", () => {
