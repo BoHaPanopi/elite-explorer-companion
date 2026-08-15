@@ -14,25 +14,25 @@ const noticeSource = readFileSync(noticeTsPath, "utf8");
 const noticeTsxSource = readFileSync(noticeTsxPath, "utf8");
 const appSource = readFileSync(appPath, "utf8");
 
-test("notice version constant is 0.14.18", () => {
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.18");
+test("notice version constant is 0.14.19", () => {
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.19");
 });
 
-test("storage key is version-scoped to 0.14.18", () => {
+test("storage key is version-scoped to 0.14.19", () => {
   // Key is built from the version constant, not hardcoded – check both parts
   assert.match(noticeSource, /ogg\.alphaTesterNotice/);
-  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.18");
+  assert.equal(ALPHA_TESTING_NOTICE_VERSION, "0.14.19");
 });
 
 test("DE title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.18 – Testhinweise/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.19 – Testhinweise/);
   assert.match(noticeTsxSource, /englische Sprachprofil für konfigurierte Commander/);
   assert.match(noticeTsxSource, /Microsoft George/);
   assert.match(noticeTsxSource, /Alle Journal- und Telemetriedaten bleiben lokal/);
 });
 
 test("EN title and body text are present in component", () => {
-  assert.match(noticeTsxSource, /Alpha 0\.14\.18 – Testing Notes/);
+  assert.match(noticeTsxSource, /Alpha 0\.14\.19 – Testing Notes/);
   assert.match(noticeTsxSource, /English voice profile for configured commanders/);
   assert.match(noticeTsxSource, /Microsoft George/);
   assert.match(noticeTsxSource, /All journal and telemetry data remains local/);

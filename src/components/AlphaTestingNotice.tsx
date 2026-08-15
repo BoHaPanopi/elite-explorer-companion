@@ -12,10 +12,10 @@ type AlphaTestingNoticeProps = {
   onConfirm: () => void;
 };
 
-const DE_TITLE = "Alpha 0.14.18 – Testhinweise";
-const EN_TITLE = "Alpha 0.14.18 – Testing Notes";
+const DE_TITLE = "Alpha 0.14.19 – Testhinweise";
+const EN_TITLE = "Alpha 0.14.19 – Testing Notes";
 
-const DE_BODY = `Bitte testet in Alpha 0.14.18 besonders:
+const DE_BODY = `Bitte testet in Alpha 0.14.19 besonders:
 
 • das englische Sprachprofil für konfigurierte Commander
 • die englische en-GB-Sprachausgabe mit Microsoft George
@@ -25,7 +25,7 @@ const DE_BODY = `Bitte testet in Alpha 0.14.18 besonders:
 Hinweis:
 Alle Journal- und Telemetriedaten bleiben lokal.`;
 
-const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.18:
+const EN_BODY = `Please pay particular attention to the following in Alpha 0.14.19:
 
 • the English voice profile for configured commanders
 • English en-GB speech with Microsoft George

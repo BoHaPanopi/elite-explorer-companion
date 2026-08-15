@@ -35,14 +35,14 @@ jobs:
           releaseBody: |
             ## English
 
-            Old Guy of Grumpy v0.14.18
+            Old Guy of Grumpy v0.14.19
 
-            - Audio fixes and improved voice startup reliability.
+            - Audio startup reliability improved.
 
             ## Deutsch
 
-            Old Guy of Grumpy v0.14.18
+            Old Guy of Grumpy v0.14.19
 
-            - Audiokorrekturen und verbesserte Zuverlässigkeit der Sprachausgabe beim Start.
+            - Die Zuverlässigkeit der Sprachausgabe beim Start wurde verbessert.
           releaseDraft: false
           prerelease: false
