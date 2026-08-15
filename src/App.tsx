@@ -52,6 +52,7 @@ import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
 import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
+import type { CoreShip } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
 
@@ -253,6 +254,7 @@ function App() {
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
   const [coreCommander, setCoreCommander] = useState<string | null>(null);
+  const [coreShip, setCoreShip] = useState<CoreShip | null>(null);
   const [startupRoutingCommander, setStartupRoutingCommander] = useState<string | null>(null);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
@@ -336,6 +338,7 @@ function App() {
         const bridge = coreShadowBridge.current;
         for (const event of coreJournalEvents) bridge?.ingest(event);
         const journalCommander = bridge?.getState().commander?.name ?? null;
+        setCoreShip(bridge?.getState().ship ?? null);
         setCoreCommander(journalCommander);
         if (journalCommander && lastLoggedJournalCommander.current !== journalCommander) {
           lastLoggedJournalCommander.current = journalCommander;
@@ -347,7 +350,6 @@ function App() {
         }
         if (coreJournalEvents.length) {
           bridge?.compare({
-            ship: result.ship,
             system: result.system,
             flightState: result.shipState === "normal_space" ? "normalSpace" : result.shipState,
             systemScanCompleted: result.exploration.systemScan === "fully_discovered",
@@ -968,6 +970,8 @@ function App() {
     selectDisplayedCurrentJumpRange(snapshot),
     language,
   );
+  // The core is the sole productive source for the confirmed ship fields.
+  const productiveShip = coreShip;
 
   const dashboard = (
     <>
@@ -979,9 +983,9 @@ function App() {
         }
         ranks={snapshot?.ranks ?? { explore: null, exobiologist: null, trade: null, combat: null }}
         activeProfile={missionProfile}
-        ship={snapshot?.ship ?? null}
-        shipName={snapshot?.shipName ?? null}
-        shipIdent={snapshot?.shipIdent ?? null}
+        ship={productiveShip?.shipType ?? null}
+        shipName={productiveShip?.shipName ?? null}
+        shipIdent={productiveShip?.shipIdent ?? null}
         journey={snapshot?.lastJourney ?? null}
         system={
           isLoading && !lastKnownTelemetry?.system

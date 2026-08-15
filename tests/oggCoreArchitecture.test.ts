@@ -102,12 +102,32 @@ test("journal commander is available from core state for the sole routing source
   assert.equal(bridge.getState().commander?.normalizedName, "helitony2");
 });
 
+test("LoadGame and later Loadout merge the complete productive ship state without invented values", () => {
+  const store = new CoreStateStore();
+  for (const fact of [
+    { event: "LoadGame", Ship: "Adder" },
+    { event: "Loadout", Ship: "Krait Phantom", ShipID: 42, ShipName: "Surveyor", ShipIdent: "OGG-01", FuelCapacity: { Main: 32 }, CargoCapacity: 64, MaxJumpRange: 68.5 },
+  ] satisfies EliteJournalFact[]) {
+    for (const event of adaptEliteJournalEvent(fact)) store.dispatch(event);
+  }
+  assert.deepEqual(store.getState().ship, {
+    shipType: "Krait Phantom",
+    shipId: 42,
+    shipName: "Surveyor",
+    shipIdent: "OGG-01",
+    fuelCapacity: 32,
+    cargoCapacity: 64,
+    maxJumpRange: 68.5,
+  });
+});
+
 test("core and shadow boundary stay free of runtime and product side effects", () => {
   const coreSource = ["model.ts", "reducer.ts", "journalAdapter.ts", "store.ts"]
     .map((file) => readFileSync(`packages/ogg-core/src/core/${file}`, "utf8"))
     .join("\n");
   const bridgeSource = readFileSync("src/services/CoreShadowStateBridge.ts", "utf8");
   const appSource = readFileSync("src/App.tsx", "utf8");
+  const dashboardSource = readFileSync("src/components/Dashboard.tsx", "utf8");
   const rustSource = readFileSync("src-tauri/src/lib.rs", "utf8");
 
   assert.doesNotMatch(coreSource, /react|tauri|invoke\(|fetch\(|speech|voice|crew|window|update/i);
@@ -118,6 +138,11 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(appSource, /bridge\?\.ingest/);
   assert.match(appSource, /CORE_STATE_MISMATCH/);
   assert.match(appSource, /const activeCommander = coreCommander/);
+  assert.match(appSource, /setCoreShip\(bridge\?\.getState\(\)\.ship \?\? null\)/);
+  assert.match(appSource, /ship=\{productiveShip\?\.shipType \?\? null\}/);
+  assert.match(appSource, /shipName=\{productiveShip\?\.shipName \?\? null\}/);
+  assert.match(appSource, /shipIdent=\{productiveShip\?\.shipIdent \?\? null\}/);
+  assert.match(dashboardSource, /resolveShipAsset\(props\.ship\)/);
   assert.doesNotMatch(appSource, /selectCommanderIdentity\(/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
