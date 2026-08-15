@@ -100,6 +100,27 @@ function bodyExplorationFrom(event: EliteJournalFact): CoreBodyExploration {
   };
 }
 
+function exobioBodyFrom(event: EliteJournalFact) {
+  const systemAddress = address(event.SystemAddress);
+  const bodyId = finiteNumber(event.BodyID) ?? finiteNumber(event.Body);
+  if (systemAddress === undefined || bodyId === undefined) return null;
+  return {
+    systemAddress,
+    bodyId,
+    ...optionalField(nonEmptyString(event.BodyName), "bodyName"),
+  };
+}
+
+function confirmedGenusesFrom(event: EliteJournalFact): readonly string[] {
+  if (!Array.isArray(event.Genuses)) return [];
+  return [...new Set(event.Genuses.flatMap((entry) => {
+    if (typeof entry === "string") return nonEmptyString(entry) ? [entry.trim()] : [];
+    if (!entry || typeof entry !== "object") return [];
+    const genus = nonEmptyString((entry as Record<string, unknown>).Genus);
+    return genus ? [genus] : [];
+  }))];
+}
+
 function flightEvent(flightState: OggFlightState, context?: CoreFlightContext): OggCoreEvent {
   return { type: "FlightStateChanged", flightState, ...(context ? { context } : {}) };
 }
@@ -122,10 +143,30 @@ export function adaptEliteJournalEvent(event: EliteJournalFact): readonly OggCor
   }
   if (eventName === "FSDJump" || eventName === "CarrierJump") return [{ type: "SystemEntered", system: systemFrom(event) }];
   if (eventName === "FSSDiscoveryScan") return finiteNumber(event.Progress) === 1 ? [{ type: "SystemScanCompleted", scan: scanFrom(event) }] : [];
-  if (eventName === "FSSBodySignals" || eventName === "SAASignalsFound") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  if (eventName === "FSSBodySignals") return [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  if (eventName === "SAASignalsFound") {
+    const body = exobioBodyFrom(event);
+    const genuses = confirmedGenusesFrom(event);
+    return body && genuses.length > 0
+      ? [
+          { type: "BodySignalsDetected", signals: signalsFrom(event) },
+          { type: "ExobioGenusesConfirmed", body, genuses },
+        ]
+      : [{ type: "BodySignalsDetected", signals: signalsFrom(event) }];
+  }
   if (eventName === "Scan") {
     const body = bodyExplorationFrom(event);
     return body.bodyId === undefined ? [] : [{ type: "BodyScanUpdated", body }];
+  }
+  if (eventName === "ScanOrganic") {
+    const body = exobioBodyFrom(event);
+    const genus = nonEmptyString(event.Genus);
+    const species = nonEmptyString(event.Species);
+    const variant = nonEmptyString(event.Variant);
+    const scanType = nonEmptyString(event.ScanType);
+    return body && genus && species && variant && scanType
+      ? [{ type: "ExobioScanObserved", body, observation: { genus, species, variant, scanType } }]
+      : [];
   }
   if (eventName === "SupercruiseEntry") return [flightEvent("supercruise")];
   if (eventName === "SupercruiseExit" || eventName === "Undocked") return [flightEvent("normalSpace")];

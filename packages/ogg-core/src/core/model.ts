@@ -55,6 +55,30 @@ export type CoreBodyExploration = {
   scanType?: string;
 };
 
+export type ExobioCompletion = "inProgress" | "completed";
+
+export type CoreExobioObservation = {
+  genus: string;
+  species: string;
+  variant: string;
+  observedScanTypes: readonly string[];
+  completion: ExobioCompletion;
+};
+
+export type CoreExobioBodyContext = {
+  systemAddress: string;
+  bodyId: number;
+  bodyName?: string;
+  confirmedGenuses: readonly string[];
+  observations: readonly CoreExobioObservation[];
+};
+
+export type CoreExobioActiveContext = {
+  systemAddress: string;
+  bodyId: number;
+  bodyName?: string;
+};
+
 export type CoreFlightContext = {
   stationName?: string;
   bodyName?: string;
@@ -67,6 +91,12 @@ export type OggCoreEvent =
   | { type: "SystemScanCompleted"; scan: CoreSystemScan }
   | { type: "BodySignalsDetected"; signals: CoreBodySignals }
   | { type: "BodyScanUpdated"; body: CoreBodyExploration }
+  | { type: "ExobioGenusesConfirmed"; body: CoreExobioActiveContext; genuses: readonly string[] }
+  | {
+      type: "ExobioScanObserved";
+      body: CoreExobioActiveContext;
+      observation: Pick<CoreExobioObservation, "genus" | "species" | "variant"> & { scanType: string };
+    }
   | { type: "FlightStateChanged"; flightState: OggFlightState; context?: CoreFlightContext };
 
 export type OggCoreState = {
@@ -78,6 +108,8 @@ export type OggCoreState = {
   currentSystemScan: CoreSystemScan | null;
   bodySignals: readonly CoreBodySignals[];
   bodyExplorations: readonly CoreBodyExploration[];
+  exobioBodies: readonly CoreExobioBodyContext[];
+  activeExobioContext: CoreExobioActiveContext | null;
 };
 
 export const initialOggCoreState: OggCoreState = {
@@ -89,4 +121,6 @@ export const initialOggCoreState: OggCoreState = {
   currentSystemScan: null,
   bodySignals: [],
   bodyExplorations: [],
+  exobioBodies: [],
+  activeExobioContext: null,
 };

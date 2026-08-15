@@ -1,4 +1,4 @@
-import type { CoreBodyExploration, CoreBodySignals, CoreFlightContext, OggCoreEvent, OggCoreState } from "./model.ts";
+import type { CoreBodyExploration, CoreBodySignals, CoreExobioBodyContext, CoreExobioObservation, CoreFlightContext, OggCoreEvent, OggCoreState } from "./model.ts";
 import { initialOggCoreState } from "./model.ts";
 
 function sameBody(previous: CoreBodySignals, next: CoreBodySignals): boolean {
@@ -7,6 +7,14 @@ function sameBody(previous: CoreBodySignals, next: CoreBodySignals): boolean {
 
 function sameExplorationBody(previous: CoreBodyExploration, next: CoreBodyExploration): boolean {
   return previous.systemAddress === next.systemAddress && previous.bodyId === next.bodyId;
+}
+
+function sameExobioBody(previous: CoreExobioBodyContext, next: { systemAddress: string; bodyId: number }): boolean {
+  return previous.systemAddress === next.systemAddress && previous.bodyId === next.bodyId;
+}
+
+function sameExobioObservation(previous: CoreExobioObservation, next: Pick<CoreExobioObservation, "genus" | "species" | "variant">): boolean {
+  return previous.genus === next.genus && previous.species === next.species && previous.variant === next.variant;
 }
 
 function normalizedContext(flightState: "supercruise" | "normalSpace" | "docked" | "landed" | "airborne" | "unknown", context: CoreFlightContext | undefined): CoreFlightContext | null {
@@ -28,6 +36,7 @@ export function reduceCoreState(previousState: OggCoreState = initialOggCoreStat
         currentSystemScan: null,
         bodySignals: [],
         bodyExplorations: [],
+        activeExobioContext: null,
       };
     case "SystemScanCompleted":
       return { ...previousState, currentSystemScan: event.scan };
@@ -39,6 +48,44 @@ export function reduceCoreState(previousState: OggCoreState = initialOggCoreStat
       const previousBody = previousState.bodyExplorations.find((current) => sameExplorationBody(current, event.body));
       const bodyExplorations = previousState.bodyExplorations.filter((current) => !sameExplorationBody(current, event.body));
       return { ...previousState, bodyExplorations: [...bodyExplorations, { ...previousBody, ...event.body }] };
+    }
+    case "ExobioGenusesConfirmed": {
+      const previousBody = previousState.exobioBodies.find((current) => sameExobioBody(current, event.body));
+      const body: CoreExobioBodyContext = {
+        systemAddress: event.body.systemAddress,
+        bodyId: event.body.bodyId,
+        ...(event.body.bodyName === undefined ? {} : { bodyName: event.body.bodyName }),
+        confirmedGenuses: [...new Set([...(previousBody?.confirmedGenuses ?? []), ...event.genuses])],
+        observations: previousBody?.observations ?? [],
+      };
+      return {
+        ...previousState,
+        exobioBodies: [...previousState.exobioBodies.filter((current) => !sameExobioBody(current, event.body)), body],
+        activeExobioContext: event.body,
+      };
+    }
+    case "ExobioScanObserved": {
+      const previousBody = previousState.exobioBodies.find((current) => sameExobioBody(current, event.body));
+      const previousObservation = previousBody?.observations.find((current) => sameExobioObservation(current, event.observation));
+      const observation: CoreExobioObservation = {
+        genus: event.observation.genus,
+        species: event.observation.species,
+        variant: event.observation.variant,
+        observedScanTypes: [...(previousObservation?.observedScanTypes ?? []), event.observation.scanType],
+        completion: event.observation.scanType === "Analyse" ? "completed" : previousObservation?.completion ?? "inProgress",
+      };
+      const body: CoreExobioBodyContext = {
+        systemAddress: event.body.systemAddress,
+        bodyId: event.body.bodyId,
+        ...(event.body.bodyName === undefined ? {} : { bodyName: event.body.bodyName }),
+        confirmedGenuses: previousBody?.confirmedGenuses ?? [],
+        observations: [...(previousBody?.observations.filter((current) => !sameExobioObservation(current, event.observation)) ?? []), observation],
+      };
+      return {
+        ...previousState,
+        exobioBodies: [...previousState.exobioBodies.filter((current) => !sameExobioBody(current, event.body)), body],
+        activeExobioContext: event.body,
+      };
     }
     case "FlightStateChanged":
       return {

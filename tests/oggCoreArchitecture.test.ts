@@ -37,7 +37,51 @@ test("replays the complete anonymized journal sequence to one deterministic core
     currentSystemScan: { systemName: "HIP 49485", systemAddress: "123456789", bodyCount: 17, nonBodyCount: 3 },
     bodySignals: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", signalTypes: [{ type: "$saa_signaltype_biological;", count: 1 }, { type: "$saa_signaltype_geological;", count: 2 }] }],
     bodyExplorations: [],
+    exobioBodies: [],
+    activeExobioContext: null,
   });
+});
+
+test("replays confirmed genus and ScanOrganic facts without inventing a fixed sample count", () => {
+  const state = replayIntoStore([
+    { event: "FSDJump", StarSystem: "System One", SystemAddress: 100 },
+    { event: "SAASignalsFound", SystemAddress: 100, BodyID: 4, BodyName: "System One 4", Genuses: [{ Genus: "$Codex_Ent_Bacterium_Name;" }, { Genus: "$Codex_Ent_Stratum_Name;" }, { Genus: "$Codex_Ent_Bacterium_Name;" }], Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 2 }] },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Log" },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Log" },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Sample" },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Sample" },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Analyse" },
+    { event: "ScanOrganic", SystemAddress: 100, Body: 4, Genus: "$Codex_Ent_Stratum_Name;", Species: "$Species_Stratum_Tectonicas_Name;", Variant: "$Variant_Standard_Name;", ScanType: "Log" },
+    { event: "FSDJump", StarSystem: "System Two", SystemAddress: 200 },
+    { event: "ScanOrganic", SystemAddress: 200, Body: 4, Genus: "$Codex_Ent_Bacterium_Name;", Species: "$Species_Bacterium_Informem_Name;", Variant: "$Variant_Gold_Name;", ScanType: "Log" },
+  ]).getState();
+
+  assert.equal(state.exobioBodies.length, 2);
+  const firstBody = state.exobioBodies.find((body) => body.systemAddress === "100");
+  assert.deepEqual(firstBody?.confirmedGenuses, ["$Codex_Ent_Bacterium_Name;", "$Codex_Ent_Stratum_Name;"]);
+  assert.deepEqual(firstBody?.observations[0], {
+    genus: "$Codex_Ent_Bacterium_Name;",
+    species: "$Species_Bacterium_Informem_Name;",
+    variant: "$Variant_Gold_Name;",
+    observedScanTypes: ["Log", "Log", "Sample", "Sample", "Analyse"],
+    completion: "completed",
+  });
+  assert.deepEqual(firstBody?.observations[1]?.observedScanTypes, ["Log"]);
+  assert.equal(firstBody?.observations[1]?.completion, "inProgress");
+  assert.deepEqual(state.activeExobioContext, { systemAddress: "200", bodyId: 4 });
+});
+
+test("genus-only bodies remain valid historical Exobio evidence", () => {
+  const state = replayIntoStore([
+    { event: "SAASignalsFound", SystemAddress: 100, BodyID: 9, Genuses: [{ Genus: "$Codex_Ent_Tussock_Name;" }], Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 1 }] },
+  ]).getState();
+
+  assert.deepEqual(state.exobioBodies, [{
+    systemAddress: "100",
+    bodyId: 9,
+    confirmedGenuses: ["$Codex_Ent_Tussock_Name;"],
+    observations: [],
+  }]);
 });
 
 test("store changes state only through dispatched reducer events and subscriptions observe real changes", () => {
@@ -157,6 +201,7 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*"Scan"/);
+  assert.doesNotMatch(appSource, /ExobioScanObserved|ExobioGenusesConfirmed/);
   assert.doesNotMatch(appSource, /result\.exploration\.systemScan|result\.exploration\.bodies\.some/);
   assert.doesNotMatch(bridgeSource, /compareCoreShadowState|CORE_STATE_MISMATCH/);
 });
