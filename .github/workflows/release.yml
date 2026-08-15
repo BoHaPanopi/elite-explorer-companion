@@ -33,16 +33,16 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Old Guy of Grumpy ${{ github.ref_name }}
           releaseBody: |
-            Old Guy of Grumpy ${{ github.ref_name }}
-
             ## English
 
-            - Public alpha releases are published through GitHub Latest so the existing updater can reliably discover new versions.
-            - Updates install on exit without automatically restarting OGG.
+            Old Guy of Grumpy v0.14.18
+
+            - Audio fixes and improved voice startup reliability.
 
             ## Deutsch
 
-            - Öffentliche Alpha-Releases werden über GitHub Latest veröffentlicht, damit der bestehende Updater neue Versionen zuverlässig erkennt.
-            - Updates werden beim Beenden installiert und starten OGG anschließend nicht automatisch neu.
+            Old Guy of Grumpy v0.14.18
+
+            - Audiokorrekturen und verbesserte Zuverlässigkeit der Sprachausgabe beim Start.
           releaseDraft: false
           prerelease: false
