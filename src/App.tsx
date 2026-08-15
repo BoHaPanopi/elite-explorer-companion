@@ -252,6 +252,7 @@ function App() {
   const [annaPredictionRevision, setAnnaPredictionRevision] = useState(0);
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
+  const [startupRoutingCommander, setStartupRoutingCommander] = useState<string | null>(null);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
   const [crewSelections, setCrewSelections] = useState<CrewSelectionMap>(() => readCrewSelections());
@@ -285,6 +286,9 @@ function App() {
   const activeCommander = selectCommanderIdentity(snapshot?.commander, lastKnownCommander);
   const oggMode = resolveOggMode(activeCommander, language);
   const { language: oggLanguage, mode: languageMode, tonyProfile } = oggMode;
+  const startupRoutingReady = !isLoading
+    && activeCommander !== null
+    && startupRoutingCommander === activeCommander;
 
   const logDiagnostic = useCallback((kind: string, payload: Record<string, unknown>) => {
     void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
@@ -378,6 +382,11 @@ function App() {
       technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)} source=${source}`,
     });
   }, [activeCommander, isLoading, languageMode, lastKnownCommander, snapshot?.commander]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    setStartupRoutingCommander(activeCommander);
+  }, [activeCommander, isLoading]);
 
   useEffect(() => {
     void invoke("log_audio_event", {
@@ -763,7 +772,7 @@ function App() {
 
     const suppressionReason = !activeCommander
       ? "commander_unknown"
-      : isLoading
+      : isLoading || !startupRoutingReady
         ? "journal_initializing"
         : !bordcomputerName
           ? "onboard_computer_name_missing"
@@ -882,6 +891,7 @@ function App() {
     bordcomputerName,
     greetingRetryNonce,
     isLoading,
+    startupRoutingReady,
     languageMode,
     logDiagnostic,
     oggLanguage,

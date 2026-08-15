@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveOggMode } from "ogg-core";
+import { resolveOggMode, selectCommanderIdentity } from "ogg-core";
 import {
   SpeechService,
   type InvokeCommand,
@@ -72,4 +72,32 @@ test("Tony readiness does not accept Stefan as a substitute for George", async (
   assert.equal(ready.available, false);
   assert.equal(ready.reason, "voice_missing");
   assert.equal(calls.some((call) => call.command === "speak_local"), false);
+});
+
+test("journal commander recomputes an early standard startup mode before greeting and speak_local", async () => {
+  const earlyMode = resolveOggMode(selectCommanderIdentity(null, "Panopi"), "de");
+  assert.equal(earlyMode.mode, "standard");
+
+  const journalCommander = " \tHELITONY2\r\n";
+  const finalMode = resolveOggMode(selectCommanderIdentity(journalCommander, "Panopi"), "de");
+  assert.equal(finalMode.mode, "tony");
+  assert.equal(finalMode.language, "en");
+
+  const calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
+  const speech = createTonySpeechService(calls);
+  const ready = await speech.waitUntilReady({ speaker: "OGG", locale: finalMode.language });
+  assert.deepEqual(ready, { locale: "en-GB", available: true, voice: george, reason: "available" });
+
+  await speech.speak("Startup routing regression test.", {
+    speaker: "OGG",
+    locale: finalMode.language,
+    preRollMs: 0,
+  });
+
+  const speak = calls.find((call) => call.command === "speak_local");
+  assert.ok(speak);
+  assert.equal(
+    (speak.args?.request as { voiceId?: string } | undefined)?.voiceId,
+    "onecore-george-token",
+  );
 });

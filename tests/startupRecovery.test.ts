@@ -58,6 +58,16 @@ test("the startup greeting is completed only after audible playback succeeds", (
   assert.doesNotMatch(tonyUnavailableBranch, /retryMs=1000/);
 });
 
+test("startup routing is finalized after the journal commander state commits and before greeting", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+
+  assert.match(app, /const \[startupRoutingCommander, setStartupRoutingCommander\] = useState<string \| null>\(null\)/);
+  assert.match(app, /startupRoutingReady = !isLoading[\s\S]*startupRoutingCommander === activeCommander/);
+  assert.match(app, /useEffect\(\(\) => \{\s*if \(isLoading\) return;\s*setStartupRoutingCommander\(activeCommander\);\s*\}, \[activeCommander, isLoading\]\)/);
+  assert.match(app, /isLoading \|\| !startupRoutingReady\s*\? "journal_initializing"/);
+  assert.match(app, /startupRoutingReady,[\s\S]*activeCommander,[\s\S]*speakGreeting/);
+});
+
 test("the complete startup greeting lifecycle and suppression reasons are logged", () => {
   const app = readFileSync("src/App.tsx", "utf8");
 
