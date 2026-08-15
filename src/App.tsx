@@ -313,6 +313,7 @@ function App() {
   // The journal-fed CoreStateStore is the productive truth for all modeled core areas.
   const coreShadowBridge = useRef<CoreShadowStateBridge | null>(null);
   const coreExplorationBaselineReady = useRef(false);
+  const corePredictionBaselineReady = useRef(false);
   if (!coreShadowBridge.current) {
     coreShadowBridge.current = new CoreShadowStateBridge();
   }
@@ -351,8 +352,16 @@ function App() {
         const bridge = coreShadowBridge.current;
         const explorationDecisions: ExplorationDecision[] = [];
         for (const event of coreJournalEvents) {
-          explorationDecisions.push(...(bridge?.ingestExplorationDecisions(event) ?? []));
+          const runtimeResult = bridge?.ingestRuntimeDecisions(
+            event,
+            corePredictionBaselineReady.current ? annaEvidenceService.predictions() : null,
+          );
+          explorationDecisions.push(...(runtimeResult?.explorationDecisions ?? []));
+          for (const mismatch of runtimeResult?.predictionMismatches ?? []) {
+            logDiagnostic(mismatch.kind, mismatch);
+          }
         }
+        corePredictionBaselineReady.current = true;
         const journalCommander = bridge?.getState().commander?.name ?? null;
         setCoreShip(bridge?.getState().ship ?? null);
         setCoreSystem(bridge?.getState().system ?? null);
