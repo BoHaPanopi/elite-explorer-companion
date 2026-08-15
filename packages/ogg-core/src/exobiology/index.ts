@@ -14,3 +14,4 @@ export type {
 export { predictAnnaBiology } from "./predictBiology.ts";
 export { annaBacteriumKnowledgePhase2B } from "./knowledge/annaBacteriumKnowledgePhase2B.ts";
 export * from "./evidence/index.ts";
+export * from "./decision.ts";
