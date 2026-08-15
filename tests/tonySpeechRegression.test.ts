@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveOggMode, selectCommanderIdentity } from "ogg-core";
+import { adaptEliteJournalEvent, CoreStateStore, resolveOggMode } from "ogg-core";
 import {
   SpeechService,
   type InvokeCommand,
@@ -75,11 +75,12 @@ test("Tony readiness does not accept Stefan as a substitute for George", async (
 });
 
 test("journal commander recomputes an early standard startup mode before greeting and speak_local", async () => {
-  const earlyMode = resolveOggMode(selectCommanderIdentity(null, "Panopi"), "de");
+  const earlyMode = resolveOggMode(null, "de");
   assert.equal(earlyMode.mode, "standard");
 
-  const journalCommander = " \tHELITONY2\r\n";
-  const finalMode = resolveOggMode(selectCommanderIdentity(journalCommander, "Panopi"), "de");
+  const store = new CoreStateStore();
+  for (const event of adaptEliteJournalEvent({ event: "Commander", Name: " \tHELITONY2\r\n" })) store.dispatch(event);
+  const finalMode = resolveOggMode(store.getState().commander?.name ?? null, "de");
   assert.equal(finalMode.mode, "tony");
   assert.equal(finalMode.language, "en");
 

@@ -61,6 +61,11 @@ test("the startup greeting is completed only after audible playback succeeds", (
 test("startup routing is finalized after the journal commander state commits and before greeting", () => {
   const app = readFileSync("src/App.tsx", "utf8");
 
+  assert.match(app, /const \[coreCommander, setCoreCommander\] = useState<string \| null>\(null\)/);
+  assert.match(app, /const activeCommander = coreCommander/);
+  assert.match(app, /for \(const event of coreJournalEvents\) bridge\?\.ingest\(event\);[\s\S]*setCoreCommander\(journalCommander\)/);
+  assert.doesNotMatch(app, /selectCommanderIdentity\(/);
+  assert.match(app, /source=core/);
   assert.match(app, /const \[startupRoutingCommander, setStartupRoutingCommander\] = useState<string \| null>\(null\)/);
   assert.match(app, /startupRoutingReady = !isLoading[\s\S]*startupRoutingCommander === activeCommander/);
   assert.match(app, /useEffect\(\(\) => \{\s*if \(isLoading\) return;\s*setStartupRoutingCommander\(activeCommander\);\s*\}, \[activeCommander, isLoading\]\)/);

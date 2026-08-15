@@ -50,7 +50,7 @@ import { completeUpdateExit, downloadUpdateInBackground, installDownloadedUpdate
 import { CoreShadowStateBridge } from "./services/CoreShadowStateBridge";
 import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
-import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
+import { createTonyStartupGreeting, isTonySeason, resolveOggMode, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
 import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
@@ -137,7 +137,6 @@ const BORDCOMPUTER_NAME_KEY = "eec.bordcomputerName";
 let updateCheckStartedForSession = false;
 let updateNoticeDismissedForSession = false;
 const LAST_COCKPIT_SESSION_KEY = "eec.lastCockpitSession";
-const LAST_KNOWN_COMMANDER_KEY = "eec.lastKnownCommander";
 const RETURNING_AFTER_MS = 30 * 60 * 1000;
 const annaEvidenceService = new AnnaEvidenceService(localStorage);
 const annaLivePredictionAnnouncer = new AnnaLivePredictionAnnouncer();
@@ -253,6 +252,7 @@ function App() {
   const [annaPredictionRevision, setAnnaPredictionRevision] = useState(0);
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
+  const [coreCommander, setCoreCommander] = useState<string | null>(null);
   const [startupRoutingCommander, setStartupRoutingCommander] = useState<string | null>(null);
   const [journalError, setJournalError] = useState<string | null>(null);
   const [bordcomputerName, setBordcomputerName] = useState<string | null>(null);
@@ -267,9 +267,6 @@ function App() {
   const [tonyMessage, setTonyMessage] = useState<TonyMessageType | null>(null);
   const [startupHealth, setStartupHealth] = useState<StartupHealth | null>(null);
   const [appVersion, setAppVersion] = useState("");
-  const [lastKnownCommander, setLastKnownCommander] = useState<string | null>(
-    () => localStorage.getItem(LAST_KNOWN_COMMANDER_KEY),
-  );
   const startupGreetingState = useRef<StartupGreetingState>("idle");
   const lastGreetingSuppressionReason = useRef<string | null>(null);
   const [greetingRetryNonce, setGreetingRetryNonce] = useState(0);
@@ -284,7 +281,8 @@ function App() {
   });
   const lastLatestObservation = useRef<string | null>(null);
   const lastUiDiagnosticState = useRef<string>("");
-  const activeCommander = selectCommanderIdentity(snapshot?.commander, lastKnownCommander);
+  // Commander routing has exactly one productive source: the journal-fed CoreStateStore.
+  const activeCommander = coreCommander;
   const oggMode = resolveOggMode(activeCommander, language);
   const { language: oggLanguage, mode: languageMode, tonyProfile } = oggMode;
   const startupRoutingReady = !isLoading
@@ -295,7 +293,7 @@ function App() {
     void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
   }, []);
 
-  // Shadow state is comparison-only until a deliberate runtime migration is approved.
+  // Commander is productively routed from core; all remaining core areas stay comparison-only.
   const coreShadowBridge = useRef<CoreShadowStateBridge | null>(null);
   if (!coreShadowBridge.current) {
     coreShadowBridge.current = new CoreShadowStateBridge(undefined, (mismatch) => {
@@ -331,15 +329,24 @@ function App() {
       annaEvidenceService.process(result.commander
         ? [{ event: "Commander", name: result.commander }, ...annaEvents]
         : annaEvents);
-      // This read-only cursor deliberately feeds the core in parallel. Its state is
-      // never read by product behavior; existing snapshot state remains authoritative.
+      // The journal-fed core is authoritative only for commander routing at this stage.
+      // All other core areas remain comparison-only.
       try {
         const coreJournalEvents = await invoke<EliteJournalFact[]>("get_live_core_journal_events", { locale: language });
         const bridge = coreShadowBridge.current;
         for (const event of coreJournalEvents) bridge?.ingest(event);
+        const journalCommander = bridge?.getState().commander?.name ?? null;
+        setCoreCommander(journalCommander);
+        if (journalCommander && lastLoggedJournalCommander.current !== journalCommander) {
+          lastLoggedJournalCommander.current = journalCommander;
+          const detectedMode = resolveOggMode(journalCommander, language);
+          void invoke("log_audio_event", {
+            event: "language_mode_after_commander_detection",
+            technical: `mode=${detectedMode.mode} commander=${JSON.stringify(journalCommander)} source=core`,
+          });
+        }
         if (coreJournalEvents.length) {
           bridge?.compare({
-            commander: result.commander,
             ship: result.ship,
             system: result.system,
             flightState: result.shipState === "normal_space" ? "normalSpace" : result.shipState,
@@ -361,18 +368,6 @@ function App() {
           durationMs: annaDurationMs,
           eventCount: annaEvents.length,
         });
-      }
-      if (result.commander) {
-        localStorage.setItem(LAST_KNOWN_COMMANDER_KEY, result.commander);
-        setLastKnownCommander(result.commander);
-        if (lastLoggedJournalCommander.current !== result.commander) {
-          lastLoggedJournalCommander.current = result.commander;
-          const detectedMode = resolveOggMode(result.commander, language);
-          void invoke("log_audio_event", {
-            event: "language_mode_after_commander_detection",
-            technical: `mode=${detectedMode.mode} commander=${JSON.stringify(result.commander)}`,
-          });
-        }
       }
       setSnapshot(result);
       if (hasCurrentTelemetry(result)) {
@@ -401,14 +396,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (startupModeLogged.current || (isLoading && !lastKnownCommander)) return;
+    if (startupModeLogged.current || isLoading || !activeCommander) return;
     startupModeLogged.current = true;
-    const source = snapshot?.commander ? "journal" : lastKnownCommander ? "persisted" : "none";
     void invoke("log_audio_event", {
       event: "language_mode_at_startup",
-      technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)} source=${source}`,
+      technical: `mode=${languageMode} commander=${JSON.stringify(activeCommander)} source=core`,
     });
-  }, [activeCommander, isLoading, languageMode, lastKnownCommander, snapshot?.commander]);
+  }, [activeCommander, isLoading, languageMode]);
 
   useEffect(() => {
     if (isLoading) return;

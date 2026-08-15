@@ -95,6 +95,13 @@ test("shadow bridge dispatches adapted facts and emits compact mismatch diagnost
   assert.equal(bridge.getState().bodySignals.length, 1);
 });
 
+test("journal commander is available from core state for the sole routing source", () => {
+  const bridge = new CoreShadowStateBridge();
+  bridge.ingest({ event: "Commander", Name: " \tHELITONY2\r\n" });
+  assert.equal(bridge.getState().commander?.name, "HELITONY2");
+  assert.equal(bridge.getState().commander?.normalizedName, "helitony2");
+});
+
 test("core and shadow boundary stay free of runtime and product side effects", () => {
   const coreSource = ["model.ts", "reducer.ts", "journalAdapter.ts", "store.ts"]
     .map((file) => readFileSync(`packages/ogg-core/src/core/${file}`, "utf8"))
@@ -110,6 +117,8 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(appSource, /get_live_core_journal_events/);
   assert.match(appSource, /bridge\?\.ingest/);
   assert.match(appSource, /CORE_STATE_MISMATCH/);
+  assert.match(appSource, /const activeCommander = coreCommander/);
+  assert.doesNotMatch(appSource, /selectCommanderIdentity\(/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
 });
