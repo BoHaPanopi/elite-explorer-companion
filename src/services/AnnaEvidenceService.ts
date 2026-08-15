@@ -5,12 +5,16 @@ import {
   createAnnaJournalEvidenceState,
   createAnnaLocalEvidenceStore,
   createAnnaObservationId,
-  getAnnaLivePredictions,
+  recordAnnaPositiveObservation,
+  type ExobioDecision,
+  type OggCoreState,
+  type PredictionDecision,
   type AnnaJournalEvidenceState,
   type AnnaAnonymousEvidenceAggregate,
   type AnnaLivePrediction,
   type AnnaLiveJournalEvent,
   type AnnaLocalEvidenceStore,
+  type AnnaEvidenceStatus,
   type AnnaPositiveBioObservation,
   type AnnaSpeciesEvidenceAggregate,
 } from "ogg-core";
@@ -22,6 +26,10 @@ export class AnnaEvidenceService {
   private state: AnnaJournalEvidenceState;
   private readonly commanderKeys = new Map<string, string>();
   private readonly storage: Pick<Storage, "getItem" | "setItem">;
+  private corePredictions = new Map<string, AnnaLivePrediction & { inputFingerprint: string }>();
+  private corePredictionRevision = 0;
+  private latestCoreExobioDecision: ExobioDecision | null = null;
+  private coreExobioRevision = 0;
 
   constructor(storage: Pick<Storage, "getItem" | "setItem">) {
     this.storage = storage;
@@ -61,7 +69,89 @@ export class AnnaEvidenceService {
   }
 
   predictions(): AnnaLivePrediction[] {
-    return getAnnaLivePredictions(this.state);
+    return [...this.corePredictions.values()].map(({ inputFingerprint: _inputFingerprint, ...prediction }) => prediction);
+  }
+
+  setCoreCommander(name: string | null): void {
+    if (!name?.trim()) return;
+    const commanderKey = this.localCommanderKey(name);
+    if (commanderKey === this.state.commanderKey) return;
+    this.state = { ...this.state, commanderKey, systemAddress: null, planets: {}, predictions: {} };
+    this.corePredictions.clear();
+  }
+
+  consumeCoreDecisions(
+    exobioDecisions: readonly ExobioDecision[],
+    predictionDecisions: readonly PredictionDecision[],
+    coreState: Readonly<OggCoreState>,
+  ): void {
+    for (const decision of exobioDecisions) {
+      this.latestCoreExobioDecision = decision;
+      this.coreExobioRevision += 1;
+      if (decision.kind !== "organismObserved" || this.state.commanderKey === null) continue;
+      const facts = coreState.predictionBodies.find((body) => body.systemAddress === decision.body.systemAddress && body.bodyId === decision.body.bodyId);
+      const recorded = recordAnnaPositiveObservation(this.state.evidence, this.state.commanderKey, {
+        body: { systemAddress: decision.body.systemAddress, bodyId: decision.body.bodyId },
+        speciesId: decision.organism.species,
+        variantId: decision.organism.variant ?? null,
+        bodyType: facts?.planetClass ?? null,
+        atmosphere: facts?.atmosphere ?? null,
+        surfaceTemperatureKelvin: facts?.surfaceTemperatureKelvin ?? null,
+        gravityG: facts?.gravityG ?? null,
+        surfacePressurePascals: facts?.surfacePressurePascals ?? null,
+        volcanism: facts?.volcanism ?? null,
+        biologicalSignalCount: facts?.biologicalSignalCount ?? null,
+      });
+      if (recorded.store !== this.state.evidence) {
+        this.storage.setItem(evidenceStorageKey, JSON.stringify(recorded.store));
+        this.state = { ...this.state, evidence: recorded.store };
+      }
+    }
+
+    for (const decision of predictionDecisions) {
+      const facts = coreState.predictionBodies.find((body) => body.systemAddress === decision.body.systemAddress && body.bodyId === decision.body.bodyId);
+      const bodyName = decision.body.bodyName ?? `${decision.body.systemAddress}:${decision.body.bodyId}`;
+      const input = {
+        bodyName,
+        bodyType: facts?.planetClass ?? null,
+        atmosphere: facts?.atmosphere ?? null,
+        surfaceTemperatureKelvin: facts?.surfaceTemperatureKelvin ?? null,
+        gravityG: facts?.gravityG ?? null,
+        surfacePressurePascals: facts?.surfacePressurePascals ?? null,
+        volcanism: facts?.volcanism ?? null,
+        biologicalSignalCount: facts?.biologicalSignalCount ?? null,
+      };
+      const candidates = decision.kind === "predictionUpdated"
+        ? decision.candidates.map((candidate) => ({
+            ...candidate,
+            evidenceStatus: toAnnaEvidenceStatus(candidate.evidenceStatus),
+          }))
+        : [];
+      const fingerprint = JSON.stringify({ input, candidates, knowledgeBase: decision.knowledgeBase });
+      const planetKey = JSON.stringify([decision.body.systemAddress, decision.body.bodyId]);
+      if (this.corePredictions.get(planetKey)?.inputFingerprint === fingerprint) continue;
+      const revision = ++this.corePredictionRevision;
+      this.corePredictions.set(planetKey, {
+        planetKey,
+        revision,
+        input,
+        result: {
+          bodyName,
+          knowledgeBaseSchemaVersion: toAnnaKnowledgeBaseSchemaVersion(decision.knowledgeBase.schemaVersion),
+          knowledgeBaseRevision: decision.knowledgeBase.revision,
+          candidates,
+        },
+        inputFingerprint: fingerprint,
+      });
+    }
+  }
+
+  exobioRevision(): number {
+    return this.coreExobioRevision;
+  }
+
+  latestExobioDecision(): ExobioDecision | null {
+    return this.latestCoreExobioDecision;
   }
 
   private localCommanderKey(name: string): string {
@@ -73,6 +163,16 @@ export class AnnaEvidenceService {
     this.commanderKeys.set(normalized, key);
     return key;
   }
+}
+
+function toAnnaEvidenceStatus(value: string): AnnaEvidenceStatus {
+  if (value === "confirmed-rule" || value === "positive-observation" || value === "insufficient-data") return value;
+  throw new Error(`Unsupported Anna evidence status: ${value}`);
+}
+
+function toAnnaKnowledgeBaseSchemaVersion(value: number): 1 {
+  if (value === 1) return value;
+  throw new Error(`Unsupported Anna knowledge base schema: ${value}`);
 }
 
 function loadEvidence(storage: Pick<Storage, "getItem">): AnnaLocalEvidenceStore {

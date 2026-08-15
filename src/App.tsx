@@ -49,12 +49,13 @@ import { LocalVoiceUnavailableError, speechService } from "./services/SpeechServ
 import { completeUpdateExit, downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { CoreShadowStateBridge } from "./services/CoreShadowStateBridge";
 import { createStartupGreeting } from "ogg-core";
-import { createExplorationDecisionMessage, createExplorationMessage, type ExplorationDecision, type ExplorationObservationKind } from "ogg-core";
+import { createExplorationDecisionMessage, createExplorationMessage, type ExplorationDecision, type ExplorationObservationDetails, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
-import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
-import type { CoreFlightContext, CoreShip, CoreSystem, OggFlightState } from "ogg-core";
+import type { EliteJournalFact } from "ogg-core";
+import type { CoreFlightContext, CoreShip, CoreSystem, ExobioDecision, OggFlightState } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
+import { consumeAnnaCoreDecisions } from "./services/AnnaCoreDecisionRuntime";
 
 type Page =
   | "dashboard"
@@ -223,6 +224,30 @@ function resolveLastKnownShipStatus(
   return { label: t("unknown"), tone: "idle" as DashboardStatusTone, context: null, contextLabel: null };
 }
 
+function annaObservationFromCoreDecision(decision: ExobioDecision | null): {
+  id: string;
+  kind: ExplorationObservationKind;
+  bodyId: number | null;
+  bodyName: string | null;
+  details?: ExplorationObservationDetails;
+} | null {
+  if (!decision) return null;
+  const bodyName = decision.body.bodyName ?? null;
+  const base = `${decision.kind}:${decision.body.systemAddress}:${decision.body.bodyId}`;
+  switch (decision.kind) {
+    case "genusConfirmed":
+      return { id: `${base}:${decision.genus}`, kind: "known_biological_finding", bodyId: decision.body.bodyId, bodyName, details: { confirmedGenera: [decision.genus] } };
+    case "organismObserved":
+      return { id: `${base}:${decision.organism.species}:${decision.organism.variant ?? ""}:${decision.scanType}`, kind: "new_biological_finding", bodyId: decision.body.bodyId, bodyName, details: { compositionSpecies: decision.organism.species } };
+    case "sampleInProgress": {
+      const stage = Math.min(3, decision.observedScanTypes.length) as 1 | 2 | 3;
+      return { id: `${base}:${decision.organism.species}:${decision.observedScanTypes.length}`, kind: "organic_probe_progress", bodyId: decision.body.bodyId, bodyName, details: { probeStage: stage } };
+    }
+    case "organismCompleted":
+      return { id: `${base}:${decision.organism.species}:completed`, kind: "organic_analysis_complete", bodyId: decision.body.bodyId, bodyName };
+  }
+}
+
 function PlaceholderPage({
   title,
   activeProfile,
@@ -263,6 +288,7 @@ function App() {
   const [missionProfile, setMissionProfile] = useState<MissionProfile>(() => readMissionProfile(localStorage));
   const [snapshot, setSnapshot] = useState<EliteSnapshot | null>(null);
   const [annaPredictionRevision, setAnnaPredictionRevision] = useState(0);
+  const [annaExobioRevision, setAnnaExobioRevision] = useState(0);
   const [lastKnownTelemetry, setLastKnownTelemetry] = useState<LastKnownTelemetry | null>(() => readLastKnownTelemetry(localStorage));
   const [isLoading, setIsLoading] = useState(true);
   const [coreCommander, setCoreCommander] = useState<string | null>(null);
@@ -342,26 +368,17 @@ function App() {
       });
       const annaStartedAt = performance.now();
       logDiagnostic("ANNA_POLL_START", { pollId });
-      const annaEvents = await invoke<AnnaLiveJournalEvent[]>("get_live_anna_journal_events", { locale: language });
-      annaEvidenceService.process(result.commander
-        ? [{ event: "Commander", name: result.commander }, ...annaEvents]
-        : annaEvents);
       // The journal-fed core is authoritative for every currently modeled core area.
       try {
         const coreJournalEvents = await invoke<EliteJournalFact[]>("get_live_core_journal_events", { locale: language });
         const bridge = coreShadowBridge.current;
         const explorationDecisions: ExplorationDecision[] = [];
         for (const event of coreJournalEvents) {
-          const runtimeResult = bridge?.ingestRuntimeDecisions(
-            event,
-            corePredictionBaselineReady.current ? annaEvidenceService.predictions() : null,
-          );
+          const runtimeResult = bridge ? consumeAnnaCoreDecisions(event, { bridge, evidence: annaEvidenceService }) : null;
           explorationDecisions.push(...(runtimeResult?.explorationDecisions ?? []));
-          for (const mismatch of runtimeResult?.predictionMismatches ?? []) {
-            logDiagnostic(mismatch.kind, mismatch);
-          }
         }
         corePredictionBaselineReady.current = true;
+        setAnnaExobioRevision(annaEvidenceService.exobioRevision());
         const journalCommander = bridge?.getState().commander?.name ?? null;
         setCoreShip(bridge?.getState().ship ?? null);
         setCoreSystem(bridge?.getState().system ?? null);
@@ -410,7 +427,6 @@ function App() {
         logDiagnostic("ANNA_POLL_END", {
           pollId,
           durationMs: annaDurationMs,
-          eventCount: annaEvents.length,
         });
       }
       setSnapshot(result);
@@ -590,7 +606,7 @@ function App() {
 
   useEffect(() => {
     if (isLoading) return;
-    const observation = snapshot?.exploration.exobio.latestExobioObservation ?? null;
+    const observation = annaObservationFromCoreDecision(annaEvidenceService.latestExobioDecision());
     const observationId = observation?.id ?? null;
     const annaVoice = resolveCrewVoicePreview("science", defaultCrewLocaleForUiLanguage(oggLanguage));
     const previousLatestObservation = lastLatestObservation.current;
@@ -729,7 +745,7 @@ function App() {
       });
       console.error(oggLanguage === "en" ? "Exploration voice output failed:" : "Explorations-Sprachausgabe fehlgeschlagen:", error);
     });
-  }, [isLoading, logDiagnostic, oggLanguage, snapshot?.exploration.exobio.latestExobioObservation?.id]);
+  }, [annaExobioRevision, isLoading, logDiagnostic, oggLanguage]);
 
   useEffect(() => {
     if (annaPredictionRevision === 0) return;

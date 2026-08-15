@@ -118,7 +118,9 @@ test("baseline initialization skip happens exactly once and next stage is proces
 test("Anna consumes the separated Exobio observation id without the removed legacy mixed stream", () => {
   const appSource = readFileSync("src/App.tsx", "utf8");
 
-  assert.match(appSource, /snapshot\?\.exploration\.exobio\.latestExobioObservation\?\.id/);
+  assert.match(appSource, /annaObservationFromCoreDecision\(annaEvidenceService\.latestExobioDecision\(\)\)/);
+  assert.match(appSource, /annaEvidenceService\.consumeCoreDecisions\(/);
+  assert.doesNotMatch(appSource, /snapshot\?\.exploration\.exobio\.latestExobioObservation/);
   assert.doesNotMatch(appSource, /latestObservation:\s*\{/);
   assert.doesNotMatch(appSource, /const observation = snapshot\?\.exploration\.latestObservation/);
 });

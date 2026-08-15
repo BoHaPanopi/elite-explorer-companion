@@ -190,10 +190,13 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.match(bridgeSource, /evaluateExploration/);
   assert.match(bridgeSource, /ingestExplorationDecisions/);
   assert.match(bridgeSource, /ingestRuntimeDecisions/);
-  assert.match(bridgeSource, /PREDICTION_DECISION_MISMATCH/);
+  assert.match(bridgeSource, /evaluatePrediction/);
+  assert.match(bridgeSource, /evaluateExobio/);
   assert.match(appSource, /get_live_core_journal_events/);
   assert.match(appSource, /bridge\?\.ingest/);
   assert.match(appSource, /bridge\?\.ingestRuntimeDecisions/);
+  assert.match(appSource, /annaEvidenceService\.consumeCoreDecisions/);
+  assert.doesNotMatch(appSource, /get_live_anna_journal_events/);
   assert.match(appSource, /createExplorationDecisionMessage\(decision, oggLanguage\)/);
   assert.match(appSource, /const activeCommander = coreCommander/);
   assert.match(appSource, /setCoreShip\(bridge\?\.getState\(\)\.ship \?\? null\)/);
