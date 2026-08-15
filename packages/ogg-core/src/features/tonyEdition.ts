@@ -25,7 +25,7 @@ let lastGreetingVariantIndex = -1;
 let lastTonyStartIndex = -1;
 
 export function resolveTonyProfile(commander: string | null | undefined): TonyProfile | null {
-  const identity = commander?.toLocaleLowerCase("en-US");
+  const identity = commander?.trim().toLocaleLowerCase("en-US");
   if (identity === "helitony") return "helitony";
   if (identity === "helitony2") return "helitony2";
   return null;
@@ -39,7 +39,13 @@ export function selectCommanderIdentity(
   journalCommander: string | null | undefined,
   persistedCommander: string | null | undefined,
 ): string | null {
-  return journalCommander || persistedCommander || null;
+  const journalIdentity = journalCommander?.trim();
+  if (journalIdentity) return resolveTonyProfile(journalIdentity) ?? journalCommander ?? null;
+
+  const persistedIdentity = persistedCommander?.trim();
+  if (persistedIdentity) return resolveTonyProfile(persistedIdentity) ?? persistedCommander ?? null;
+
+  return null;
 }
 
 export function resolveOggMode(

@@ -481,11 +481,13 @@ fn string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 }
 
 pub(crate) fn journal_commander_name(event: &Value) -> Option<&str> {
-    match string(event, "event")? {
+    let name = match string(event, "event")? {
         "Commander" => string(event, "Name"),
         "LoadGame" => string(event, "Commander").or_else(|| string(event, "Name")),
         _ => None,
-    }
+    }?;
+    let normalized = name.trim();
+    (!normalized.is_empty()).then_some(normalized)
 }
 fn number(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(Value::as_u64)
@@ -537,6 +539,18 @@ mod tests {
         assert_eq!(
             journal_commander_name(&json!({"event":"LoadGame","Name":"legacy-name"})),
             Some("legacy-name")
+        );
+        assert_eq!(
+            journal_commander_name(&json!({"event":"Commander","Name":"  HELITONY  "})),
+            Some("HELITONY")
+        );
+        assert_eq!(
+            journal_commander_name(&json!({"event":"LoadGame","Commander":"\tHelitony2\r\n"})),
+            Some("Helitony2")
+        );
+        assert_eq!(
+            journal_commander_name(&json!({"event":"Commander","Name":"   "})),
+            None
         );
     }
 

@@ -26,7 +26,7 @@ function createTonySpeechService(calls: Array<{ command: string; args?: Record<s
   return new SpeechService(invoke);
 }
 
-for (const commander of ["helitony", "helitony2"] as const) {
+for (const commander of [" helitony ", "\tHELITONY2\r\n"] as const) {
   test(`${commander} reaches speak_local with Microsoft George`, async () => {
     const mode = resolveOggMode(commander, "de");
     assert.equal(mode.mode, "tony");

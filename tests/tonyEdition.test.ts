@@ -25,7 +25,8 @@ test("activates only for the two Tony commander identities", () => {
   assert.equal(resolveTonyProfile("CMDR Helitony"), null);
   assert.equal(resolveTonyProfile("Helitony2"), "helitony2");
   assert.equal(resolveTonyProfile("Helitony 2"), null);
-  assert.equal(resolveTonyProfile("Helitony "), null);
+  assert.equal(resolveTonyProfile(" Helitony "), "helitony");
+  assert.equal(resolveTonyProfile("\tHELITONY2\r\n"), "helitony2");
   assert.equal(resolveTonyProfile("xHelitony"), null);
   assert.equal(resolveTonyProfile("Helitony 3"), null);
   assert.equal(resolveTonyProfile("Panopi"), null);
@@ -61,10 +62,19 @@ test("both Tony identities use the en-GB OGG locale", () => {
 test("restores the last known Tony identity until the journal reports a commander", () => {
   assert.equal(selectCommanderIdentity(null, "helitony"), "helitony");
   assert.equal(resolveOggMode(selectCommanderIdentity(null, "helitony"), "de").mode, "tony");
-  assert.equal(selectCommanderIdentity(undefined, "Helitony2"), "Helitony2");
+  assert.equal(selectCommanderIdentity(undefined, "Helitony2"), "helitony2");
   assert.equal(resolveOggMode(selectCommanderIdentity(undefined, "Helitony2"), "de").language, "en");
+  assert.equal(selectCommanderIdentity("   ", " Helitony2 "), "helitony2");
+  assert.equal(resolveOggMode(selectCommanderIdentity("   ", " Helitony2 "), "de").language, "en");
   assert.equal(selectCommanderIdentity("Panopi", "helitony"), "Panopi");
   assert.equal(resolveOggMode(selectCommanderIdentity("Panopi", "helitony"), "de").mode, "standard");
+});
+
+test("journal commander wins after startup without letting a stale profile override standard commanders", () => {
+  assert.equal(selectCommanderIdentity(" HELITONY ", "Panopi"), "helitony");
+  assert.equal(selectCommanderIdentity(" hELiToNy2 ", "Panopi"), "helitony2");
+  assert.equal(selectCommanderIdentity("Panopi", " helitony "), "Panopi");
+  assert.equal(resolveOggMode(selectCommanderIdentity("Panopi", " helitony "), "de").mode, "standard");
 });
 
 test("Tony greetings are English, personal, and never repeat the same exact line directly", () => {
