@@ -1,4 +1,5 @@
 import type { Language } from "../types/language.ts";
+import type { ExplorationDecision } from "../exploration/decision.ts";
 import {
   ANALYSIS_COMPLETE_VARIANTS,
   BIO_SIGNAL_VARIANTS,
@@ -150,5 +151,33 @@ export function createExplorationMessage(input: ExplorationObservationInput, lan
       return resolveOrganicAnalysisMessage(language, context);
     default:
       return EXPLORATION_MESSAGES[language][kind];
+  }
+}
+
+export function createExplorationDecisionMessage(decision: ExplorationDecision, language: Language): string | null {
+  switch (decision.kind) {
+    case "biologicalTargetWorthConsidering":
+      return createExplorationMessage({
+        kind: "biological_signals",
+        bodyName: decision.bodyName,
+        details: { biologicalSignalCount: decision.biologicalSignalCount },
+      }, language);
+    case "bodyExplorationUpdated": {
+      const kindByAnnouncement: Record<typeof decision.announcement, ExplorationObservationKind | null> = {
+        firstDiscoveryConfirmed: "first_discovery_by_current_commander",
+        discoveryOwnershipUnknown: "discovery_ownership_unknown",
+        scannedNotMapped: "scanned_not_mapped",
+        mappingOwnershipUnknown: "mapping_ownership_unknown",
+        none: null,
+      };
+      const kind = kindByAnnouncement[decision.announcement];
+      return kind ? createExplorationMessage({ kind, bodyName: decision.body.bodyName }, language) : null;
+    }
+    // Completed FSS scans and non-biological signals are facts, not evidence
+    // for a spoken exploration conclusion.
+    case "scanIncomplete":
+    case "scanCompleted":
+    case "bodySignalsDetected":
+      return null;
   }
 }

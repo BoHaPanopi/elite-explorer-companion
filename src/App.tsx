@@ -49,7 +49,7 @@ import { LocalVoiceUnavailableError, speechService } from "./services/SpeechServ
 import { completeUpdateExit, downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
 import { CoreShadowStateBridge } from "./services/CoreShadowStateBridge";
 import { createStartupGreeting } from "ogg-core";
-import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
+import { createExplorationDecisionMessage, createExplorationMessage, type ExplorationDecision, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
 import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
 import type { CoreFlightContext, CoreShip, CoreSystem, OggFlightState } from "ogg-core";
@@ -133,22 +133,6 @@ type EliteSnapshot = {
         };
       } | null;
     };
-    // Temporary compatibility bridge for comparing the former mixed stream.
-    latestObservation: {
-      id: string;
-      kind: ExplorationObservationKind;
-      bodyId: number | null;
-      bodyName: string | null;
-      details?: {
-        biologicalSignalCount?: number | null;
-        confirmedGenera?: string[];
-        compositionSpecies?: string | null;
-        codexEntryName?: string | null;
-        voucherAmount?: number | null;
-        remainingBiologicalBodies?: number | null;
-        probeStage?: 1 | 2 | 3 | null;
-      };
-    } | null;
   };
   journalPath: string;
   navigationProgress: NavigationProgress;
@@ -328,6 +312,7 @@ function App() {
 
   // The journal-fed CoreStateStore is the productive truth for all modeled core areas.
   const coreShadowBridge = useRef<CoreShadowStateBridge | null>(null);
+  const coreExplorationBaselineReady = useRef(false);
   if (!coreShadowBridge.current) {
     coreShadowBridge.current = new CoreShadowStateBridge();
   }
@@ -364,7 +349,10 @@ function App() {
       try {
         const coreJournalEvents = await invoke<EliteJournalFact[]>("get_live_core_journal_events", { locale: language });
         const bridge = coreShadowBridge.current;
-        for (const event of coreJournalEvents) bridge?.ingest(event);
+        const explorationDecisions: ExplorationDecision[] = [];
+        for (const event of coreJournalEvents) {
+          explorationDecisions.push(...(bridge?.ingestExplorationDecisions(event) ?? []));
+        }
         const journalCommander = bridge?.getState().commander?.name ?? null;
         setCoreShip(bridge?.getState().ship ?? null);
         setCoreSystem(bridge?.getState().system ?? null);
@@ -378,6 +366,28 @@ function App() {
             event: "language_mode_after_commander_detection",
             technical: `mode=${detectedMode.mode} commander=${JSON.stringify(journalCommander)} source=core`,
           });
+        }
+        if (coreExplorationBaselineReady.current) {
+          for (const decision of explorationDecisions) {
+            const message = createExplorationDecisionMessage(decision, oggLanguage);
+            if (!message) continue;
+            logDiagnostic("EXPLORATION_CORE_DECISION", {
+              decision: decision.kind,
+              source: "ogg_core",
+              speaker: "OGG",
+            });
+            void speechService.speak(message, { speaker: "OGG", locale: oggLanguage }).catch((error) => {
+              logDiagnostic("EXPLORATION_VOICE_SKIPPED", {
+                reason: "speech_service_error",
+                decision: decision.kind,
+                error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+              });
+            });
+          }
+        } else {
+          // The initial cursor replay reconstructs Core state only. It must not
+          // announce historical Journal facts when the app is opened.
+          coreExplorationBaselineReady.current = true;
         }
       } catch {
         // Core journal ingestion must never affect the established runtime path.
@@ -414,7 +424,7 @@ function App() {
       snapshotRequestInFlight.current = false;
       setIsLoading(false);
     }
-  }, [language, logDiagnostic]);
+  }, [language, logDiagnostic, oggLanguage]);
 
   useEffect(() => {
     void getVersion().then(setAppVersion);

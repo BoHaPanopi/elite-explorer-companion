@@ -63,7 +63,7 @@ test("startup routing is finalized after the journal commander state commits and
 
   assert.match(app, /const \[coreCommander, setCoreCommander\] = useState<string \| null>\(null\)/);
   assert.match(app, /const activeCommander = coreCommander/);
-  assert.match(app, /for \(const event of coreJournalEvents\) bridge\?\.ingest\(event\);[\s\S]*setCoreCommander\(journalCommander\)/);
+  assert.match(app, /for \(const event of coreJournalEvents\) \{[\s\S]*bridge\?\.ingestExplorationDecisions\(event\)[\s\S]*\}[\s\S]*setCoreCommander\(journalCommander\)/);
   assert.doesNotMatch(app, /selectCommanderIdentity\(/);
   assert.match(app, /source=core/);
   assert.match(app, /const \[startupRoutingCommander, setStartupRoutingCommander\] = useState<string \| null>\(null\)/);

@@ -144,9 +144,6 @@ pub struct ExplorationSnapshot {
     pub bodies: Vec<ExplorationBodySnapshot>,
     pub latest_exploration_observation: Option<ExplorationObservation>,
     pub exobio: ExobioSnapshot,
-    // Temporary compatibility bridge. Remove only after both domain migrations
-    // have independently proven semantic parity with this legacy mixed stream.
-    pub latest_observation: Option<ExplorationObservation>,
 }
 
 #[derive(Debug, Default)]
@@ -156,7 +153,6 @@ pub struct ExplorationTracker {
     bodies: BTreeMap<u64, BodyExplorationState>,
     latest_exploration_observation: Option<ExplorationObservation>,
     latest_exobio_observation: Option<ExplorationObservation>,
-    latest_observation: Option<ExplorationObservation>,
 }
 
 impl ExplorationTracker {
@@ -174,7 +170,6 @@ impl ExplorationTracker {
                 self.bodies.clear();
                 self.latest_exploration_observation = None;
                 self.latest_exobio_observation = None;
-                self.latest_observation = None;
             }
             "DiscoveryScan" => self.system_scan = SystemScanState::PartiallyDiscovered,
             "FSSDiscoveryScan" => {
@@ -206,7 +201,6 @@ impl ExplorationTracker {
                 bodies: bodies.iter().map(ExobioBodySnapshot::from).collect(),
                 latest_exobio_observation: self.latest_exobio_observation,
             },
-            latest_observation: self.latest_observation,
         }
     }
 
@@ -568,7 +562,6 @@ impl ExplorationTracker {
         if is_exobio_observation(kind) {
             self.latest_exobio_observation = Some(observation.clone());
         }
-        self.latest_observation = Some(observation);
     }
 
     fn make_observation(
@@ -839,14 +832,16 @@ mod tests {
         assert_eq!(exobio_body.organic_probe_stage, Some(3));
         assert_eq!(
             snapshot
-                .latest_observation
+                .exobio
+                .latest_exobio_observation
                 .as_ref()
                 .map(|observation| &observation.kind),
             Some(&ExplorationObservationKind::OrganicAnalysisComplete)
         );
         assert_eq!(
             snapshot
-                .latest_observation
+                .exobio
+                .latest_exobio_observation
                 .as_ref()
                 .and_then(|observation| observation.details.remaining_biological_bodies),
             Some(2)
@@ -854,7 +849,7 @@ mod tests {
     }
 
     #[test]
-    fn promotes_codex_entry_to_latest_observation_after_signal_detection() {
+    fn promotes_codex_entry_to_latest_exobio_observation_after_signal_detection() {
         let mut tracker = tracker_with_commander();
         tracker.apply(&json!({
             "timestamp":"2026-08-11T15:30:38Z",
@@ -864,7 +859,7 @@ mod tests {
             "Signals":[{"Type":"$SAA_SignalType_Biological;","Count":1}]
         }));
         let first = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .map(|observation| observation.id.clone())
             .expect("signals should produce an observation");
@@ -880,7 +875,7 @@ mod tests {
         }));
 
         let latest = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .expect("codex entry should replace the latest observation");
         assert_ne!(latest.id, first);
@@ -903,7 +898,7 @@ mod tests {
             "WasLogged":false
         }));
         let first = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .expect("probe 1 observation");
         let first_id = first.id.clone();
@@ -919,7 +914,7 @@ mod tests {
             "WasLogged":false
         }));
         let second = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .expect("probe 2 observation");
         let second_id = second.id.clone();
@@ -939,7 +934,7 @@ mod tests {
             "WasLogged":false
         }));
         let third = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .expect("probe 3 observation");
         let third_id = third.id.clone();
@@ -959,7 +954,7 @@ mod tests {
             "WasLogged":true
         }));
         let duplicate = tracker
-            .latest_observation
+            .latest_exobio_observation
             .as_ref()
             .expect("duplicate log observation");
         assert_eq!(duplicate.details.probe_stage, Some(3));
@@ -977,12 +972,13 @@ mod tests {
         tracker.apply(&json!({"timestamp":"2","event":"FSDJump","SystemAddress":99}));
         let snapshot = tracker.finish();
         assert!(snapshot.bodies.is_empty());
-        assert!(snapshot.latest_observation.is_none());
+        assert!(snapshot.latest_exploration_observation.is_none());
+        assert!(snapshot.exobio.latest_exobio_observation.is_none());
         assert_eq!(snapshot.system_scan, SystemScanState::Undiscovered);
     }
 
     #[test]
-    fn separates_exploration_and_exobio_snapshots_while_preserving_legacy_observation() {
+    fn separates_exploration_and_exobio_snapshots_without_a_legacy_observation() {
         let mut tracker = tracker_with_commander();
         tracker.apply(&json!({"timestamp":"1","event":"FSSDiscoveryScan","Progress":1.0}));
         tracker.apply(&json!({"timestamp":"2","event":"Scan","BodyID":4,"BodyName":"Four","WasDiscovered":true,"WasMapped":false}));
@@ -1017,17 +1013,6 @@ mod tests {
                 .map(|observation| observation.kind),
             Some(ExplorationObservationKind::OrganicProbeProgress)
         );
-        assert_eq!(
-            snapshot
-                .latest_observation
-                .as_ref()
-                .map(|observation| observation.id.as_str()),
-            snapshot
-                .exobio
-                .latest_exobio_observation
-                .as_ref()
-                .map(|observation| observation.id.as_str())
-        );
     }
 
     #[test]
@@ -1043,11 +1028,7 @@ mod tests {
             .exobio
             .latest_exobio_observation
             .expect("Anna signal observation");
-        let legacy = snapshot
-            .latest_observation
-            .expect("legacy compatibility observation");
         assert_eq!(exploration.id, exobio.id);
-        assert_eq!(exobio.id, legacy.id);
         assert_eq!(
             exploration.kind,
             ExplorationObservationKind::BiologicalSignals

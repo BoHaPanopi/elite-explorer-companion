@@ -136,8 +136,12 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.doesNotMatch(coreSource, /CoreShadowStateBridge|\.\.\/\.\.\/src\//);
   assert.doesNotMatch(bridgeSource, /react|tauri|invoke\(|fetch\(|speech|voice|greeting|dashboard|update/i);
   assert.match(bridgeSource, /from "ogg-core"/);
+  assert.match(bridgeSource, /evaluateExploration/);
+  assert.match(bridgeSource, /ingestExplorationDecisions/);
   assert.match(appSource, /get_live_core_journal_events/);
   assert.match(appSource, /bridge\?\.ingest/);
+  assert.match(appSource, /bridge\?\.ingestExplorationDecisions/);
+  assert.match(appSource, /createExplorationDecisionMessage\(decision, oggLanguage\)/);
   assert.match(appSource, /const activeCommander = coreCommander/);
   assert.match(appSource, /setCoreShip\(bridge\?\.getState\(\)\.ship \?\? null\)/);
   assert.match(appSource, /setCoreSystem\(bridge\?\.getState\(\)\.system \?\? null\)/);
@@ -152,6 +156,7 @@ test("core and shadow boundary stay free of runtime and product side effects", (
   assert.doesNotMatch(appSource, /selectCommanderIdentity\(/);
   assert.match(rustSource, /fn get_live_core_journal_events/);
   assert.match(rustSource, /get_live_core_journal_events[\s\S]*SAASignalsFound/);
+  assert.match(rustSource, /get_live_core_journal_events[\s\S]*"Scan"/);
   assert.doesNotMatch(appSource, /result\.exploration\.systemScan|result\.exploration\.bodies\.some/);
   assert.doesNotMatch(bridgeSource, /compareCoreShadowState|CORE_STATE_MISMATCH/);
 });

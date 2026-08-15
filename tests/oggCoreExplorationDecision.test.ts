@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { adaptEliteJournalEvent, CoreStateStore, evaluateExploration, type EliteJournalFact, type ExplorationDecision } from "ogg-core";
+import { adaptEliteJournalEvent, CoreStateStore, createExplorationDecisionMessage, evaluateExploration, type EliteJournalFact, type ExplorationDecision } from "ogg-core";
 
 function replay(journal: readonly EliteJournalFact[]): ExplorationDecision[] {
   const store = new CoreStateStore();
@@ -75,7 +75,19 @@ test("Scan facts retain confirmed discovery, mapping, and footfall data as later
       wasFootfalled: true,
       scanType: "Detailed",
     },
+    announcement: "firstDiscoveryConfirmed",
   });
+});
+
+test("the text layer translates only typed Core exploration decisions", () => {
+  const [decision] = replay([
+    { event: "FSDJump", StarSystem: "System One", SystemAddress: 100 },
+    { event: "Scan", SystemAddress: 100, BodyID: 4, BodyName: "System One 4", WasDiscovered: true, WasMapped: false },
+  ]).filter((item) => item.kind === "bodyExplorationUpdated");
+
+  assert.equal(decision?.kind, "bodyExplorationUpdated");
+  assert.match(createExplorationDecisionMessage(decision!, "en") ?? "", /scanned, but not mapped/i);
+  assert.equal(createExplorationDecisionMessage({ kind: "scanCompleted", observedSignalBodies: 0 }, "en"), null);
 });
 
 test("duplicate confirmed core facts do not emit a second decision", () => {
@@ -92,5 +104,7 @@ test("duplicate confirmed core facts do not emit a second decision", () => {
 
 test("the exploration decision layer only accepts typed core events and state", () => {
   const source = readFileSync("packages/ogg-core/src/exploration/decision.ts", "utf8");
+  const textSource = readFileSync("packages/ogg-core/src/voices/exploration.ts", "utf8");
   assert.doesNotMatch(source, /EliteJournalFact|react|tauri|speech|voice|createExplorationMessage|invoke\(/i);
+  assert.doesNotMatch(textSource, /EliteJournalFact|adaptEliteJournalEvent|WasDiscovered|WasMapped|FSSDiscoveryScan|SAASignalsFound/i);
 });

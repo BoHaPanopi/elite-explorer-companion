@@ -28,6 +28,12 @@ export type ExplorationDecision =
   | {
       kind: "bodyExplorationUpdated";
       body: CoreBodyExploration;
+      announcement:
+        | "firstDiscoveryConfirmed"
+        | "discoveryOwnershipUnknown"
+        | "scannedNotMapped"
+        | "mappingOwnershipUnknown"
+        | "none";
     };
 
 function sameSignals(left: CoreBodySignals | undefined, right: CoreBodySignals): boolean {
@@ -69,7 +75,16 @@ export function evaluateExploration(
   if (event.type === "BodyScanUpdated") {
     const current = state.bodyExplorations.find((body) => body.systemAddress === event.body.systemAddress && body.bodyId === event.body.bodyId);
     if (!current || JSON.stringify(previousBodyExploration(previousState, event.body)) === JSON.stringify(current)) return null;
-    return { kind: "bodyExplorationUpdated", body: current };
+    const announcement = current.wasDiscovered === false
+      ? "firstDiscoveryConfirmed"
+      : current.wasMapped === false
+        ? "scannedNotMapped"
+        : current.wasDiscovered === true
+          ? "discoveryOwnershipUnknown"
+          : current.wasMapped === true
+            ? "mappingOwnershipUnknown"
+            : "none";
+    return { kind: "bodyExplorationUpdated", body: current, announcement };
   }
 
   const signals = bodySignalsForEvent(event);
