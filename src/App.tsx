@@ -47,10 +47,11 @@ import { persistMissionProfile, readMissionProfile, type MissionProfile, type Ra
 import { MISSION_PROFILE_LABELS } from "./content/commandCenter";
 import { LocalVoiceUnavailableError, speechService } from "./services/SpeechService";
 import { completeUpdateExit, downloadUpdateInBackground, installDownloadedUpdateOnExit } from "./services/DeferredUpdateService";
+import { CoreShadowStateBridge } from "./services/CoreShadowStateBridge";
 import { createStartupGreeting } from "ogg-core";
 import { createExplorationMessage, type ExplorationObservationKind } from "ogg-core";
 import { createTonyStartupGreeting, isTonySeason, resolveOggMode, selectCommanderIdentity, tonySeasonalStorageKey, tonyWelcomeStorageKey, type TonyMessageType } from "ogg-core";
-import type { AnnaLiveJournalEvent } from "ogg-core";
+import type { AnnaLiveJournalEvent, EliteJournalFact } from "ogg-core";
 import { AnnaEvidenceService } from "./services/AnnaEvidenceService";
 import { AnnaLivePredictionAnnouncer } from "./services/AnnaLivePredictionAnnouncer";
 
@@ -294,6 +295,13 @@ function App() {
     void invoke("log_diagnostic_event", { kind, payload }).catch(() => undefined);
   }, []);
 
+  // Shadow state is comparison-only until a deliberate runtime migration is approved.
+  const coreShadowBridge = useRef<CoreShadowStateBridge | null>(null);
+  if (!coreShadowBridge.current) {
+    coreShadowBridge.current = new CoreShadowStateBridge(undefined, (mismatch) => {
+      logDiagnostic("CORE_STATE_MISMATCH", mismatch);
+    });
+  }
   const snapshotRequestInFlight = useRef(false);
   const frontendPollSequence = useRef(0);
 
@@ -323,6 +331,25 @@ function App() {
       annaEvidenceService.process(result.commander
         ? [{ event: "Commander", name: result.commander }, ...annaEvents]
         : annaEvents);
+      // This read-only cursor deliberately feeds the core in parallel. Its state is
+      // never read by product behavior; existing snapshot state remains authoritative.
+      try {
+        const coreJournalEvents = await invoke<EliteJournalFact[]>("get_live_core_journal_events", { locale: language });
+        const bridge = coreShadowBridge.current;
+        for (const event of coreJournalEvents) bridge?.ingest(event);
+        if (coreJournalEvents.length) {
+          bridge?.compare({
+            commander: result.commander,
+            ship: result.ship,
+            system: result.system,
+            flightState: result.shipState === "normal_space" ? "normalSpace" : result.shipState,
+            systemScanCompleted: result.exploration.systemScan === "fully_discovered",
+            bodySignalsDetected: result.exploration.bodies.some((body) => body.biology === "signals_present"),
+          }, String(coreJournalEvents.at(-1)?.event ?? "unknown"));
+        }
+      } catch {
+        // Shadow diagnostics must never affect the established runtime path.
+      }
       setAnnaPredictionRevision(annaEvidenceService.predictions().reduce(
         (latest, prediction) => Math.max(latest, prediction.revision),
         0,

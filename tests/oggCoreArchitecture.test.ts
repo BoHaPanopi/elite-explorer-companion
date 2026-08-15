@@ -2,52 +2,103 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { adaptEliteJournalEvent, initialOggCoreState, reduceCoreState, type EliteJournalFact } from "ogg-core";
+import { adaptEliteJournalEvent, CoreStateStore, initialOggCoreState, type EliteJournalFact } from "ogg-core";
+import { CoreShadowStateBridge } from "../src/services/CoreShadowStateBridge.ts";
 
-test("replays an anonymized journal sequence into the confirmed core state", () => {
-  const journal: EliteJournalFact[] = [
-    { event: "Commander", Name: "  Explorer One  ", FID: "F123" },
-    { event: "Loadout", Ship: "Krait Phantom", ShipID: 42, ShipName: "Surveyor", ShipIdent: "OGG-01", FuelCapacity: { Main: 32 }, CargoCapacity: 64, MaxJumpRange: 68.5 },
-    { event: "FSDJump", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], JumpDist: 18.5, FuelUsed: 2.4, FuelLevel: 29.6 },
-    { event: "FSSDiscoveryScan", Progress: 1, StarSystem: "HIP 49485", SystemAddress: 123456789, BodyCount: 17, NonBodyCount: 3 },
-    { event: "FSSBodySignals", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 2 }, { Type: "$SAA_SignalType_Geological;", Count: 1 }] },
-  ];
-  const events = journal.flatMap(adaptEliteJournalEvent);
-  const state = events.reduce(reduceCoreState, initialOggCoreState);
+const anonymizedReplay: EliteJournalFact[] = [
+  { event: "Commander", Name: "  Explorer One  ", FID: "F123" },
+  { event: "Loadout", Ship: "Krait Phantom", ShipID: 42, ShipName: "Surveyor", ShipIdent: "OGG-01", FuelCapacity: { Main: 32 }, CargoCapacity: 64, MaxJumpRange: 68.5 },
+  { event: "FSDJump", StarSystem: "HIP 49485", SystemAddress: 123456789, StarPos: [1, 2, 3], JumpDist: 18.5, FuelUsed: 2.4, FuelLevel: 29.6 },
+  { event: "FSSDiscoveryScan", Progress: 1, StarSystem: "HIP 49485", SystemAddress: 123456789, BodyCount: 17, NonBodyCount: 3 },
+  { event: "FSSBodySignals", SystemAddress: 123456789, BodyID: 5, BodyName: "HIP 49485 B 5", Signals: [{ Type: "$SAA_SignalType_Biological;", Count: 2 }, { Type: "$SAA_SignalType_Geological;", Count: 1 }] },
+  { event: "SupercruiseExit" },
+  { event: "Docked", StationName: "Celsius Reach" },
+];
 
-  assert.deepEqual(events.map((event) => event.type), ["CommanderIdentified", "ShipStateChanged", "SystemEntered", "SystemScanCompleted", "BodySignalsDetected"]);
-  assert.deepEqual(state, {
+function replayIntoStore(journal: readonly EliteJournalFact[]): CoreStateStore {
+  const store = new CoreStateStore();
+  for (const fact of journal) for (const event of adaptEliteJournalEvent(fact)) store.dispatch(event);
+  return store;
+}
+
+test("replays the complete anonymized journal sequence to one deterministic core state", () => {
+  const first = replayIntoStore(anonymizedReplay).getState();
+  const second = replayIntoStore(anonymizedReplay).getState();
+
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, {
     commander: { name: "Explorer One", normalizedName: "explorer one", fid: "F123" },
     ship: { shipType: "Krait Phantom", shipId: 42, shipName: "Surveyor", shipIdent: "OGG-01", fuelCapacity: 32, cargoCapacity: 64, maxJumpRange: 68.5 },
     system: { systemName: "HIP 49485", systemAddress: "123456789", starPosition: [1, 2, 3], jumpDistance: 18.5, fuelUsed: 2.4, fuelLevel: 29.6 },
-    flightState: "unknown",
-    flightContext: null,
+    flightState: "docked",
+    flightContext: { stationName: "Celsius Reach" },
     currentSystemScan: { systemName: "HIP 49485", systemAddress: "123456789", bodyCount: 17, nonBodyCount: 3 },
     bodySignals: [{ systemAddress: "123456789", bodyId: 5, bodyName: "HIP 49485 B 5", signalTypes: [{ type: "$saa_signaltype_biological;", count: 2 }, { type: "$saa_signaltype_geological;", count: 1 }] }],
   });
 });
 
-test("flight facts clear obsolete station and body contexts", () => {
-  const state = [
-    { event: "Docked", StationName: "Celsius Reach" },
-    { event: "Touchdown", Body: "HIP 49485 B 5" },
-    { event: "Liftoff" },
-  ].flatMap(adaptEliteJournalEvent).reduce(reduceCoreState, initialOggCoreState);
-  assert.equal(state.flightState, "airborne");
-  assert.equal(state.flightContext, null);
+test("store changes state only through dispatched reducer events and subscriptions observe real changes", () => {
+  const store = new CoreStateStore();
+  const received: string[] = [];
+  const unsubscribe = store.subscribe((state, event) => received.push(`${event.type}:${state.commander?.name ?? "none"}`));
+  const [commander] = adaptEliteJournalEvent({ event: "Commander", Name: "Explorer One" });
+  assert.ok(commander);
+
+  store.dispatch(commander);
+  assert.equal(store.getState().commander?.name, "Explorer One");
+  store.dispatch(commander);
+  assert.deepEqual(received, ["CommanderIdentified:Explorer One"]);
+  unsubscribe();
+  store.dispatch({ type: "FlightStateChanged", flightState: "normalSpace" });
+  assert.deepEqual(received, ["CommanderIdentified:Explorer One"]);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "UnknownFutureEvent" }), []);
+  assert.notDeepEqual(store.getState(), initialOggCoreState);
 });
 
-test("adapter is fail-soft and never invents optional values", () => {
-  assert.deepEqual(adaptEliteJournalEvent({ event: "UnknownFutureEvent" }), []);
+test("adapter remains fail-soft and optional fields never invent values", () => {
   const [ship] = adaptEliteJournalEvent({ event: "Loadout", Ship: "Adder" });
   assert.deepEqual(ship, { type: "ShipStateChanged", ship: { shipType: "Adder" } });
   assert.deepEqual(adaptEliteJournalEvent({ event: "FSSDiscoveryScan", Progress: 0.99 }), []);
+  assert.deepEqual(adaptEliteJournalEvent({ event: "UnknownFutureEvent" }), []);
 });
 
-test("core remains a pure domain boundary", () => {
-  const source = ["model.ts", "reducer.ts", "journalAdapter.ts"]
+test("flight events remove obsolete station and body context", () => {
+  const state = replayIntoStore([
+    { event: "Docked", StationName: "Celsius Reach" },
+    { event: "Touchdown", Body: "HIP 49485 B 5" },
+    { event: "SupercruiseExit" },
+  ]).getState();
+  assert.equal(state.flightState, "normalSpace");
+  assert.equal(state.flightContext, null);
+});
+
+test("shadow bridge dispatches adapted facts and emits compact mismatch diagnostics only when they change", () => {
+  const mismatches: unknown[] = [];
+  const bridge = new CoreShadowStateBridge(undefined, (mismatch) => mismatches.push(mismatch));
+  bridge.ingest({ event: "FSDJump", StarSystem: "HIP 49485" });
+  assert.equal(bridge.getState().system?.systemName, "HIP 49485");
+  assert.deepEqual(bridge.compare({ system: "HIP 49485" }, "FSDJump"), []);
+  assert.equal(mismatches.length, 0);
+  assert.equal(bridge.compare({ system: "Different system" }, "FSDJump").length, 1);
+  assert.equal(mismatches.length, 1);
+  bridge.compare({ system: "Different system" }, "FSDJump");
+  assert.equal(mismatches.length, 1);
+});
+
+test("core and shadow boundary stay free of runtime and product side effects", () => {
+  const coreSource = ["model.ts", "reducer.ts", "journalAdapter.ts", "store.ts"]
     .map((file) => readFileSync(`packages/ogg-core/src/core/${file}`, "utf8"))
     .join("\n");
-  assert.doesNotMatch(source, /react|tauri|invoke\(|fetch\(|speech|voice|crew/i);
-  assert.doesNotMatch(readFileSync("packages/ogg-core/src/core/journalAdapter.ts", "utf8"), /dashboard|greeting|profile/i);
+  const bridgeSource = readFileSync("src/services/CoreShadowStateBridge.ts", "utf8");
+  const appSource = readFileSync("src/App.tsx", "utf8");
+  const rustSource = readFileSync("src-tauri/src/lib.rs", "utf8");
+
+  assert.doesNotMatch(coreSource, /react|tauri|invoke\(|fetch\(|speech|voice|crew|window|update/i);
+  assert.doesNotMatch(coreSource, /CoreShadowStateBridge|\.\.\/\.\.\/src\//);
+  assert.doesNotMatch(bridgeSource, /react|tauri|invoke\(|fetch\(|speech|voice|greeting|dashboard|update/i);
+  assert.match(bridgeSource, /from "ogg-core"/);
+  assert.match(appSource, /get_live_core_journal_events/);
+  assert.match(appSource, /bridge\?\.ingest/);
+  assert.match(appSource, /CORE_STATE_MISMATCH/);
+  assert.match(rustSource, /fn get_live_core_journal_events/);
 });

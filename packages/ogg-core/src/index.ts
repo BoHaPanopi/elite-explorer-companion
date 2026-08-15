@@ -2,6 +2,7 @@
 export * from "./core/model.ts";
 export * from "./core/reducer.ts";
 export * from "./core/journalAdapter.ts";
+export * from "./core/store.ts";
 export * from "./features/tonyEdition.ts";
 export * from "./commanderProfiles.ts";
 export * from "./features/starClass.ts";

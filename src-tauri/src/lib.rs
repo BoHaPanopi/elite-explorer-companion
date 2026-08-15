@@ -55,6 +55,7 @@ static JOURNAL_DIAG_CURSOR: OnceLock<Mutex<HashMap<PathBuf, usize>>> = OnceLock:
 static JOURNAL_SNAPSHOT_REQUEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static JOURNAL_SNAPSHOT_CACHE: OnceLock<Mutex<Option<JournalSnapshotCacheEntry>>> = OnceLock::new();
 static ANNA_LIVE_JOURNAL_CURSOR: OnceLock<Mutex<Option<AnnaLiveJournalCursor>>> = OnceLock::new();
+static CORE_SHADOW_JOURNAL_CURSOR: OnceLock<Mutex<Option<AnnaLiveJournalCursor>>> = OnceLock::new();
 static JOURNEY_HISTORY_CACHE: OnceLock<Mutex<JourneyHistoryCache>> = OnceLock::new();
 
 #[derive(Clone, Debug)]
@@ -2759,6 +2760,32 @@ fn get_live_anna_journal_events(locale: Option<String>) -> Result<Vec<Value>, St
     Ok(events)
 }
 
+#[tauri::command]
+fn get_live_core_journal_events(locale: Option<String>) -> Result<Vec<Value>, String> {
+    let locale = locale.as_deref().unwrap_or("de");
+    let directory = find_journal_directory(locale)?;
+    let path = newest_journal_file(&directory, locale)?;
+    let file = File::open(&path).map_err(|error| error.to_string())?;
+    let lines = BufReader::new(file).lines().collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+    let cursor = CORE_SHADOW_JOURNAL_CURSOR.get_or_init(|| Mutex::new(None));
+    let mut cursor = cursor.lock().map_err(|error| error.to_string())?;
+    let start = cursor.as_ref()
+        .filter(|previous| previous.path == path)
+        .map(|previous| previous.line_number.min(lines.len()))
+        .unwrap_or(0);
+    let events = lines[start..]
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter(|event| matches!(
+            event.get("event").and_then(Value::as_str),
+            Some("Commander" | "LoadGame" | "Loadout" | "FSDJump" | "CarrierJump" | "FSSDiscoveryScan" | "FSSBodySignals" | "SupercruiseEntry" | "SupercruiseExit" | "Docked" | "Undocked" | "Touchdown" | "Liftoff" | "Location")
+        ))
+        .collect();
+    *cursor = Some(AnnaLiveJournalCursor { path, line_number: lines.len() });
+    Ok(events)
+}
+
 fn anna_live_event_payload(event: Value) -> Option<Value> {
     let name = event.get("event")?.as_str()?;
     if !matches!(name, "Commander" | "LoadGame" | "Location" | "FSDJump" | "Scan" | "FSSBodySignals" | "SAASignalsFound" | "ScanOrganic") {
@@ -3034,6 +3061,7 @@ pub fn run() {
             open_log_directory,
             open_journal_directory,
             get_live_anna_journal_events,
+            get_live_core_journal_events,
             list_local_voices,
             speak_local,
             stop_local_speech,
